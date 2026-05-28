@@ -1328,10 +1328,17 @@ function fixProjectsSheet() {
     }
     newRows.push([Number(item.id) || item.id, mainName, subName, parentId, item.status]);
   });
+  // CLEAR EXISTING GOOGLE TABLES: Delete and recreate the sheet to purge any Table2 objects
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  try {
+    ss.deleteSheet(sheet);
+  } catch (err) {
+    sheet.clear();
+  }
   
-  sheet.clear();
-  sheet.getRange(1, 1, newRows.length, PROJECT_HEADERS.length).setValues(newRows);
-  formatSheetTable(sheet);
+  var newSheet = ss.insertSheet(SHEET_PROJECTS);
+  newSheet.getRange(1, 1, newRows.length, PROJECT_HEADERS.length).setValues(newRows);
+  formatSheetTable(newSheet);
   
   return 'Success: aligned and formatted ' + (newRows.length - 1) + ' projects.';
 }

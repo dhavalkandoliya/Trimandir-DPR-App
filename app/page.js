@@ -19,7 +19,7 @@ export default function Page() {
         const SUPER_ADMIN = { username: 'TPD-admin', displayName: 'TPD Admin', role: 'admin' };
 
         let _users      = [SUPER_ADMIN];
-        let _projects   = [];   // { id, project_name, parent_id, status } (synced with 5-column nested Projects/Activities schema)
+        let _projects   = [];   // { id, project_name, parent_id, status } (synced with 5-column nested Projects/Activities database)
         let _activities = [];   // { id, activity_name, parent_id, status } (synced with 5-column nested schema)
         let _history    = [];   // see handleGetDPRs schema below
         let _currentUser    = null;
