@@ -742,12 +742,15 @@ export default function Page() {
 
                     if (type === 'pdf') {
                         const { jsPDF } = window.jspdf;
-                        const pdf = new jsPDF('p', 'mm', 'a4');
-                        const pdfWidth = pdf.internal.pageSize.getWidth() - 20;
-                        const imgWidth = pdfWidth;
-                        const imgHeight = c.height * imgWidth / c.width;
+                        const imgWidth = c.width;
+                        const imgHeight = c.height;
+                        const pdf = new jsPDF({
+                            orientation: 'portrait',
+                            unit: 'px',
+                            format: [imgWidth, imgHeight]
+                        });
 
-                        pdf.addImage(dataUrl, 'JPEG', 10, 10, imgWidth, imgHeight);
+                        pdf.addImage(dataUrl, 'JPEG', 0, 0, imgWidth, imgHeight);
                         pdf.save(`${baseName}.pdf`);
                         showToast('📄 PDF Downloaded!');
                     } else {
@@ -1637,12 +1640,15 @@ export default function Page() {
                 
                 const dataUrl = c.toDataURL('image/jpeg', 0.95);
                 const { jsPDF } = window.jspdf;
-                const pdf = new jsPDF('p', 'mm', 'a4');
-                const pdfWidth = pdf.internal.pageSize.getWidth() - 20;
-                const imgWidth = pdfWidth;
-                const imgHeight = c.height * imgWidth / c.width;
+                const imgWidth = c.width;
+                const imgHeight = c.height;
+                const pdf = new jsPDF({
+                    orientation: 'portrait',
+                    unit: 'px',
+                    format: [imgWidth, imgHeight]
+                });
                 
-                pdf.addImage(dataUrl, 'JPEG', 10, 10, imgWidth, imgHeight);
+                pdf.addImage(dataUrl, 'JPEG', 0, 0, imgWidth, imgHeight);
                 pdf.save(`DPR_${document.getElementById('date').value}.pdf`);
                 showToast('📄 PDF Downloaded!');
             }).catch(err => {
