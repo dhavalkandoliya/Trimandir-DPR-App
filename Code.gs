@@ -67,6 +67,7 @@ function doGet(e) {
   if (action === 'getUsers')      return handleGetUsers();
   if (action === 'getProjects')   return handleGetProjects();
   if (action === 'getActivities') return handleGetActivities();
+  if (action === 'fixSheet')      return handleFixSheetsAction();
   if (action === 'debug')         return handleDebug();
   return handleGetDPRs();
 }
@@ -1133,4 +1134,140 @@ function formatSheetTable(sheet) {
   } catch (e) {
     Logger.log('Formatting error: ' + e.message);
   }
+}
+
+function handleFixSheetsAction() {
+  var resA = fixActivitiesSheet();
+  var resP = fixProjectsSheet();
+  return jsonResponse({ status: 'ok', activities: resA, projects: resP });
+}
+
+function fixActivitiesSheet() {
+  var sheet = getSheet(SHEET_ACTIVITIES);
+  if (!sheet) return 'Activities sheet not found';
+  
+  var data = sheet.getDataRange().getValues();
+  if (data.length < 2) return 'No data to fix';
+  
+  var newRows = [];
+  newRows.push(ACTIVITY_HEADERS); // Set header row
+  
+  for (var i = 1; i < data.length; i++) {
+    var row = data[i];
+    var id = row[0];
+    if (id === '' || id === null || id === undefined) continue;
+    
+    var mainName = '';
+    var subName = '';
+    var parentId = '';
+    var status = 'active';
+
+    var textParts = [];
+    var numbers = [];
+    
+    for (var c = 1; c < row.length; c++) {
+      var val = String(row[c] || '').trim();
+      if (!val) continue;
+      if (val.toLowerCase() === 'active' || val.toLowerCase() === 'inactive') {
+        status = val.toLowerCase();
+      } else if (!isNaN(Number(val))) {
+        numbers.push(val);
+      } else {
+        textParts.push(val);
+      }
+    }
+    
+    var rawName = textParts.join(' ').trim();
+    if (numbers.length > 0) {
+      parentId = numbers[numbers.length - 1];
+    }
+    
+    var isSub = (parentId !== '') || (rawName.indexOf('↳') === 0);
+    if (rawName.indexOf('↳') === 0) {
+      rawName = rawName.substring(1).trim();
+      isSub = true;
+    }
+    
+    if (isSub) {
+      subName = '↳ ' + rawName;
+      mainName = '';
+    } else {
+      mainName = rawName;
+      subName = '';
+      parentId = '';
+    }
+    
+    newRows.push([id, mainName, subName, parentId, status]);
+  }
+  
+  sheet.clear();
+  sheet.getRange(1, 1, newRows.length, ACTIVITY_HEADERS.length).setValues(newRows);
+  formatSheetTable(sheet);
+  
+  return 'Success: cleaned and formatted ' + (newRows.length - 1) + ' rows.';
+}
+
+function fixProjectsSheet() {
+  var sheet = getSheet(SHEET_PROJECTS);
+  if (!sheet) return 'Projects sheet not found';
+  
+  var data = sheet.getDataRange().getValues();
+  if (data.length < 2) return 'No data to fix';
+  
+  var newRows = [];
+  newRows.push(PROJECT_HEADERS); // Set header row
+  
+  for (var i = 1; i < data.length; i++) {
+    var row = data[i];
+    var id = row[0];
+    if (id === '' || id === null || id === undefined) continue;
+    
+    var mainName = '';
+    var subName = '';
+    var parentId = '';
+    var status = 'active';
+
+    var textParts = [];
+    var numbers = [];
+    
+    for (var c = 1; c < row.length; c++) {
+      var val = String(row[c] || '').trim();
+      if (!val) continue;
+      if (val.toLowerCase() === 'active' || val.toLowerCase() === 'inactive') {
+        status = val.toLowerCase();
+      } else if (!isNaN(Number(val))) {
+        numbers.push(val);
+      } else {
+        textParts.push(val);
+      }
+    }
+    
+    var rawName = textParts.join(' ').trim();
+    if (numbers.length > 0) {
+      parentId = numbers[numbers.length - 1];
+    }
+    
+    var isSub = (parentId !== '') || (rawName.indexOf('↳') === 0);
+    if (rawName.indexOf('↳') === 0) {
+      rawName = rawName.substring(1).trim();
+      isSub = true;
+    }
+    
+    if (isSub) {
+      subName = '↳ ' + rawName;
+      mainName = '';
+    } else {
+      mainName = rawName;
+      subName = '';
+      parentId = '';
+    }
+    
+    newRows.push([id, mainName, subName, parentId, status]);
+  }
+  
+  sheet.clear();
+  sheet.getRange(1, 1, newRows.length, PROJECT_HEADERS.length).setValues(newRows);
+  formatSheetTable(sheet);
+  
+  return 'Success: cleaned and formatted ' + (newRows.length - 1) + ' rows.';
 }
