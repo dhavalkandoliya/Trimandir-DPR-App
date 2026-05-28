@@ -863,6 +863,25 @@ export default function Page() {
             showToast('✅ Project renamed!');
         }
 
+        async function deleteProject(id, name) {
+            if (!confirm(`Are you sure you want to delete "${name}"?\nThis will permanently delete this project and all its sub-projects from the Google Sheet.`)) return;
+            showToast('⏳ Deleting...');
+            try {
+                const res = await apiPost({ action: 'deleteProject', id });
+                if (res.error) {
+                    showToast('⚠️ Error: ' + res.error);
+                } else {
+                    showToast(`✅ Deleted project and child dependencies!`);
+                    const d = await apiFetch('getProjects').catch(() => _projects);
+                    if (Array.isArray(d)) _projects = d;
+                    populateSiteDropdown();
+                    renderAdminProjects();
+                }
+            } catch (e) {
+                showToast('⚠️ Delete failed');
+            }
+        }
+
         function renderAdminProjects() {
             const el      = document.getElementById('adminProjectList');
             if (!el) return;
@@ -887,6 +906,8 @@ export default function Page() {
                         <div style="display:flex;gap:6px;">
                             <button class="btn-blue btn-sm" style="width:auto;padding:4px 8px;font-size:11px;"
                                     onclick="editProjectName('${proj.id}','${esc(proj.project_name)}')">✏️</button>
+                            <button class="btn-red btn-sm" style="width:auto;padding:4px 8px;font-size:11px;background:#e53e3e;border-color:#e53e3e;"
+                                    onclick="deleteProject('${proj.id}','${esc(proj.project_name)}')">🗑️</button>
                             <button class="${act ? 'btn-red' : 'btn-green'} btn-sm"
                                     style="width:auto;padding:4px 10px;font-size:11px;"
                                     onclick="toggleProject('${proj.id}','${proj.status}')">
@@ -902,6 +923,8 @@ export default function Page() {
                             <div style="display:flex;gap:5px;">
                                 <button class="btn-blue btn-sm" style="width:auto;padding:2px 7px;font-size:11px;"
                                         onclick="editProjectName('${s.id}','${esc(s.project_name)}')">✏️</button>
+                                <button class="btn-red btn-sm" style="width:auto;padding:2px 7px;font-size:11px;background:#e53e3e;border-color:#e53e3e;"
+                                        onclick="deleteProject('${s.id}','${esc(s.project_name)}')">🗑️</button>
                                 <button class="${s.status === 'active' ? 'btn-red' : 'btn-green'} btn-sm"
                                         style="width:auto;padding:2px 8px;font-size:11px;"
                                         onclick="toggleProject('${s.id}','${s.status}')">
@@ -960,6 +983,24 @@ export default function Page() {
             showToast('✅ Activity renamed!');
         }
 
+        async function deleteActivity(id, name) {
+            if (!confirm(`Are you sure you want to delete "${name}"?\nThis will permanently delete this activity and all its sub-activities from the Google Sheet.`)) return;
+            showToast('⏳ Deleting...');
+            try {
+                const res = await apiPost({ action: 'deleteActivity', id });
+                if (res.error) {
+                    showToast('⚠️ Error: ' + res.error);
+                } else {
+                    showToast(`✅ Deleted activity and child dependencies!`);
+                    const d = await apiFetch('getActivities').catch(() => _activities);
+                    if (Array.isArray(d)) _activities = d;
+                    renderAdminActivities();
+                }
+            } catch (e) {
+                showToast('⚠️ Delete failed');
+            }
+        }
+
         function renderAdminActivities() {
             const el    = document.getElementById('adminActivityList');
             if (!el) return;
@@ -984,6 +1025,8 @@ export default function Page() {
                         <div style="display:flex;gap:6px;">
                             <button class="btn-blue btn-sm" style="width:auto;padding:4px 8px;font-size:11px;"
                                     onclick="editActivityName('${main.id}','${esc(main.activity_name)}')">✏️</button>
+                            <button class="btn-red btn-sm" style="width:auto;padding:4px 8px;font-size:11px;background:#e53e3e;border-color:#e53e3e;"
+                                    onclick="deleteActivity('${main.id}','${esc(main.activity_name)}')">🗑️</button>
                             <button class="${act ? 'btn-red' : 'btn-green'} btn-sm"
                                     style="width:auto;padding:4px 10px;font-size:11px;"
                                     onclick="toggleActivity('${main.id}','${main.status}')">
@@ -999,6 +1042,8 @@ export default function Page() {
                                 <div style="display:flex;gap:5px;">
                                     <button class="btn-blue btn-sm" style="width:auto;padding:2px 7px;font-size:11px;"
                                             onclick="editActivityName('${s.id}','${esc(s.activity_name)}')">✏️</button>
+                                    <button class="btn-red btn-sm" style="width:auto;padding:2px 7px;font-size:11px;background:#e53e3e;border-color:#e53e3e;"
+                                            onclick="deleteActivity('${s.id}','${esc(s.activity_name)}')">🗑️</button>
                                     <button class="${s.status === 'active' ? 'btn-red' : 'btn-green'} btn-sm"
                                             style="width:auto;padding:2px 8px;font-size:11px;"
                                             onclick="toggleActivity('${s.id}','${s.status}')">
@@ -1061,17 +1106,47 @@ export default function Page() {
             document.getElementById('dActiveSites').textContent  = [...new Set(data.map(i => i.site).filter(Boolean))].length;
 
             const siteMap = {};
-            data.forEach(i => { siteMap[i.site] = (siteMap[i.site] || 0) + (Number(i.total) || 0); });
-            const maxW    = Math.max(...Object.values(siteMap), 1);
+            data.forEach(item => {
+                const site = item.site;
+                if (!siteMap[site]) {
+                    siteMap[site] = { total: 0, activities: {} };
+                }
+                siteMap[site].total += (Number(item.total) || 0);
+
+                const details = Array.isArray(item.details) ? item.details : [];
+                details.forEach(det => {
+                    const actName = det.activity || 'Unknown';
+                    const actTotal = (Number(det.total) || (Number(det.skilled) || 0) + (Number(det.unskilled) || 0));
+                    siteMap[site].activities[actName] = (siteMap[site].activities[actName] || 0) + actTotal;
+                });
+            });
+
+            const maxW = Math.max(...Object.values(siteMap).map(s => s.total), 1);
             document.getElementById('siteBreakdown').innerHTML =
                 Object.entries(siteMap)
-                    .sort((a, b) => b[1] - a[1])
-                    .map(([site, w]) => `
-                    <div class="site-row">
-                        <div style="font-size:13px;font-weight:600;flex:0 0 auto;max-width:55%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">📍 ${site}</div>
-                        <div class="bar-wrap"><div class="bar-fill" style="width:${Math.round(w / maxW * 100)}%"></div></div>
-                        <div class="site-total">${w}</div>
-                    </div>`).join('') ||
+                    .sort((a, b) => b[1].total - a[1].total)
+                    .map(([site, siteData]) => {
+                        const w = siteData.total;
+                        const actEntries = Object.entries(siteData.activities)
+                            .sort((a, b) => b[1] - a[1])
+                            .map(([act, actW]) => `
+                            <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0 4px 18px;font-size:12px;color:var(--muted);border-bottom:1px dashed #f1f5f9;">
+                                <span>↳ ${act}</span>
+                                <span style="font-weight:600;">${actW}</span>
+                            </div>`).join('');
+
+                        return `
+                        <div style="margin-bottom:16px;background:#ffffff;border:1px solid var(--border);border-radius:8px;padding:12px;box-shadow:0 1px 3px rgba(0,0,0,0.02);">
+                            <div class="site-row" style="margin-bottom:8px;border-bottom:1px solid #e2e8f0;padding-bottom:8px;background:transparent;border:none;padding:0;">
+                                <div style="font-size:14px;font-weight:700;flex:0 0 auto;max-width:55%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">📍 ${site}</div>
+                                <div class="bar-wrap"><div class="bar-fill" style="width:${Math.round(w / maxW * 100)}%"></div></div>
+                                <div class="site-total" style="font-weight:700;">${w}</div>
+                            </div>
+                            <div class="activities-breakdown">
+                                ${actEntries || '<div style="font-size:11px;color:var(--muted);padding-left:18px;">No sub-activity details.</div>'}
+                            </div>
+                        </div>`;
+                    }).join('') ||
                     '<p style="color:#aaa;font-size:13px;text-align:center;">No data for this period</p>';
         }
 
@@ -1124,8 +1199,8 @@ export default function Page() {
             doLogin, doLogout, showApp,
             switchTab, resetAndSwitchToForm,
             createUser, deleteUser, resetPassword, renderAdminUsers,
-            adminAddProject, toggleProject, editProjectName, renderAdminProjects,
-            adminAddMainActivity, adminAddSubActivity, toggleActivity, editActivityName, renderAdminActivities,
+            adminAddProject, toggleProject, editProjectName, renderAdminProjects, deleteProject,
+            adminAddMainActivity, adminAddSubActivity, toggleActivity, editActivityName, renderAdminActivities, deleteActivity,
             addActivityRow, removeActivityRow, onMainActChange,
             generate, syncOfflineQueue,
             loadHistory, renderHistory, clearHistoryFilter,

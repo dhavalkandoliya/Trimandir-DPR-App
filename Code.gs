@@ -28,8 +28,8 @@ var RECORDS_HEADERS  = ['Date','Site','Prepared By','Activity Details','Total Ma
 // DETAIL: A      B      C         D          E         F           G       H      I            J
 var DETAIL_HEADERS   = ['Date','Site','Section','Activity','Skilled','Unskilled','Total','Note','Prepared By','Timestamp'];
 var USER_HEADERS     = ['username','displayName','password','role'];
-var PROJECT_HEADERS  = ['id','project_name','parent_id','status'];
-var ACTIVITY_HEADERS = ['id','activity_name','parent_id','status'];
+var PROJECT_HEADERS  = ['ID', 'Main Project', 'Sub-Project', 'Parent ID', 'Status'];
+var ACTIVITY_HEADERS = ['ID', 'Main Activity', 'Sub-Activity', 'Parent ID', 'Status'];
 
 // ── Fixed column indexes (0-based) for DPR_Records ──────────────
 var REC = {
@@ -88,8 +88,10 @@ function doPost(e) {
     case 'approveEditDPR':   return handleApproveEditDPR(body);
     case 'addProject':       return handleAddProject(body);
     case 'updateProject':    return handleUpdateProject(body);
+    case 'deleteProject':    return handleDeleteProject(body);
     case 'addActivity':      return handleAddActivity(body);
     case 'updateActivity':   return handleUpdateActivity(body);
+    case 'deleteActivity':   return handleDeleteActivity(body);
     case 'cleanCorrupted':   return handleCleanCorrupted(body);
     default:                 return jsonResponse({ error: 'Unknown action: ' + body.action });
   }
@@ -846,16 +848,24 @@ function seedProjects(sheet) {
     'Amba School', 'Adalaj Mandir Podium Work',
     'ABP 540 Office', 'Baheno Gurukul',
     'UGWT-Old Vatsalya', 'Compound Wall-Raj Marg'
-  ].forEach(function(name, i) { sheet.appendRow([i + 1, name, '', 'active']); });
+  ].forEach(function(name, i) { sheet.appendRow([i + 1, name, '', '', 'active']); });
+  formatSheetTable(sheet);
 }
 
 function handleGetProjects() {
   var sheet = getOrCreateSheet(SHEET_PROJECTS, PROJECT_HEADERS);
   if (sheet.getDataRange().getValues().length < 2) seedProjects(sheet);
+  
   return jsonResponse(sheetToObjects(sheet).map(function(p) {
+    var mainProj = String(p.main_project || p.project_name || p.site || p.project || '').trim();
+    var subProj  = String(p.sub_project || p.subproject || '').trim();
+    if (subProj.indexOf('↳') === 0) {
+      subProj = subProj.substring(1).trim();
+    }
+    var projName = mainProj || subProj;
     return {
-      id:           String(p.id           || ''),
-      project_name: String(p.project_name || ''),
+      id:           String(p.id           || p.id_ || ''),
+      project_name: projName,
       parent_id:    (p.parent_id === null || p.parent_id === undefined || p.parent_id === false || p.parent_id === 0) ? '' : String(p.parent_id),
       status:       p.status || 'active'
     };
@@ -865,7 +875,16 @@ function handleGetProjects() {
 function handleAddProject(body) {
   var sheet = getOrCreateSheet(SHEET_PROJECTS, PROJECT_HEADERS);
   var newId = getMaxId(sheet, 0) + 1;
-  sheet.appendRow([newId, body.project_name || '', body.parent_id || '', 'active']);
+  var parentId = body.parent_id || '';
+  var mainProj = '';
+  var subProj = '';
+  if (parentId) {
+    subProj = '↳ ' + (body.project_name || '');
+  } else {
+    mainProj = body.project_name || '';
+  }
+  sheet.appendRow([newId, mainProj, subProj, parentId, 'active']);
+  formatSheetTable(sheet);
   return jsonResponse({ status: 'ok', id: String(newId) });
 }
 
@@ -875,12 +894,42 @@ function handleUpdateProject(body) {
   var data  = sheet.getDataRange().getValues();
   for (var i = 1; i < data.length; i++) {
     if (String(data[i][0]) === String(body.id)) {
-      if (body.project_name !== undefined) sheet.getRange(i + 1, 2).setValue(body.project_name);
-      if (body.status       !== undefined) sheet.getRange(i + 1, 4).setValue(body.status);
+      if (body.project_name !== undefined) {
+        var parentId = String(data[i][3] || '').trim();
+        if (parentId) {
+          sheet.getRange(i + 1, 3).setValue('↳ ' + body.project_name);
+        } else {
+          sheet.getRange(i + 1, 2).setValue(body.project_name);
+        }
+      }
+      if (body.status !== undefined) {
+        sheet.getRange(i + 1, 5).setValue(body.status);
+      }
+      formatSheetTable(sheet);
       return jsonResponse({ status: 'ok' });
     }
   }
   return jsonResponse({ error: 'Project not found' });
+}
+
+function handleDeleteProject(body) {
+  var sheet = getSheet(SHEET_PROJECTS);
+  if (!sheet) return jsonResponse({ error: 'Projects sheet not found' });
+  var id = String(body.id || '').trim();
+  if (!id) return jsonResponse({ error: 'ID is required' });
+
+  var data = sheet.getDataRange().getValues();
+  var deletedCount = 0;
+  for (var i = data.length - 1; i >= 1; i--) {
+    var rowId = String(data[i][0] || '').trim();
+    var parentId = String(data[i][3] || '').trim();
+    if (rowId === id || parentId === id) {
+      sheet.deleteRow(i + 1);
+      deletedCount++;
+    }
+  }
+  formatSheetTable(sheet);
+  return jsonResponse({ status: 'ok', deletedCount: deletedCount });
 }
 
 // ── ACTIVITIES ────────────────────────────────────────────────────
@@ -912,18 +961,26 @@ function seedActivities(sheet) {
   ];
   var id = 1;
   catalog.forEach(function(item) {
-    sheet.appendRow([id, item.name, '', 'active']); var parentId = id; id++;
-    item.subs.forEach(function(s) { sheet.appendRow([id, s, parentId, 'active']); id++; });
+    sheet.appendRow([id, item.name, '', '', 'active']); var parentId = id; id++;
+    item.subs.forEach(function(s) { sheet.appendRow([id, '', '↳ ' + s, parentId, 'active']); id++; });
   });
+  formatSheetTable(sheet);
 }
 
 function handleGetActivities() {
   var sheet = getOrCreateSheet(SHEET_ACTIVITIES, ACTIVITY_HEADERS);
   if (sheet.getDataRange().getValues().length < 2) seedActivities(sheet);
+  
   return jsonResponse(sheetToObjects(sheet).map(function(a) {
+    var mainAct = String(a.main_activity || a.activity || a.activity_name || '').trim();
+    var subAct  = String(a.sub_activity || a.subActivity || a.subactivity || '').trim();
+    if (subAct.indexOf('↳') === 0) {
+      subAct = subAct.substring(1).trim();
+    }
+    var actName = mainAct || subAct;
     return {
-      id:            String(a.id            || ''),
-      activity_name: String(a.activity || a.activity_name || ''),
+      id:            String(a.id            || a.id_ || ''),
+      activity_name: actName,
       parent_id:     (a.parent_id === null || a.parent_id === undefined || a.parent_id === false || a.parent_id === 0) ? '' : String(a.parent_id),
       status:        a.status || 'active'
     };
@@ -933,7 +990,16 @@ function handleGetActivities() {
 function handleAddActivity(body) {
   var sheet = getOrCreateSheet(SHEET_ACTIVITIES, ACTIVITY_HEADERS);
   var newId = getMaxId(sheet, 0) + 1;
-  sheet.appendRow([newId, body.activity_name || '', body.parent_id || '', 'active']);
+  var parentId = body.parent_id || '';
+  var mainAct = '';
+  var subAct = '';
+  if (parentId) {
+    subAct = '↳ ' + (body.activity_name || '');
+  } else {
+    mainAct = body.activity_name || '';
+  }
+  sheet.appendRow([newId, mainAct, subAct, parentId, 'active']);
+  formatSheetTable(sheet);
   return jsonResponse({ status: 'ok', id: String(newId) });
 }
 
@@ -943,10 +1009,128 @@ function handleUpdateActivity(body) {
   var data  = sheet.getDataRange().getValues();
   for (var i = 1; i < data.length; i++) {
     if (String(data[i][0]) === String(body.id)) {
-      if (body.activity_name !== undefined) sheet.getRange(i + 1, 2).setValue(body.activity_name);
-      if (body.status        !== undefined) sheet.getRange(i + 1, 4).setValue(body.status);
+      if (body.activity_name !== undefined) {
+        var parentId = String(data[i][3] || '').trim();
+        if (parentId) {
+          sheet.getRange(i + 1, 3).setValue('↳ ' + body.activity_name);
+        } else {
+          sheet.getRange(i + 1, 2).setValue(body.activity_name);
+        }
+      }
+      if (body.status !== undefined) {
+        sheet.getRange(i + 1, 5).setValue(body.status);
+      }
+      formatSheetTable(sheet);
       return jsonResponse({ status: 'ok' });
     }
   }
   return jsonResponse({ error: 'Activity not found' });
+}
+
+function handleDeleteActivity(body) {
+  var sheet = getSheet(SHEET_ACTIVITIES);
+  if (!sheet) return jsonResponse({ error: 'Activities sheet not found' });
+  var id = String(body.id || '').trim();
+  if (!id) return jsonResponse({ error: 'ID is required' });
+
+  var data = sheet.getDataRange().getValues();
+  var deletedCount = 0;
+  for (var i = data.length - 1; i >= 1; i--) {
+    var rowId = String(data[i][0] || '').trim();
+    var parentId = String(data[i][3] || '').trim();
+    if (rowId === id || parentId === id) {
+      sheet.deleteRow(i + 1);
+      deletedCount++;
+    }
+  }
+  formatSheetTable(sheet);
+  return jsonResponse({ status: 'ok', deletedCount: deletedCount });
+}
+
+// ── VISUAL FORMATTING ──────────────────────────────────────────────
+
+function formatSheetTable(sheet) {
+  try {
+    var range = sheet.getDataRange();
+    var numRows = range.getNumRows();
+    var numCols = range.getNumColumns();
+    if (numRows < 1) return;
+
+    // Font family and size
+    range.setFontFamily('Roboto');
+    range.setFontSize(10);
+    range.setVerticalAlignment('middle');
+
+    // Header row (Row 1)
+    var headerRange = sheet.getRange(1, 1, 1, numCols);
+    headerRange.setFontWeight('bold');
+    headerRange.setFontSize(11);
+    headerRange.setBackground('#1e293b'); // Dark Slate
+    headerRange.setFontColor('#ffffff'); // White text
+    headerRange.setHorizontalAlignment('center');
+
+    // Body formatting (Row 2 onwards)
+    if (numRows > 1) {
+      var bodyRange = sheet.getRange(2, 1, numRows - 1, numCols);
+      // Soft borders
+      bodyRange.setBorder(true, true, true, true, true, true, '#e2e8f0', SpreadsheetApp.BorderStyle.SOLID);
+      bodyRange.setFontColor('#334155'); // Soft black/slate
+      
+      // Zebra striping
+      for (var r = 2; r <= numRows; r++) {
+        var rowRange = sheet.getRange(r, 1, 1, numCols);
+        if (r % 2 === 0) {
+          rowRange.setBackground('#ffffff');
+        } else {
+          rowRange.setBackground('#f8fafc'); // Soft grayish white
+        }
+      }
+
+      // Column-specific alignments
+      // Col 1 (ID), Col 4 (Parent ID), Col 5 (Status) -> center aligned
+      sheet.getRange(2, 1, numRows - 1, 1).setHorizontalAlignment('center');
+      if (numCols >= 4) {
+        sheet.getRange(2, 4, numRows - 1, 1).setHorizontalAlignment('center');
+      }
+      if (numCols >= 5) {
+        sheet.getRange(2, 5, numRows - 1, 1).setHorizontalAlignment('center');
+        
+        // Color status badge
+        var statusValues = sheet.getRange(2, 5, numRows - 1, 1).getValues();
+        for (var i = 0; i < statusValues.length; i++) {
+          var cell = sheet.getRange(i + 2, 5);
+          var val = String(statusValues[i][0]).toLowerCase().trim();
+          if (val === 'active') {
+            cell.setFontColor('#15803d'); // Green
+            cell.setFontWeight('bold');
+          } else if (val === 'inactive') {
+            cell.setFontColor('#b91c1c'); // Red
+            cell.setFontWeight('bold');
+          }
+        }
+      }
+      
+      // Col 2 (Main), Col 3 (Sub) -> left aligned
+      sheet.getRange(2, 2, numRows - 1, 1).setHorizontalAlignment('left');
+      if (numCols >= 3) {
+        sheet.getRange(2, 3, numRows - 1, 1).setHorizontalAlignment('left');
+      }
+    }
+
+    // Row heights
+    sheet.setRowHeight(1, 35);
+    for (var row = 2; row <= numRows; row++) {
+      sheet.setRowHeight(row, 28);
+    }
+
+    // Auto-fit columns
+    for (var col = 1; col <= numCols; col++) {
+      sheet.autoResizeColumn(col);
+      // Add padding
+      var currentWidth = sheet.getColumnWidth(col);
+      sheet.setColumnWidth(col, currentWidth + 25);
+    }
+  } catch (e) {
+    Logger.log('Formatting error: ' + e.message);
+  }
 }
