@@ -418,20 +418,37 @@ export default function Page() {
                 if (!acts.length) return '';
                 const grouped = {};
                 acts.forEach(a => {
-                    if (!grouped[a.main_activity]) grouped[a.main_activity] = [];
-                    grouped[a.main_activity].push(a);
+                    const mainName = a.main_activity || a.activity || 'General';
+                    if (!grouped[mainName]) grouped[mainName] = [];
+                    grouped[mainName].push(a);
                 });
                 return `<div class="report-section-title">🔨 ${title}</div>` +
-                    Object.entries(grouped).map(([main, rows]) =>
-                        rows.map(r => {
-                            const label = r.sub_activity && r.sub_activity.trim() ? r.sub_activity : main;
-                            return `<div class="report-activity">
-                                <u>${label}</u><br>
-                                Skilled : <b>${r.skilled}</b> &nbsp;|&nbsp; Unskilled : <b>${r.unskilled}</b>
-                                ${r.note ? `<br><i style="color:#666;font-size:12px;">📌 ${r.note}</i>` : ''}
+                    Object.entries(grouped).map(([main, rows]) => {
+                        const innerRowsHtml = rows.map(r => {
+                            const isSub = r.sub_activity && r.sub_activity.trim() && r.sub_activity !== main;
+                            const label = isSub ? `↳ ${r.sub_activity}` : r.main_activity || r.activity || main;
+                            const totalVal = (Number(r.skilled) || 0) + (Number(r.unskilled) || 0);
+                            
+                            return `
+                            <div style="padding: 6px 0; border-bottom: 1px dashed #f1f5f9; font-size: 13px;">
+                                <div style="font-weight: 600; color: #334155;">${label}</div>
+                                <div style="font-size: 12px; color: var(--muted); margin-top: 2px;">
+                                    Skilled: <b>${r.skilled}</b> &nbsp;|&nbsp; Unskilled: <b>${r.unskilled}</b> &nbsp;|&nbsp; Total: <b>${totalVal}</b>
+                                </div>
+                                ${r.note ? `<div style="color: #64748b; font-size: 11px; margin-top: 3px; font-style: italic;">📌 ${r.note}</div>` : ''}
                             </div>`;
-                        }).join('')
-                    ).join('');
+                        }).join('');
+
+                        return `
+                        <div class="report-activity" style="margin-bottom: 12px; padding: 12px; border-left: 4px solid var(--accent); background: #fffbf5; border-radius: 0 8px 8px 0; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                            <div style="font-weight: 800; font-size: 14px; color: var(--primary); margin-bottom: 8px; border-bottom: 1.5px solid #fed7aa; padding-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;">
+                                📦 ${main}
+                            </div>
+                            <div style="display: flex; flex-direction: column; gap: 4px;">
+                                ${innerRowsHtml}
+                            </div>
+                        </div>`;
+                    }).join('');
             }
 
             const sectionHtml = renderSection('Civil Work', civilActs) + renderSection('Interior Work', interiorActs);
@@ -615,15 +632,40 @@ export default function Page() {
 
             function renderActArr(title, arr) {
                 if (!arr.length) return '';
+                const grouped = {};
+                arr.forEach(a => {
+                    const mainName = a.main_activity || a.activity || 'General';
+                    if (!grouped[mainName]) grouped[mainName] = [];
+                    grouped[mainName].push(a);
+                });
+
                 return `<div style="font-weight:700;font-size:14px;color:var(--primary);margin:14px 0 8px;">🔨 ${title}</div>` +
-                    arr.map(a => {
-                        const label = a.activity || a.main_activity || '—';
-                        const sk  = Number(a.skilled)   || 0;
-                        const un  = Number(a.unskilled) || 0;
-                        return `<div style="border-left:3px solid #ff9800;background:#fffbf5;padding:12px;margin-bottom:10px;border-radius:4px;">
-                            <div style="font-size:14px;font-weight:700;text-decoration:underline;margin-bottom:5px;">${label}</div>
-                            <div>Skilled : <b>${sk}</b> &nbsp;|&nbsp; Unskilled : <b>${un}</b> &nbsp;|&nbsp; Total : <b>${sk+un}</b></div>
-                            ${a.note ? `<div style="margin-top:5px;color:#666;font-style:italic;font-size:13px;">📌 ${a.note}</div>` : ''}
+                    Object.entries(grouped).map(([main, rows]) => {
+                        const innerRowsHtml = rows.map(r => {
+                            const isSub = r.activity && r.activity.trim() && r.activity !== main;
+                            const label = isSub ? `↳ ${r.activity}` : r.main_activity || r.activity || main;
+                            const sk = Number(r.skilled) || 0;
+                            const un = Number(r.unskilled) || 0;
+                            const totalVal = sk + un;
+
+                            return `
+                            <div style="padding: 6px 0; border-bottom: 1px dashed #f1f5f9; font-size: 13px;">
+                                <div style="font-weight: 600; color: #334155;">${label}</div>
+                                <div style="font-size: 12px; color: var(--muted); margin-top: 2px;">
+                                    Skilled: <b>${sk}</b> &nbsp;|&nbsp; Unskilled: <b>${un}</b> &nbsp;|&nbsp; Total: <b>${totalVal}</b>
+                                </div>
+                                ${r.note ? `<div style="color: #64748b; font-size: 11px; margin-top: 3px; font-style: italic;">📌 ${r.note}</div>` : ''}
+                            </div>`;
+                        }).join('');
+
+                        return `
+                        <div style="border-left:4px solid #ff9800;background:#fffbf5;padding:12px;margin-bottom:12px;border-radius: 0 8px 8px 0;box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                            <div style="font-weight: 800; font-size: 14px; color: var(--primary); margin-bottom: 8px; border-bottom: 1.5px solid #fed7aa; padding-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;">
+                                📦 ${main}
+                            </div>
+                            <div style="display: flex; flex-direction: column; gap: 4px;">
+                                ${innerRowsHtml}
+                            </div>
                         </div>`;
                     }).join('');
             }
