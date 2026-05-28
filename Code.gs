@@ -28,8 +28,8 @@ var RECORDS_HEADERS  = ['Date','Site','Prepared By','Activity Details','Total Ma
 // DETAIL: A      B      C         D          E         F           G       H      I            J
 var DETAIL_HEADERS   = ['Date','Site','Section','Activity','Skilled','Unskilled','Total','Note','Prepared By','Timestamp'];
 var USER_HEADERS     = ['username','displayName','password','role'];
-var PROJECT_HEADERS  = ['ID', 'Main Project', 'Sub-Project', 'Parent ID', 'Status'];
-var ACTIVITY_HEADERS = ['ID', 'Main Activity', 'Sub-Activity', 'Parent ID', 'Status'];
+var PROJECT_HEADERS  = ['id', 'main_category_name', 'sub_category_name', 'parent_id', 'status'];
+var ACTIVITY_HEADERS = ['id', 'main_category_name', 'sub_category_name', 'parent_id', 'status'];
 
 // ── Fixed column indexes (0-based) for DPR_Records ──────────────
 var REC = {
@@ -186,6 +186,8 @@ function normalizeKey(raw) {
     'activity_name2': 'activity_name', 'activityname': 'activity_name',
     'parent_id': 'parent_id', 'parentid': 'parent_id',
     'status': 'status',
+    'main_category_name': 'main_category_name',
+    'sub_category_name': 'sub_category_name',
   };
   return map[s] !== undefined ? map[s] : s;
 }
@@ -858,16 +860,17 @@ function handleGetProjects() {
   if (sheet.getDataRange().getValues().length < 2) seedProjects(sheet);
   
   return jsonResponse(sheetToObjects(sheet).map(function(p) {
-    var mainProj = String(p.main_project || p.project_name || p.site || p.project || '').trim();
-    var subProj  = String(p.sub_project || p.subproject || '').trim();
+    var mainProj = String(p.main_category_name || p.main_project || p.project_name || p.site || p.project || '').trim();
+    var subProj  = String(p.sub_category_name || p.sub_project || p.subproject || '').trim();
     if (subProj.indexOf('↳') === 0) {
       subProj = subProj.substring(1).trim();
     }
-    var projName = mainProj || subProj;
+    var parentId = (p.parent_id === null || p.parent_id === undefined || p.parent_id === false || p.parent_id === 0) ? '' : String(p.parent_id).trim();
+    var projName = (parentId && subProj) ? subProj : mainProj;
     return {
       id:           String(p.id           || p.id_ || ''),
       project_name: projName,
-      parent_id:    (p.parent_id === null || p.parent_id === undefined || p.parent_id === false || p.parent_id === 0) ? '' : String(p.parent_id),
+      parent_id:    parentId,
       status:       p.status || 'active'
     };
   }));
@@ -880,6 +883,15 @@ function handleAddProject(body) {
   var mainProj = '';
   var subProj = '';
   if (parentId) {
+    var parentName = '';
+    var data = sheet.getDataRange().getValues();
+    for (var i = 1; i < data.length; i++) {
+      if (String(data[i][0]) === String(parentId)) {
+        parentName = String(data[i][1] || '').trim();
+        break;
+      }
+    }
+    mainProj = parentName;
     subProj = '↳ ' + (body.project_name || '');
   } else {
     mainProj = body.project_name || '';
@@ -901,6 +913,12 @@ function handleUpdateProject(body) {
           sheet.getRange(i + 1, 3).setValue('↳ ' + body.project_name);
         } else {
           sheet.getRange(i + 1, 2).setValue(body.project_name);
+          var newName = body.project_name;
+          for (var j = 1; j < data.length; j++) {
+            if (String(data[j][3]) === String(body.id)) {
+              sheet.getRange(j + 1, 2).setValue(newName);
+            }
+          }
         }
       }
       if (body.status !== undefined) {
@@ -963,7 +981,7 @@ function seedActivities(sheet) {
   var id = 1;
   catalog.forEach(function(item) {
     sheet.appendRow([id, item.name, '', '', 'active']); var parentId = id; id++;
-    item.subs.forEach(function(s) { sheet.appendRow([id, '', '↳ ' + s, parentId, 'active']); id++; });
+    item.subs.forEach(function(s) { sheet.appendRow([id, item.name, '↳ ' + s, parentId, 'active']); id++; });
   });
   formatSheetTable(sheet);
 }
@@ -973,16 +991,17 @@ function handleGetActivities() {
   if (sheet.getDataRange().getValues().length < 2) seedActivities(sheet);
   
   return jsonResponse(sheetToObjects(sheet).map(function(a) {
-    var mainAct = String(a.main_activity || a.activity || a.activity_name || '').trim();
-    var subAct  = String(a.sub_activity || a.subActivity || a.subactivity || '').trim();
+    var mainAct = String(a.main_category_name || a.main_activity || a.activity || a.activity_name || '').trim();
+    var subAct  = String(a.sub_category_name || a.sub_activity || a.subActivity || a.subactivity || '').trim();
     if (subAct.indexOf('↳') === 0) {
       subAct = subAct.substring(1).trim();
     }
-    var actName = mainAct || subAct;
+    var parentId = (a.parent_id === null || a.parent_id === undefined || a.parent_id === false || a.parent_id === 0) ? '' : String(a.parent_id).trim();
+    var actName = (parentId && subAct) ? subAct : mainAct;
     return {
       id:            String(a.id            || a.id_ || ''),
       activity_name: actName,
-      parent_id:     (a.parent_id === null || a.parent_id === undefined || a.parent_id === false || a.parent_id === 0) ? '' : String(a.parent_id),
+      parent_id:     parentId,
       status:        a.status || 'active'
     };
   }));
@@ -995,6 +1014,15 @@ function handleAddActivity(body) {
   var mainAct = '';
   var subAct = '';
   if (parentId) {
+    var parentName = '';
+    var data = sheet.getDataRange().getValues();
+    for (var i = 1; i < data.length; i++) {
+      if (String(data[i][0]) === String(parentId)) {
+        parentName = String(data[i][1] || '').trim();
+        break;
+      }
+    }
+    mainAct = parentName;
     subAct = '↳ ' + (body.activity_name || '');
   } else {
     mainAct = body.activity_name || '';
@@ -1016,6 +1044,12 @@ function handleUpdateActivity(body) {
           sheet.getRange(i + 1, 3).setValue('↳ ' + body.activity_name);
         } else {
           sheet.getRange(i + 1, 2).setValue(body.activity_name);
+          var newName = body.activity_name;
+          for (var j = 1; j < data.length; j++) {
+            if (String(data[j][3]) === String(body.id)) {
+              sheet.getRange(j + 1, 2).setValue(newName);
+            }
+          }
         }
       }
       if (body.status !== undefined) {
@@ -1119,7 +1153,7 @@ function formatSheetTable(sheet) {
     }
 
     // Row heights
-    sheet.setRowHeight(1, 35);
+    sheet.setRowHeight(1, 38);
     for (var row = 2; row <= numRows; row++) {
       sheet.setRowHeight(row, 28);
     }
@@ -1149,27 +1183,25 @@ function fixActivitiesSheet() {
   var data = sheet.getDataRange().getValues();
   if (data.length < 2) return 'No data to fix';
   
-  var newRows = [];
-  newRows.push(ACTIVITY_HEADERS); // Set header row
+  var parsedMap = {};
+  var parsedList = [];
   
+  // First pass: extract ID, rawName, parentId, status
   for (var i = 1; i < data.length; i++) {
     var row = data[i];
-    var id = row[0];
-    if (id === '' || id === null || id === undefined) continue;
+    var id = String(row[0] || '').trim();
+    if (!id) continue;
     
-    var mainName = '';
-    var subName = '';
-    var parentId = '';
     var status = 'active';
-
-    var textParts = [];
     var numbers = [];
+    var textParts = [];
     
     for (var c = 1; c < row.length; c++) {
       var val = String(row[c] || '').trim();
       if (!val) continue;
-      if (val.toLowerCase() === 'active' || val.toLowerCase() === 'inactive') {
-        status = val.toLowerCase();
+      var lowerVal = val.toLowerCase();
+      if (lowerVal === 'active' || lowerVal === 'inactive') {
+        status = lowerVal;
       } else if (!isNaN(Number(val))) {
         numbers.push(val);
       } else {
@@ -1178,33 +1210,49 @@ function fixActivitiesSheet() {
     }
     
     var rawName = textParts.join(' ').trim();
-    if (numbers.length > 0) {
-      parentId = numbers[numbers.length - 1];
-    }
+    var parentId = (numbers.length > 0) ? String(numbers[numbers.length - 1]).trim() : '';
     
-    var isSub = (parentId !== '') || (rawName.indexOf('↳') === 0);
     if (rawName.indexOf('↳') === 0) {
       rawName = rawName.substring(1).trim();
-      isSub = true;
     }
     
-    if (isSub) {
-      subName = '↳ ' + rawName;
-      mainName = '';
-    } else {
-      mainName = rawName;
+    var item = {
+      id: id,
+      rawName: rawName,
+      parentId: parentId,
+      status: status
+    };
+    parsedMap[id] = item;
+    parsedList.push(item);
+  }
+  
+  // Second pass: construct new rows with headers
+  var newRows = [];
+  newRows.push(ACTIVITY_HEADERS);
+  
+  parsedList.forEach(function(item) {
+    var mainName = '';
+    var subName = '';
+    var parentId = item.parentId;
+    
+    if (!parentId || parentId === '0') {
+      mainName = item.rawName;
       subName = '';
       parentId = '';
+    } else {
+      var parentObj = parsedMap[parentId];
+      var parentName = parentObj ? parentObj.rawName : 'Unknown Category';
+      mainName = parentName;
+      subName = '↳ ' + item.rawName;
     }
-    
-    newRows.push([id, mainName, subName, parentId, status]);
-  }
+    newRows.push([Number(item.id) || item.id, mainName, subName, parentId, item.status]);
+  });
   
   sheet.clear();
   sheet.getRange(1, 1, newRows.length, ACTIVITY_HEADERS.length).setValues(newRows);
   formatSheetTable(sheet);
   
-  return 'Success: cleaned and formatted ' + (newRows.length - 1) + ' rows.';
+  return 'Success: aligned and formatted ' + (newRows.length - 1) + ' activities.';
 }
 
 function fixProjectsSheet() {
@@ -1214,27 +1262,25 @@ function fixProjectsSheet() {
   var data = sheet.getDataRange().getValues();
   if (data.length < 2) return 'No data to fix';
   
-  var newRows = [];
-  newRows.push(PROJECT_HEADERS); // Set header row
+  var parsedMap = {};
+  var parsedList = [];
   
+  // First pass: extract ID, rawName, parentId, status
   for (var i = 1; i < data.length; i++) {
     var row = data[i];
-    var id = row[0];
-    if (id === '' || id === null || id === undefined) continue;
+    var id = String(row[0] || '').trim();
+    if (!id) continue;
     
-    var mainName = '';
-    var subName = '';
-    var parentId = '';
     var status = 'active';
-
-    var textParts = [];
     var numbers = [];
+    var textParts = [];
     
     for (var c = 1; c < row.length; c++) {
       var val = String(row[c] || '').trim();
       if (!val) continue;
-      if (val.toLowerCase() === 'active' || val.toLowerCase() === 'inactive') {
-        status = val.toLowerCase();
+      var lowerVal = val.toLowerCase();
+      if (lowerVal === 'active' || lowerVal === 'inactive') {
+        status = lowerVal;
       } else if (!isNaN(Number(val))) {
         numbers.push(val);
       } else {
@@ -1243,31 +1289,47 @@ function fixProjectsSheet() {
     }
     
     var rawName = textParts.join(' ').trim();
-    if (numbers.length > 0) {
-      parentId = numbers[numbers.length - 1];
-    }
+    var parentId = (numbers.length > 0) ? String(numbers[numbers.length - 1]).trim() : '';
     
-    var isSub = (parentId !== '') || (rawName.indexOf('↳') === 0);
     if (rawName.indexOf('↳') === 0) {
       rawName = rawName.substring(1).trim();
-      isSub = true;
     }
     
-    if (isSub) {
-      subName = '↳ ' + rawName;
-      mainName = '';
-    } else {
-      mainName = rawName;
+    var item = {
+      id: id,
+      rawName: rawName,
+      parentId: parentId,
+      status: status
+    };
+    parsedMap[id] = item;
+    parsedList.push(item);
+  }
+  
+  // Second pass: construct new rows with headers
+  var newRows = [];
+  newRows.push(PROJECT_HEADERS);
+  
+  parsedList.forEach(function(item) {
+    var mainName = '';
+    var subName = '';
+    var parentId = item.parentId;
+    
+    if (!parentId || parentId === '0') {
+      mainName = item.rawName;
       subName = '';
       parentId = '';
+    } else {
+      var parentObj = parsedMap[parentId];
+      var parentName = parentObj ? parentObj.rawName : 'Unknown Project';
+      mainName = parentName;
+      subName = '↳ ' + item.rawName;
     }
-    
-    newRows.push([id, mainName, subName, parentId, status]);
-  }
+    newRows.push([Number(item.id) || item.id, mainName, subName, parentId, item.status]);
+  });
   
   sheet.clear();
   sheet.getRange(1, 1, newRows.length, PROJECT_HEADERS.length).setValues(newRows);
   formatSheetTable(sheet);
   
-  return 'Success: cleaned and formatted ' + (newRows.length - 1) + ' rows.';
+  return 'Success: aligned and formatted ' + (newRows.length - 1) + ' projects.';
 }
