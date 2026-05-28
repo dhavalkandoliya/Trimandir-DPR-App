@@ -63,7 +63,7 @@ var DET = {
 // ── ROUTER ───────────────────────────────────────────────────────
 
 function doGet(e) {
-  var action = (e.parameter && e.parameter.action) ? e.parameter.action : '';
+  var action = (e && e.parameter && e.parameter.action) ? e.parameter.action : '';
   if (action === 'getUsers')      return handleGetUsers();
   if (action === 'getProjects')   return handleGetProjects();
   if (action === 'getActivities') return handleGetActivities();
