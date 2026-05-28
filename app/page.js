@@ -17,6 +17,38 @@ export default function Page() {
                 }
             };
             document.addEventListener('click', handleDocClick);
+
+            const handleFormInput = (e) => {
+                if (!e.target.closest('#tabForm')) return;
+                if (e.target.classList.contains('skill') || e.target.classList.contains('unskill')) {
+                    const row = e.target.closest('.activitybox');
+                    if (row) {
+                        const sk = Math.max(0, Number(row.querySelector('.skill')?.value) || 0);
+                        const un = Math.max(0, Number(row.querySelector('.unskill')?.value) || 0);
+                        const valEl = row.querySelector('.row-total-val');
+                        if (valEl) valEl.textContent = sk + un;
+                    }
+                }
+                if (typeof window !== 'undefined' && window.saveFormDraft) {
+                    window.saveFormDraft();
+                }
+            };
+
+            const handleFormChange = (e) => {
+                if (!e.target.closest('#tabForm')) return;
+                if (typeof window !== 'undefined' && window.saveFormDraft) {
+                    window.saveFormDraft();
+                }
+            };
+
+            document.addEventListener('input', handleFormInput);
+            document.addEventListener('change', handleFormChange);
+
+            return () => {
+                document.removeEventListener('click', handleDocClick);
+                document.removeEventListener('input', handleFormInput);
+                document.removeEventListener('change', handleFormChange);
+            };
         }
 
         /* ═══════════════════════════════════════════════════════════
@@ -33,6 +65,8 @@ export default function Page() {
         let _dashPeriod     = 'week';
         let _editingKey     = null;
         let _rowCounter     = 0;
+        let _historyPage    = 1;
+        const _itemsPerPage = 10;
 
         /* ═══════════════════════════════════════════════════════════
            UTILITY: Robust date normaliser — always returns YYYY-MM-DD
@@ -123,6 +157,11 @@ export default function Page() {
         ═══════════════════════════════════════════════════════════ */
         async function bootApp() {
             showToast('⏳ Loading data...');
+            const apList = document.getElementById('adminProjectList');
+            if (apList) apList.innerHTML = getSkeletonLoader();
+            const aaList = document.getElementById('adminActivityList');
+            if (aaList) aaList.innerHTML = getSkeletonLoader();
+            
             try {
                 const [users, projects, activities] = await Promise.all([
                     apiFetch('getUsers').catch(() => []),
@@ -136,11 +175,11 @@ export default function Page() {
             renderLoginChips();
             populateSiteDropdown();
 
-            // Set default date filter to today
-            const sd = document.getElementById('searchDate');
-            if (sd) sd.value = getLocalTodayYMD();
-
-            resetForm();
+            if (localStorage.getItem('dpr_form_draft')) {
+                loadFormDraft();
+            } else {
+                resetForm();
+            }
             loadHistory();
         }
 
@@ -234,8 +273,12 @@ export default function Page() {
             if (fp) { fp.classList.add('active'); fp.style.display = 'block'; }
             (btn || document.getElementById('tabBtnForm')).classList.add('active');
             _editingKey = null;
-            document.getElementById('date').value = new Date().toISOString().split('T')[0];
-            resetForm();
+            if (localStorage.getItem('dpr_form_draft')) {
+                loadFormDraft();
+            } else {
+                document.getElementById('date').value = new Date().toISOString().split('T')[0];
+                resetForm();
+            }
         }
 
         /* ═══════════════════════════════════════════════════════════
@@ -321,8 +364,11 @@ export default function Page() {
             div.innerHTML = `
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
                     <span style="font-weight:700;font-size:11px;color:var(--primary);text-transform:uppercase;letter-spacing:.7px;">Activity ${_rowCounter}</span>
-                    <button class="delete-btn" onclick="removeActivityRow('${rowId}')"
-                            style="width:auto;padding:4px 10px;margin-top:0;font-size:11px;">🗑️ Remove</button>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <span class="row-total-badge" style="font-size:11.5px; font-weight:700; color:var(--text); background:var(--primary-light); padding:3px 8px; border-radius:4px;">Total: <b class="row-total-val">0</b></span>
+                        <button class="delete-btn" onclick="removeActivityRow('${rowId}')"
+                                style="width:auto;padding:4px 10px;margin-top:0;font-size:11px;">🗑️ Remove</button>
+                    </div>
                 </div>
                 <label>Main Activity</label>
                 <select class="main-act-sel" onchange="onMainActChange(this,'${subId}')">
@@ -364,11 +410,14 @@ export default function Page() {
                 div.querySelector('.unskill').value  = data.unskilled != null ? data.unskilled : 0;
                 div.querySelector('.note-inp').value = data.note || '';
             }
+            updateFormTotals();
         }
 
         function removeActivityRow(rowId) {
             const el = document.getElementById(rowId);
             if (el) el.remove();
+            updateFormTotals();
+            saveFormDraft();
         }
 
         function onMainActChange(sel, subSelId, preselectSub) {
@@ -523,6 +572,7 @@ export default function Page() {
                 .then(() => {
                     showToast(isEdit ? '✅ DPR Updated!' : '✅ Saved!');
                     _editingKey = null;
+                    localStorage.removeItem('dpr_form_draft');
                     document.getElementById('date').value = new Date().toISOString().split('T')[0];
                     document.getElementById('report').style.display = 'none';
                     resetForm();
@@ -545,12 +595,14 @@ export default function Page() {
         ═══════════════════════════════════════════════════════════ */
         function loadHistory() {
             const el = document.getElementById('historyList');
-            if (el) el.innerHTML = '<p style="color:#aaa;text-align:center;padding:16px;">⏳ Loading records...</p>';
+            if (el) el.innerHTML = getSkeletonLoader();
             apiFetch('')
                 .then(d => {
                     _history = Array.isArray(d) ? d : [];
                     updateHistoryCount();
-                    renderHistory();
+                    populateSupervisorDropdown();
+                    renderAdminAnalytics();
+                    resetHistoryPageAndRender();
                     renderDashboard();
                 })
                 .catch(() => {
@@ -769,21 +821,274 @@ export default function Page() {
             }, 150);
         }
 
+        /* ═══════════════════════════════════════════════════════════
+           OVERHAUL HELPER FUNCTIONS
+        ═══════════════════════════════════════════════════════════ */
+        function getSkeletonLoader() {
+            return `
+            <div class="skeleton-card">
+                <div class="skeleton-block" style="width: 40%; height: 18px;"></div>
+                <div class="skeleton-block" style="width: 75%; height: 14px;"></div>
+                <div class="skeleton-block" style="width: 25%; height: 26px; border-radius: 4px; margin-top: 6px;"></div>
+            </div>
+            <div class="skeleton-card">
+                <div class="skeleton-block" style="width: 50%; height: 18px;"></div>
+                <div class="skeleton-block" style="width: 60%; height: 14px;"></div>
+                <div class="skeleton-block" style="width: 25%; height: 26px; border-radius: 4px; margin-top: 6px;"></div>
+            </div>
+            <div class="skeleton-card">
+                <div class="skeleton-block" style="width: 35%; height: 18px;"></div>
+                <div class="skeleton-block" style="width: 80%; height: 14px;"></div>
+                <div class="skeleton-block" style="width: 25%; height: 26px; border-radius: 4px; margin-top: 6px;"></div>
+            </div>
+            `;
+        }
+
+        function updateFormTotals() {
+            document.querySelectorAll('.activitybox').forEach(row => {
+                const sk = Math.max(0, Number(row.querySelector('.skill')?.value) || 0);
+                const un = Math.max(0, Number(row.querySelector('.unskill')?.value) || 0);
+                const valEl = row.querySelector('.row-total-val');
+                if (valEl) valEl.textContent = sk + un;
+            });
+        }
+
+        function saveFormDraft() {
+            if (_editingKey) return;
+            const dateVal = document.getElementById('date')?.value || '';
+            const siteVal = document.getElementById('site')?.value || '';
+            const activities = collectActivityRows();
+            if (!dateVal && !siteVal && activities.length <= 1 && activities.every(a => !a.main_activity && a.skilled === 0 && a.unskilled === 0 && !a.note)) {
+                localStorage.removeItem('dpr_form_draft');
+                return;
+            }
+            const draft = { date: dateVal, site: siteVal, activities };
+            localStorage.setItem('dpr_form_draft', JSON.stringify(draft));
+        }
+
+        function loadFormDraft() {
+            try {
+                const draftStr = localStorage.getItem('dpr_form_draft');
+                if (!draftStr) return;
+                const draft = JSON.parse(draftStr);
+                if (!draft) return;
+                
+                if (draft.date) {
+                    const dateEl = document.getElementById('date');
+                    if (dateEl) dateEl.value = draft.date;
+                }
+                if (draft.site) {
+                    const siteEl = document.getElementById('site');
+                    if (siteEl) siteEl.value = draft.site;
+                }
+                
+                const container = document.getElementById('activityRowsContainer');
+                if (container) {
+                    container.innerHTML = '';
+                    _rowCounter = 0;
+                    if (Array.isArray(draft.activities) && draft.activities.length > 0) {
+                        draft.activities.forEach(act => addActivityRow(act));
+                    } else {
+                        addActivityRow();
+                    }
+                }
+                updateFormTotals();
+            } catch (e) {
+                console.error("Failed to load form draft", e);
+            }
+        }
+
+        function exportMasterLogCSV() {
+            if (!_history.length) { showToast('⚠️ No history records to export'); return; }
+            const headers = [
+                'Date', 'Site', 'Supervisor (Created By)', 'Last Edited By', 'Submitted At',
+                'Total DPR Manpower', 'Activity Category (Main)', 'Sub-Activity', 'Section',
+                'Skilled Workers', 'Unskilled Workers', 'Activity Total', 'Note'
+            ];
+            const rows = [headers];
+            _history.forEach(item => {
+                const dateStr = toYMD(item.date);
+                const siteStr = item.site || '';
+                const createdBy = item.by || '';
+                const editedBy = item.editedBy || '';
+                const submittedAt = item.submittedAt || '';
+                const totalManpower = item.total || 0;
+                
+                let activities = [];
+                if (Array.isArray(item.civilActivities)) {
+                    activities.push(...item.civilActivities.map(a => ({ ...a, section: 'Civil' })));
+                }
+                if (Array.isArray(item.interiorActivities)) {
+                    activities.push(...item.interiorActivities.map(a => ({ ...a, section: 'Interior' })));
+                }
+                if (!activities.length && Array.isArray(item.details)) {
+                    activities.push(...item.details.map(d => ({
+                        main_activity: d.activity || d.main_activity || '',
+                        sub_activity: d.subActivity || '',
+                        section: d.section || 'Civil',
+                        skilled: d.skilled,
+                        unskilled: d.unskilled,
+                        note: d.note
+                    })));
+                }
+                
+                if (activities.length === 0) {
+                    rows.push([dateStr, siteStr, createdBy, editedBy, submittedAt, totalManpower, '', '', '', 0, 0, 0, '']);
+                } else {
+                    activities.forEach(act => {
+                        const mainAct = act.main_activity || act.activity || '';
+                        const subAct = act.sub_activity || '';
+                        const sect = act.section || 'Civil';
+                        const sk = Number(act.skilled) || 0;
+                        const un = Number(act.unskilled) || 0;
+                        const actTotal = sk + un;
+                        const noteStr = act.note || '';
+                        rows.push([dateStr, siteStr, createdBy, editedBy, submittedAt, totalManpower, mainAct, subAct, sect, sk, un, actTotal, noteStr]);
+                    });
+                }
+            });
+            const csvContent = "data:text/csv;charset=utf-8," + rows.map(e => e.map(val => {
+                let s = String(val === null || val === undefined ? '' : val).replace(/"/g, '""');
+                if (s.includes(',') || s.includes('"') || s.includes('\n') || s.includes('\r')) {
+                    s = `"${s}"`;
+                }
+                return s;
+            }).join(",")).join("\n");
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `TPD_DPR_Master_Log_${getLocalTodayYMD()}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showToast('✅ CSV Exported!');
+        }
+
+        function populateSupervisorDropdown() {
+            const sel = document.getElementById('searchSupervisor');
+            if (!sel) return;
+            const prev = sel.value;
+            const supervisors = new Set();
+            _users.forEach(u => supervisors.add(u.username));
+            _history.forEach(h => { if (h.by) supervisors.add(h.by); });
+            let html = '<option value="">— Show All —</option>';
+            Array.from(supervisors).sort().forEach(sup => {
+                html += `<option value="${esc(sup)}">${sup}</option>`;
+            });
+            sel.innerHTML = html;
+            if (prev && Array.from(sel.options).find(o => o.value === prev)) sel.value = prev;
+        }
+
+        function resetHistoryPageAndRender() {
+            _historyPage = 1;
+            renderHistory();
+        }
+
+        function changeHistoryPage(dir) {
+            _historyPage += dir;
+            renderHistory();
+        }
+
+        function renderAdminAnalytics() {
+            const todayYMD = getLocalTodayYMD();
+            const todayDPRs = _history.filter(h => toYMD(h.date) === todayYMD);
+            const workforceToday = todayDPRs.reduce((sum, h) => sum + (Number(h.total) || 0), 0);
+            
+            const siteCounts = {};
+            _history.forEach(h => { if (h.site) siteCounts[h.site] = (siteCounts[h.site] || 0) + 1; });
+            let mostActiveSite = '—';
+            let maxCount = 0;
+            Object.entries(siteCounts).forEach(([site, count]) => {
+                if (count > maxCount) { maxCount = count; mostActiveSite = site; }
+            });
+            const displayActiveSite = mostActiveSite.length > 15 ? mostActiveSite.substring(0, 15) + '...' : mostActiveSite;
+            
+            const activeCount = _projects.filter(p => p.status === 'active').length;
+            const totalCount = _projects.length;
+            
+            const tfEl = document.getElementById('adminWorkforceToday');
+            if (tfEl) tfEl.textContent = workforceToday;
+            const masEl = document.getElementById('adminActiveSite');
+            if (masEl) {
+                masEl.textContent = displayActiveSite;
+                masEl.title = mostActiveSite;
+            }
+            const prEl = document.getElementById('adminProjectRatio');
+            if (prEl) prEl.textContent = `${activeCount}/${totalCount}`;
+        }
+
         function renderHistory() {
-            // No default date — empty sDate means show ALL records
-            const sdEl  = document.getElementById('searchDate');
-            const sDate = sdEl  ? sdEl.value.trim() : '';
-            const sSite = ((document.getElementById('searchSite') || {}).value || '').toLowerCase().trim();
+            const sStart = (document.getElementById('searchStartDate')?.value || '').trim();
+            const sEnd   = (document.getElementById('searchEndDate')?.value || '').trim();
+            const sSite  = ((document.getElementById('searchSite') || {}).value || '').toLowerCase().trim();
+            const sSup   = ((document.getElementById('searchSupervisor') || {}).value || '').toLowerCase().trim();
 
             const filtered = _history.filter(item => {
-                if (sDate && !sameDate(item.date, sDate)) return false;
+                if (sStart) {
+                    const itemDate = toYMD(item.date);
+                    if (itemDate < sStart) return false;
+                }
+                if (sEnd) {
+                    const itemDate = toYMD(item.date);
+                    if (itemDate > sEnd) return false;
+                }
                 if (sSite && !String(item.site || '').toLowerCase().includes(sSite)) return false;
+                if (sSup && String(item.by || '').toLowerCase() !== sSup) return false;
                 return true;
             });
 
             updateHistoryCount();
+            
+            // Sort filtered: latest date first, then latest submittedAt
+            filtered.sort((a, b) => {
+                const dateA = toYMD(a.date);
+                const dateB = toYMD(b.date);
+                if (dateA !== dateB) {
+                    return dateB.localeCompare(dateA);
+                }
+                const timeA = a.submittedAt ? new Date(a.submittedAt).getTime() : 0;
+                const timeB = b.submittedAt ? new Date(b.submittedAt).getTime() : 0;
+                return timeB - timeA;
+            });
+
+            const totalItems = filtered.length;
+            const totalPages = Math.max(1, Math.ceil(totalItems / _itemsPerPage));
+            
+            if (_historyPage > totalPages) _historyPage = totalPages;
+            if (_historyPage < 1) _historyPage = 1;
+            
+            const startIdx = (_historyPage - 1) * _itemsPerPage;
+            const endIdx   = startIdx + _itemsPerPage;
+            const pagedItems = filtered.slice(startIdx, endIdx);
+
             const el = document.getElementById('historyList');
             if (!el) return;
+
+            // Update pagination UI
+            const btnPrev = document.getElementById('btnPrevPage');
+            const btnNext = document.getElementById('btnNextPage');
+            const indicator = document.getElementById('historyPageIndicator');
+            const paginationWrap = document.getElementById('historyPagination');
+            
+            if (paginationWrap) {
+                if (totalItems === 0) {
+                    paginationWrap.style.display = 'none';
+                } else {
+                    paginationWrap.style.display = 'flex';
+                    if (indicator) indicator.textContent = `Page ${_historyPage} of ${totalPages}`;
+                    if (btnPrev) btnPrev.disabled = (_historyPage === 1);
+                    if (btnNext) btnNext.disabled = (_historyPage === totalPages);
+                    
+                    if (btnPrev) {
+                        btnPrev.style.opacity = (_historyPage === 1) ? '0.5' : '1';
+                        btnPrev.style.pointerEvents = (_historyPage === 1) ? 'none' : 'auto';
+                    }
+                    if (btnNext) {
+                        btnNext.style.opacity = (_historyPage === totalPages) ? '0.5' : '1';
+                        btnNext.style.pointerEvents = (_historyPage === totalPages) ? 'none' : 'auto';
+                    }
+                }
+            }
 
             if (!_history.length) {
                 el.innerHTML = '<p style="color:#aaa;text-align:center;padding:16px;">No records loaded. Click Refresh.</p>';
@@ -795,7 +1100,7 @@ export default function Page() {
             }
 
             const isAdmin = _currentUser && _currentUser.role === 'admin';
-            el.innerHTML  = filtered.map(item => {
+            el.innerHTML  = pagedItems.map(item => {
                 const realIdx  = _history.indexOf(item);
                 const d        = toYMD(item.date);
                 const byLine   = item.by
@@ -809,7 +1114,6 @@ export default function Page() {
                 const granted  = item.editPermission === 'granted';
                 const pending  = item.editPermission === 'pending';
 
-                // Calculate dynamic labels and actions for the dropdown edit item:
                 let editActionLabel = '✏️ Edit';
                 let editActionOnClick = `editDPR(${realIdx})`;
                 if (!isAdmin && isOwn && !within15 && !granted && !pending) {
@@ -823,7 +1127,6 @@ export default function Page() {
                     editActionOnClick = `showToast("❌ You can only edit your own DPRs")`;
                 }
 
-                // Count activities from DPR_Detail rows
                 const detCount = Array.isArray(item.details) ? item.details.length : 0;
                 const civCount = Array.isArray(item.civilActivities)    ? item.civilActivities.length    : 0;
                 const intCount = Array.isArray(item.interiorActivities) ? item.interiorActivities.length : 0;
@@ -831,7 +1134,6 @@ export default function Page() {
                     ? `${civCount} civil · ${intCount} interior`
                     : (detCount > 0 ? `${detCount} activit${detCount > 1 ? 'ies' : 'y'}` : '');
 
-                // Add 3-dot menu and dropdown menu overlay
                 const dropdownHtml = `
                 <button class="history-options-btn" onclick="toggleHistoryDropdown(event, ${realIdx})">&#8942;</button>
                 <div class="history-dropdown" id="dropdown_${realIdx}">
@@ -850,7 +1152,7 @@ export default function Page() {
                         <span style="font-size:12px;font-weight:400;color:var(--muted);margin-left:6px;">${byLine}</span>
                     </div>
                     <div style="font-size:12px;color:var(--muted);margin-top:3px;padding-right:30px;">
-                        📍 ${item.site || '—'} &nbsp;·&nbsp; 👷 <b>${item.total || 0}</b> workers
+                        📍 ${getSiteDisplayName(item.site) || '—'} &nbsp;·&nbsp; 👷 <b>${item.total || 0}</b> workers
                         ${actHint ? `&nbsp;·&nbsp; 📋 ${actHint}` : ''}
                     </div>
                     <div class="hbtn-group">
@@ -861,9 +1163,11 @@ export default function Page() {
         }
 
         function clearHistoryFilter() {
-            const sd = document.getElementById('searchDate'); if (sd) sd.value = getLocalTodayYMD();
+            const ssd = document.getElementById('searchStartDate'); if (ssd) ssd.value = '';
+            const sed = document.getElementById('searchEndDate'); if (sed) sed.value = '';
             const ss = document.getElementById('searchSite'); if (ss) ss.value = '';
-            renderHistory();
+            const sSup = document.getElementById('searchSupervisor'); if (sSup) sSup.value = '';
+            resetHistoryPageAndRender();
         }
 
         /* ═══════════════════════════════════════════════════════════
@@ -1079,6 +1383,7 @@ export default function Page() {
            ADMIN PANEL
         ═══════════════════════════════════════════════════════════ */
         function renderAdminPanel() {
+            renderAdminAnalytics();
             renderPendingEditRequests();
             renderAdminUsers();
             renderAdminProjects();
@@ -1124,15 +1429,57 @@ export default function Page() {
             if (!el) return;
             el.innerHTML = _users.map(u => {
                 const sup = u.username === SUPER_ADMIN.username;
-                return `<div class="admin-user-row">
-                    <div>
-                        <div class="admin-user-info">👤 ${u.username}</div>
-                        <div class="admin-user-sub">${u.displayName || ''} &nbsp;·&nbsp; <b>${u.role === 'admin' ? 'Admin' : 'User'}</b></div>
+                const userDPRs = _history.filter(h => String(h.by).trim().toLowerCase() === u.username.trim().toLowerCase());
+                const totalSubmitted = userDPRs.length;
+                let lastSubDate = 'Never';
+                let isInactive = false;
+                
+                if (totalSubmitted > 0) {
+                    const times = userDPRs.map(h => {
+                        const ymd = toYMD(h.date);
+                        return ymd ? new Date(ymd).getTime() : 0;
+                    }).filter(Boolean);
+                    if (times.length) {
+                        const maxTime = Math.max(...times);
+                        const maxDate = new Date(maxTime);
+                        const y = maxDate.getFullYear();
+                        const m = String(maxDate.getMonth() + 1).padStart(2, '0');
+                        const d = String(maxDate.getDate()).padStart(2, '0');
+                        lastSubDate = `${d}-${m}-${y}`;
+                        
+                        const diffTime = Date.now() - maxTime;
+                        const diffDays = diffTime / (1000 * 60 * 60 * 24);
+                        if (diffDays >= 3) {
+                            isInactive = true;
+                        }
+                    } else {
+                        isInactive = true;
+                    }
+                } else {
+                    isInactive = true;
+                }
+                
+                const statusBadge = isInactive 
+                    ? `<span style="background:#fee2e2;color:#ef4444;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;margin-left:6px;display:inline-block;">⚠️ Inactive</span>`
+                    : `<span style="background:#dcfce7;color:#10b981;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;margin-left:6px;display:inline-block;">🟢 Active</span>`;
+
+                return `<div class="admin-user-row" style="flex-direction:column;align-items:stretch;gap:4px;padding:12px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <div>
+                            <span class="admin-user-info" style="font-size:14px;">👤 ${u.username}</span>
+                            ${statusBadge}
+                        </div>
+                        <div style="display:flex;gap:6px;">
+                            ${!sup ? `<button class="btn-gray btn-sm" style="width:auto;padding:4px 8px;margin:0;" onclick="resetPassword('${u.username}')" title="Reset Password">🔑</button>` : ''}
+                            ${!sup ? `<button class="btn-red btn-sm"  style="width:auto;padding:4px 8px;margin:0;" onclick="deleteUser('${u.username}')" title="Delete User">🗑️</button>`
+                                   : `<span style="font-size:11px;color:var(--muted);">Protected</span>`}
+                        </div>
                     </div>
-                    <div style="display:flex;gap:6px;">
-                        ${!sup ? `<button class="btn-gray btn-sm" style="width:auto;padding:5px 10px;" onclick="resetPassword('${u.username}')">🔑</button>` : ''}
-                        ${!sup ? `<button class="btn-red btn-sm"  style="width:auto;padding:5px 10px;" onclick="deleteUser('${u.username}')">🗑️</button>`
-                               : `<span style="font-size:11px;color:var(--muted);">Protected</span>`}
+                    <div class="admin-user-sub" style="margin-top:4px;font-size:12px;display:grid;grid-template-columns:1fr 1fr;gap:4px;border-top:1px solid #f1f5f9;padding-top:6px;">
+                        <div>Display: <b>${u.displayName || u.username}</b></div>
+                        <div>Role: <b>${u.role === 'admin' ? 'Admin' : 'Supervisor'}</b></div>
+                        <div>Total DPRs: <b>${totalSubmitted}</b></div>
+                        <div>Last Upload: <b>${lastSubDate}</b></div>
                     </div>
                 </div>`;
             }).join('');
@@ -1694,6 +2041,7 @@ export default function Page() {
             runDataCleanup,
             toYMD, formatDate, sameDate, showToast,
             toggleHistoryDropdown, closeAllHistoryDropdowns, downloadHistoryDPR, getReportHtmlForRecord,
+            exportMasterLogCSV, resetHistoryPageAndRender, changeHistoryPage, renderAdminAnalytics, loadFormDraft, saveFormDraft,
         });
 
         setTimeout(() => renderLoginChips(), 200);
@@ -1785,18 +2133,46 @@ export default function Page() {
 <div class="tab-page" id="tabHistory" style="display:none;">
     <div class="card">
         <div class="section-title">&#128194; DPR History</div>
-        <label>Filter by Date <span style="font-weight:400;font-size:10px;text-transform:none;">(leave blank = show all)</span></label>
-        <input type="date" id="searchDate" onchange="renderHistory()">
-        <label>Search by Site</label>
-        <select id="searchSite" onchange="renderHistory()">
-            <option value="">— Show All Sites —</option>
-        </select>
-        <div style="display:flex;gap:8px;margin-bottom:12px;">
-            <button class="btn-blue btn-sm" onclick="loadHistory()" style="flex:1;">&#128260; Refresh</button>
-            <button class="btn-gray btn-sm" onclick="clearHistoryFilter()" style="flex:1;">&#10006; Clear Filter</button>
+        
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
+            <div>
+                <label>Start Date</label>
+                <input type="date" id="searchStartDate" onchange="resetHistoryPageAndRender()" style="margin-bottom:0;">
+            </div>
+            <div>
+                <label>End Date</label>
+                <input type="date" id="searchEndDate" onchange="resetHistoryPageAndRender()" style="margin-bottom:0;">
+            </div>
         </div>
+        
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px;">
+            <div>
+                <label>Site / Project</label>
+                <select id="searchSite" onchange="resetHistoryPageAndRender()" style="margin-bottom:0;">
+                    <option value="">— Show All Sites —</option>
+                </select>
+            </div>
+            <div>
+                <label>Supervisor</label>
+                <select id="searchSupervisor" onchange="resetHistoryPageAndRender()" style="margin-bottom:0;">
+                    <option value="">— Show All Supervisors —</option>
+                </select>
+            </div>
+        </div>
+
+        <div style="display:flex;gap:8px;margin-bottom:12px;">
+            <button class="btn-blue btn-sm" onclick="loadHistory()" style="flex:1;">🔄 Refresh</button>
+            <button class="btn-gray btn-sm" onclick="clearHistoryFilter()" style="flex:1;">❌ Clear Filter</button>
+        </div>
+        
         <div id="historyCount" style="font-size:12px;color:var(--muted);text-align:center;margin-bottom:8px;"></div>
-        <div id="historyList"><p style="color:#aaa;text-align:center;padding:16px;">&#8987; Loading...</p></div>
+        <div id="historyList"><p style="color:#aaa;text-align:center;padding:16px;">⏳ Loading...</p></div>
+        
+        <div id="historyPagination" style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;border-top:1px solid var(--border);padding-top:12px;">
+            <button id="btnPrevPage" class="btn-blue btn-sm" style="width:auto;margin:0;" onclick="changeHistoryPage(-1)">◀ Previous</button>
+            <span id="historyPageIndicator" style="font-size:12.5px;font-weight:600;color:var(--text);">Page 1 of 1</span>
+            <button id="btnNextPage" class="btn-blue btn-sm" style="width:auto;margin:0;" onclick="changeHistoryPage(1)">Next ▶</button>
+        </div>
     </div>
 </div>
 
@@ -1826,6 +2202,28 @@ export default function Page() {
      ADMIN TAB
 ═══════════════════════════════════════════════════════════════ -->
 <div class="tab-page" id="tabAdmin" style="display:none;">
+
+    <!-- Analytics Dashboard -->
+    <div class="card" style="margin-bottom:12px;">
+        <div class="section-title">📊 Admin Analytics Dashboard</div>
+        <div class="dash-grid" style="grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 10px; margin-bottom: 12px;">
+            <div class="dash-stat" style="padding: 12px 8px;">
+                <div class="num" id="adminWorkforceToday" style="font-size: 24px;">0</div>
+                <div class="lbl">Workforce Today</div>
+            </div>
+            <div class="dash-stat" style="padding: 12px 8px;">
+                <div class="num" id="adminActiveSite" style="font-size: 14px; word-break: break-all; height: 32px; display: flex; align-items: center; justify-content: center; font-weight:700;">—</div>
+                <div class="lbl">Most Active Site</div>
+            </div>
+            <div class="dash-stat" style="padding: 12px 8px;">
+                <div class="num" id="adminProjectRatio" style="font-size: 24px;">0/0</div>
+                <div class="lbl">Active Projects</div>
+            </div>
+        </div>
+        <button class="btn-green" onclick="exportMasterLogCSV()" style="margin-top: 4px; display: flex; align-items: center; justify-content: center; gap: 8px; font-size:13px; padding: 10px 14px;">
+            📥 Export Master Log (CSV)
+        </button>
+    </div>
 
     <!-- Pending edit requests -->
     <div class="card" style="margin-bottom:12px;">
