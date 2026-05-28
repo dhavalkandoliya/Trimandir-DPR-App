@@ -81,6 +81,18 @@ export default function Page() {
             return INTERIOR_KW.some(k => check.includes(k)) ? 'Interior' : 'Civil';
         }
 
+        function getSiteDisplayName(siteName) {
+            if (!siteName) return '—';
+            const currentProj = _projects.find(p => String(p.project_name).trim().toLowerCase() === String(siteName).trim().toLowerCase());
+            if (currentProj && currentProj.parent_id && String(currentProj.parent_id).trim() !== '') {
+                const parentProj = _projects.find(p => String(p.id) === String(currentProj.parent_id));
+                if (parentProj) {
+                    return `${parentProj.project_name} ➔ ${currentProj.project_name}`;
+                }
+            }
+            return siteName;
+        }
+
         /* ═══════════════════════════════════════════════════════════
            API HELPERS
         ═══════════════════════════════════════════════════════════ */
@@ -424,27 +436,28 @@ export default function Page() {
                 });
                 return `<div class="report-section-title">🔨 ${title}</div>` +
                     Object.entries(grouped).map(([main, rows]) => {
-                        const innerRowsHtml = rows.map(r => {
+                        const innerRowsHtml = rows.map((r, rIdx) => {
                             const isSub = r.sub_activity && r.sub_activity.trim() && r.sub_activity !== main;
                             const label = isSub ? `↳ ${r.sub_activity}` : r.main_activity || r.activity || main;
                             const totalVal = (Number(r.skilled) || 0) + (Number(r.unskilled) || 0);
+                            const borderVal = rIdx === rows.length - 1 ? 'none' : '1.5px solid #cbd5e1';
                             
                             return `
-                            <div style="padding: 6px 0; border-bottom: 1px dashed #f1f5f9; font-size: 13px;">
-                                <div style="font-weight: 600; color: #334155;">${label}</div>
-                                <div style="font-size: 12px; color: var(--muted); margin-top: 2px;">
-                                    Skilled: <b>${r.skilled}</b> &nbsp;|&nbsp; Unskilled: <b>${r.unskilled}</b> &nbsp;|&nbsp; Total: <b>${totalVal}</b>
+                            <div style="padding: 10px 0; border-bottom: ${borderVal}; font-size: 13px; line-height: 1.6;">
+                                <div style="font-weight: 700; color: #1e293b; font-size: 13px;">${label}</div>
+                                <div style="font-size: 12px; color: #475569; margin-top: 4px;">
+                                    Skilled: <b>${r.skilled}</b> &nbsp;·&nbsp; Unskilled: <b>${r.unskilled}</b> &nbsp;·&nbsp; Total: <b>${totalVal}</b>
                                 </div>
-                                ${r.note ? `<div style="color: #64748b; font-size: 11px; margin-top: 3px; font-style: italic;">📌 ${r.note}</div>` : ''}
+                                ${r.note ? `<div style="color: #475569; font-size: 11.5px; margin-top: 6px; font-style: italic; background: #f8fafc; padding: 6px 8px; border-radius: 4px; border-left: 2.5px solid #cbd5e1;">📌 ${r.note}</div>` : ''}
                             </div>`;
                         }).join('');
 
                         return `
-                        <div class="report-activity" style="margin-bottom: 12px; padding: 12px; border-left: 4px solid var(--accent); background: #fffbf5; border-radius: 0 8px 8px 0; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
-                            <div style="font-weight: 800; font-size: 14px; color: var(--primary); margin-bottom: 8px; border-bottom: 1.5px solid #fed7aa; padding-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;">
+                        <div class="report-activity" style="margin-bottom: 14px; padding: 16px; border-left: 5px solid var(--primary); background: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                            <div style="font-weight: 800; font-size: 14px; color: var(--primary); margin-bottom: 12px; border-bottom: 2px solid #e2e8f0; padding-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">
                                 📦 ${main}
                             </div>
-                            <div style="display: flex; flex-direction: column; gap: 4px;">
+                            <div style="display: flex; flex-direction: column;">
                                 ${innerRowsHtml}
                             </div>
                         </div>`;
@@ -455,7 +468,7 @@ export default function Page() {
 
             document.getElementById('rdate').innerHTML =
                 `<b>📅 Date :</b> ${formatDate(dateVal)}<br>
-                 <b>📍 Site :</b> ${siteVal}<br>
+                 <b>📍 Site :</b> ${getSiteDisplayName(siteVal)}<br>
                  <b>👤 Filled by :</b> ${prepBy}${editedBy ? ` (Edited by: ${editedBy})` : ''}`;
             document.getElementById('rcivil').innerHTML    = sectionHtml;
             document.getElementById('rmanpower').innerHTML = `<div class="report-total">👷 Total Manpower : ${total}</div>`;
@@ -639,31 +652,32 @@ export default function Page() {
                     grouped[mainName].push(a);
                 });
 
-                return `<div style="font-weight:700;font-size:14px;color:var(--primary);margin:14px 0 8px;">🔨 ${title}</div>` +
+                return `<div style="font-weight:700;font-size:14px;color:var(--primary);margin:18px 0 10px;">🔨 ${title}</div>` +
                     Object.entries(grouped).map(([main, rows]) => {
-                        const innerRowsHtml = rows.map(r => {
+                        const innerRowsHtml = rows.map((r, rIdx) => {
                             const isSub = r.activity && r.activity.trim() && r.activity !== main;
                             const label = isSub ? `↳ ${r.activity}` : r.main_activity || r.activity || main;
                             const sk = Number(r.skilled) || 0;
                             const un = Number(r.unskilled) || 0;
                             const totalVal = sk + un;
+                            const borderVal = rIdx === rows.length - 1 ? 'none' : '1.5px solid #cbd5e1';
 
                             return `
-                            <div style="padding: 6px 0; border-bottom: 1px dashed #f1f5f9; font-size: 13px;">
-                                <div style="font-weight: 600; color: #334155;">${label}</div>
-                                <div style="font-size: 12px; color: var(--muted); margin-top: 2px;">
-                                    Skilled: <b>${sk}</b> &nbsp;|&nbsp; Unskilled: <b>${un}</b> &nbsp;|&nbsp; Total: <b>${totalVal}</b>
+                            <div style="padding: 10px 0; border-bottom: ${borderVal}; font-size: 13px; line-height: 1.6;">
+                                <div style="font-weight: 700; color: #1e293b; font-size: 13px;">${label}</div>
+                                <div style="font-size: 12px; color: #475569; margin-top: 4px;">
+                                    Skilled: <b>${sk}</b> &nbsp;·&nbsp; Unskilled: <b>${un}</b> &nbsp;·&nbsp; Total: <b>${totalVal}</b>
                                 </div>
-                                ${r.note ? `<div style="color: #64748b; font-size: 11px; margin-top: 3px; font-style: italic;">📌 ${r.note}</div>` : ''}
+                                ${r.note ? `<div style="color: #475569; font-size: 11.5px; margin-top: 6px; font-style: italic; background: #f8fafc; padding: 6px 8px; border-radius: 4px; border-left: 2.5px solid #cbd5e1;">📌 ${r.note}</div>` : ''}
                             </div>`;
                         }).join('');
 
                         return `
-                        <div style="border-left:4px solid #ff9800;background:#fffbf5;padding:12px;margin-bottom:12px;border-radius: 0 8px 8px 0;box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
-                            <div style="font-weight: 800; font-size: 14px; color: var(--primary); margin-bottom: 8px; border-bottom: 1.5px solid #fed7aa; padding-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;">
+                        <div style="border-left:5px solid var(--primary);background:#ffffff;padding:16px;margin-bottom:14px;border-radius: 8px;border: 1px solid #e2e8f0;box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                            <div style="font-weight: 800; font-size: 14px; color: var(--primary); margin-bottom: 12px; border-bottom: 2px solid #e2e8f0; padding-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">
                                 📦 ${main}
                             </div>
-                            <div style="display: flex; flex-direction: column; gap: 4px;">
+                            <div style="display: flex; flex-direction: column;">
                                 ${innerRowsHtml}
                             </div>
                         </div>`;
@@ -690,7 +704,7 @@ export default function Page() {
             document.getElementById('dprModalBody').innerHTML = `
                 <div class="report-meta">
                     <b>📅 Date :</b> ${formatDate(d) || '—'}<br>
-                    <b>📍 Site :</b> ${item.site || '—'}<br>
+                    <b>📍 Site :</b> ${getSiteDisplayName(item.site)}<br>
                     <b>👤 Filled by :</b> ${byLine}<br>
                     <b>👷 Total :</b> ${item.total || 0} workers
                 </div>
@@ -1294,8 +1308,8 @@ export default function Page() {
             const oldMaxW = rep.style.maxWidth;
             const oldShadow = rep.style.boxShadow;
             
-            rep.style.width = '800px';
-            rep.style.maxWidth = '800px';
+            rep.style.width = '480px';
+            rep.style.maxWidth = '480px';
             rep.style.color = '#000000';
             rep.style.boxShadow = 'none';
             
@@ -1344,8 +1358,8 @@ export default function Page() {
             const oldMaxW = rep.style.maxWidth;
             const oldShadow = rep.style.boxShadow;
             
-            rep.style.width = '800px';
-            rep.style.maxWidth = '800px';
+            rep.style.width = '480px';
+            rep.style.maxWidth = '480px';
             rep.style.color = '#000000';
             rep.style.boxShadow = 'none';
             
