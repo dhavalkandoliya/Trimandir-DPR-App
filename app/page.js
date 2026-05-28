@@ -10,6 +10,13 @@ export default function Page() {
             const s2 = document.createElement('script');
             s2.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
             document.head.appendChild(s2);
+
+            const handleDocClick = () => {
+                if (typeof window !== 'undefined' && window.closeAllHistoryDropdowns) {
+                    window.closeAllHistoryDropdowns();
+                }
+            };
+            document.addEventListener('click', handleDocClick);
         }
 
         /* ═══════════════════════════════════════════════════════════
@@ -556,6 +563,193 @@ export default function Page() {
             if (el) el.textContent = `📊 ${_history.length} total record${_history.length !== 1 ? 's' : ''} loaded`;
         }
 
+        function toggleHistoryDropdown(event, idx) {
+            event.stopPropagation();
+            const dropdown = document.getElementById(`dropdown_${idx}`);
+            const wasShowing = dropdown ? dropdown.classList.contains('show') : false;
+            
+            closeAllHistoryDropdowns();
+            
+            if (dropdown && !wasShowing) {
+                dropdown.classList.add('show');
+            }
+        }
+        
+        function closeAllHistoryDropdowns() {
+            document.querySelectorAll('.history-dropdown').forEach(d => {
+                d.classList.remove('show');
+            });
+        }
+
+        function populateReportElementForRecord(item) {
+            const civilArr    = Array.isArray(item.civilActivities)    ? item.civilActivities    : [];
+            const interiorArr = Array.isArray(item.interiorActivities) ? item.interiorActivities : [];
+            const detailRows  = Array.isArray(item.details) ? item.details : [];
+
+            let bodyHtml = '';
+
+            function renderActArr(title, arr) {
+                if (!arr.length) return '';
+                const grouped = {};
+                arr.forEach(a => {
+                    const mainName = a.main_activity || a.activity || 'General';
+                    if (!grouped[mainName]) grouped[mainName] = [];
+                    grouped[mainName].push(a);
+                });
+
+                return `<div class="report-section-title">🔨 ${title}</div>` +
+                    Object.entries(grouped).map(([main, rows]) => {
+                        const innerRowsHtml = rows.map((r, rIdx) => {
+                            let childName = (r.activity || r.sub_activity || '').trim();
+                            childName = childName.replace(/^[↳\s\-➔]+/, '').trim();
+                            const mainClean = String(main).trim().toLowerCase();
+                            if (childName.toLowerCase().indexOf(mainClean) === 0) {
+                                childName = childName.substring(mainClean.length).replace(/^[↳\s\-➔]+/, '').trim();
+                            }
+                            
+                            const isSub = childName !== '' && childName.toLowerCase() !== mainClean;
+                            const sk = Number(r.skilled) || 0;
+                            const un = Number(r.unskilled) || 0;
+                            const totalVal = sk + un;
+                            const borderVal = rIdx === rows.length - 1 ? 'none' : '1.5px solid #cbd5e1';
+
+                            // Visual properties based on isSub
+                            const paddingLeft = isSub ? '16px' : '0px';
+                            const fontSize = '13.5px';
+                            const titleColor = isSub ? '#475569' : '#1e293b';
+                            const fontWeight = isSub ? '500' : '700';
+                            const prefix = isSub ? '<span style="color:var(--primary);margin-right:4px;">↳</span>' : '';
+
+                            return `
+                            <div style="padding: 10px 0; padding-left: ${paddingLeft}; border-bottom: ${borderVal}; line-height: 1.6;">
+                                <div style="font-weight: ${fontWeight}; color: ${titleColor}; font-size: ${fontSize};">${prefix}${childName || main}</div>
+                                <div style="font-size: 12px; color: #475569; margin-top: 4px;">
+                                    Skilled: <b>${sk}</b> &nbsp;·&nbsp; Unskilled: <b>${un}</b> &nbsp;·&nbsp; Total: <b>${totalVal}</b>
+                                </div>
+                                ${r.note ? `<div style="color: #475569; font-size: 11.5px; margin-top: 6px; font-style: italic; background: #f8fafc; padding: 6px 8px; border-radius: 4px; border-left: 2.5px solid #cbd5e1;">📌 ${r.note}</div>` : ''}
+                            </div>`;
+                        }).join('');
+
+                        return `
+                        <div class="report-activity" style="margin-bottom: 14px; padding: 16px; border-left: 5px solid var(--primary); background: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                            <div style="font-weight: 800; font-size: 16px; color: #1e293b; margin-bottom: 12px; border-bottom: 2px solid #e2e8f0; padding-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">
+                                📦 ${main}
+                            </div>
+                            <div style="display: flex; flex-direction: column;">
+                                ${innerRowsHtml}
+                            </div>
+                        </div>`;
+                    }).join('');
+            }
+
+            if (civilArr.length || interiorArr.length) {
+                bodyHtml = renderActArr('Civil Work', civilArr) + renderActArr('Interior Work', interiorArr);
+            } else if (detailRows.length) {
+                const civilDet    = detailRows.filter(r => (r.section || 'Civil') !== 'Interior');
+                const interiorDet = detailRows.filter(r => r.section === 'Interior');
+                const toActArr    = rows => rows.map(r => ({ activity: r.activity || r.main_activity, skilled: r.skilled, unskilled: r.unskilled, note: r.note }));
+                bodyHtml = renderActArr('Civil Work', toActArr(civilDet)) + renderActArr('Interior Work', toActArr(interiorDet));
+            } else {
+                bodyHtml = '<p style="color:var(--muted);text-align:center;padding:20px;">No activity detail available for this record.</p>';
+            }
+
+            const d      = toYMD(item.date);
+            const byLine = item.editedBy && item.editedBy !== item.by
+                ? `${item.by} (Edited by: ${item.editedBy})`
+                : (item.by || '—');
+
+            const rep = document.getElementById('report');
+            rep.innerHTML = `
+                <h3>DPR &mdash; MAN POWER REPORT</h3>
+                <div class="report-meta">
+                    <b>📅 Date :</b> ${formatDate(d) || '—'}<br>
+                    <b>📍 Site :</b> ${getSiteDisplayName(item.site)}<br>
+                    <b>👤 Filled by :</b> ${byLine}<br>
+                    <b>👷 Total :</b> ${item.total || 0} workers
+                </div>
+                <div>${bodyHtml}</div>
+                <div class="report-total" style="margin-top:14px;">👷 Total Manpower : ${item.total || 0}</div>
+            `;
+        }
+
+        function downloadHistoryDPR(i, type) {
+            const item = _history[i];
+            if (!item) return;
+
+            const rep = document.getElementById('report');
+            const wasHidden = rep.style.display === 'none';
+            const oldHtml = rep.innerHTML;
+
+            populateReportElementForRecord(item);
+            rep.style.display = 'block';
+
+            const oldWidth = rep.style.width;
+            const oldColor = rep.style.color;
+            const oldMaxW = rep.style.maxWidth;
+            const oldShadow = rep.style.boxShadow;
+
+            rep.style.width = '480px';
+            rep.style.maxWidth = '480px';
+            rep.style.color = '#000000';
+            rep.style.boxShadow = 'none';
+
+            const allItems = rep.querySelectorAll('.report-activity, .report-meta, .report-total');
+            allItems.forEach(el => {
+                el.style.pageBreakInside = 'avoid';
+                el.style.breakInside = 'avoid';
+            });
+
+            const cleanSite = String(item.site || 'Site').replace(/[^a-zA-Z0-9_\-]/g, '_');
+            const cleanDate = toYMD(item.date);
+            const baseName = `DPR_History_${cleanSite}_${cleanDate}`;
+
+            showToast(`⏳ Generating ${type === 'pdf' ? 'PDF' : 'Image'}...`);
+
+            html2canvas(rep, {
+                scale: 3,
+                devicePixelRatio: 3,
+                useCORS: true,
+                allowTaint: true,
+                backgroundColor: '#ffffff',
+                logging: false,
+                scrollX: 0,
+                scrollY: -window.scrollY
+            }).then(c => {
+                rep.style.width = oldWidth;
+                rep.style.maxWidth = oldMaxW;
+                rep.style.color = oldColor;
+                rep.style.boxShadow = oldShadow;
+                rep.innerHTML = oldHtml;
+                if (wasHidden) rep.style.display = 'none';
+
+                if (type === 'pdf') {
+                    const { jsPDF } = window.jspdf;
+                    const pdf = new jsPDF('p', 'mm', 'a4');
+                    const pdfWidth = pdf.internal.pageSize.getWidth() - 20;
+                    const imgWidth = pdfWidth;
+                    const imgHeight = c.height * imgWidth / c.width;
+
+                    pdf.addImage(c.toDataURL('image/png'), 'PNG', 10, 10, imgWidth, imgHeight);
+                    pdf.save(`${baseName}.pdf`);
+                    showToast('📄 PDF Downloaded!');
+                } else {
+                    const a = document.createElement('a');
+                    a.download = `${baseName}.png`;
+                    a.href = c.toDataURL('image/png');
+                    a.click();
+                    showToast('📷 Image Downloaded!');
+                }
+            }).catch(err => {
+                rep.style.width = oldWidth;
+                rep.style.maxWidth = oldMaxW;
+                rep.style.color = oldColor;
+                rep.style.boxShadow = oldShadow;
+                rep.innerHTML = oldHtml;
+                if (wasHidden) rep.style.display = 'none';
+                showToast(`⚠️ ${type === 'pdf' ? 'PDF' : 'Image'} generation failed`);
+            });
+        }
+
         function renderHistory() {
             // No default date — empty sDate means show ALL records
             const sdEl  = document.getElementById('searchDate');
@@ -596,17 +790,19 @@ export default function Page() {
                 const granted  = item.editPermission === 'granted';
                 const pending  = item.editPermission === 'pending';
 
-                let editBtn = '';
-                if (isAdmin || (isOwn && within15) || (isOwn && granted))
-                    editBtn = `<button class="btn-blue btn-sm" onclick="editDPR(${realIdx})" style="width:auto;padding:6px 10px;">✏️ Edit</button>`;
-                else if (isOwn && !within15 && !granted && !pending)
-                    editBtn = `<button class="btn-gray btn-sm" onclick="requestEditDPR(${realIdx})" style="width:auto;padding:6px 10px;">🔑 Request Edit</button>`;
-                else if (isOwn && pending)
-                    editBtn = `<button class="btn-sm" disabled style="width:auto;padding:6px 10px;opacity:.5;cursor:default;background:#ccc;border-radius:6px;font-size:12px;">⏳ Pending...</button>`;
-
-                const delBtn = isAdmin
-                    ? `<button class="btn-red btn-sm" onclick="deleteDPR(${realIdx})" style="width:auto;padding:6px 10px;">🗑️</button>`
-                    : '';
+                // Calculate dynamic labels and actions for the dropdown edit item:
+                let editActionLabel = '✏️ Edit';
+                let editActionOnClick = `editDPR(${realIdx})`;
+                if (!isAdmin && isOwn && !within15 && !granted && !pending) {
+                    editActionLabel = '🔑 Request Edit';
+                    editActionOnClick = `requestEditDPR(${realIdx})`;
+                } else if (!isAdmin && isOwn && pending) {
+                    editActionLabel = '⏳ Edit Pending';
+                    editActionOnClick = `showToast("⏳ Edit request is pending Admin approval")`;
+                } else if (!isAdmin && !isOwn) {
+                    editActionLabel = '✏️ Edit (Disabled)';
+                    editActionOnClick = `showToast("❌ You can only edit your own DPRs")`;
+                }
 
                 // Count activities from DPR_Detail rows
                 const detCount = Array.isArray(item.details) ? item.details.length : 0;
@@ -616,19 +812,30 @@ export default function Page() {
                     ? `${civCount} civil · ${intCount} interior`
                     : (detCount > 0 ? `${detCount} activit${detCount > 1 ? 'ies' : 'y'}` : '');
 
+                // Add 3-dot menu and dropdown menu overlay
+                const dropdownHtml = `
+                <button class="history-options-btn" onclick="toggleHistoryDropdown(event, ${realIdx})">&#8942;</button>
+                <div class="history-dropdown" id="dropdown_${realIdx}">
+                    <button class="history-dropdown-item" onclick="closeAllHistoryDropdowns(); ${editActionOnClick}">${editActionLabel}</button>
+                    <button class="history-dropdown-item delete-item" onclick="closeAllHistoryDropdowns(); deleteDPR(${realIdx})">❌ Delete</button>
+                    <button class="history-dropdown-item" onclick="closeAllHistoryDropdowns(); downloadHistoryDPR(${realIdx}, 'image')">📸 Download Image</button>
+                    <button class="history-dropdown-item" onclick="closeAllHistoryDropdowns(); downloadHistoryDPR(${realIdx}, 'pdf')">📄 Download PDF</button>
+                </div>
+                `;
+
                 return `
                 <div class="history-item">
-                    <div style="font-size:14px;font-weight:700;">
+                    ${dropdownHtml}
+                    <div style="font-size:14px;font-weight:700;padding-right:30px;">
                         📅 ${formatDate(d) || '—'}
                         <span style="font-size:12px;font-weight:400;color:var(--muted);margin-left:6px;">${byLine}</span>
                     </div>
-                    <div style="font-size:12px;color:var(--muted);margin-top:3px;">
+                    <div style="font-size:12px;color:var(--muted);margin-top:3px;padding-right:30px;">
                         📍 ${item.site || '—'} &nbsp;·&nbsp; 👷 <b>${item.total || 0}</b> workers
                         ${actHint ? `&nbsp;·&nbsp; 📋 ${actHint}` : ''}
                     </div>
                     <div class="hbtn-group">
                         <button class="btn-blue btn-sm" onclick="openDPR(${realIdx})" style="width:auto;padding:6px 10px;">📂 View</button>
-                        ${editBtn}${delBtn}
                     </div>
                 </div>`;
             }).join('');
@@ -1462,6 +1669,7 @@ export default function Page() {
             downloadImage, downloadPDF, copyWhats,
             runDataCleanup,
             toYMD, formatDate, sameDate, showToast,
+            toggleHistoryDropdown, closeAllHistoryDropdowns, downloadHistoryDPR, populateReportElementForRecord,
         });
 
         setTimeout(() => renderLoginChips(), 200);

@@ -808,3 +808,84 @@ footer {
   .card { padding: 14px 12px; }
   .modal-box { max-height: 94vh; }
 }
+
+/* ── DROPDOWN MENU FOR HISTORY ITEMS ── */
+.history-item {
+  position: relative;
+}
+
+.history-options-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: none !important;
+  border: none !important;
+  font-size: 18px !important;
+  color: var(--muted) !important;
+  cursor: pointer !important;
+  width: 32px !important;
+  height: 32px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 50% !important;
+  transition: background 0.2s, color 0.2s !important;
+  z-index: 5;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.history-options-btn:hover {
+  background: #f1f5f9 !important;
+  color: var(--text) !important;
+}
+
+.history-dropdown {
+  position: absolute;
+  top: 44px;
+  right: 10px;
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  display: none;
+  flex-direction: column;
+  min-width: 170px;
+  z-index: 100;
+  overflow: hidden;
+}
+
+.history-dropdown.show {
+  display: flex;
+}
+
+.history-dropdown-item {
+  background: none !important;
+  border: none !important;
+  padding: 10px 14px !important;
+  font-size: 13px !important;
+  color: var(--text) !important;
+  text-align: left !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  transition: background 0.2s !important;
+  width: 100% !important;
+  margin: 0 !important;
+  border-radius: 0 !important;
+  font-weight: 500 !important;
+}
+
+.history-dropdown-item:hover {
+  background: #f8fafc !important;
+}
+
+.history-dropdown-item.delete-item {
+  color: #e53e3e !important;
+}
+
+.history-dropdown-item.delete-item:hover {
+  background: #fff5f5 !important;
+}
+
