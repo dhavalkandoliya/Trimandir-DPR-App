@@ -116,6 +116,11 @@ export default function Page() {
             } catch (e) { showToast('⚠️ Could not reach server'); }
             renderLoginChips();
             populateSiteDropdown();
+
+            // Set default date filter to today
+            const sd = document.getElementById('searchDate');
+            if (sd) sd.value = getLocalTodayYMD();
+
             resetForm();
             loadHistory();
         }
@@ -217,6 +222,38 @@ export default function Page() {
         /* ═══════════════════════════════════════════════════════════
            SITE DROPDOWN — with sub-project indentation
         ═══════════════════════════════════════════════════════════ */
+        function getLocalTodayYMD() {
+            const d = new Date();
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${y}-${m}-${day}`;
+        }
+
+        function populateSearchSiteDropdown() {
+            const sel = document.getElementById('searchSite');
+            if (!sel) return;
+            const prev = sel.value;
+            const tops = _projects.filter(p => (!p.parent_id || String(p.parent_id).trim() === ''));
+            let html = '<option value="">— Show All Sites —</option>';
+            if (tops.length) {
+                html += tops.map(proj => {
+                    const subs = _projects.filter(p => String(p.parent_id) === String(proj.id));
+                    const suffix = proj.status === 'inactive' ? ' (Inactive)' : '';
+                    let inner = `<option value="${esc(proj.project_name)}">${proj.project_name}${suffix}</option>`;
+                    if (subs.length) {
+                        inner += subs.map(s => {
+                            const sSuffix = s.status === 'inactive' ? ' (Inactive)' : '';
+                            return `<option value="${esc(s.project_name)}">\u00a0\u00a0↳ ${s.project_name}${sSuffix}</option>`;
+                        }).join('');
+                    }
+                    return inner;
+                }).join('');
+            }
+            sel.innerHTML = html;
+            if (prev && Array.from(sel.options).find(o => o.value === prev)) sel.value = prev;
+        }
+
         function populateSiteDropdown() {
             const sel  = document.getElementById('site');
             if (!sel) return;
@@ -231,6 +268,8 @@ export default function Page() {
                 : '<option value="">No active projects</option>';
             sel.innerHTML = html;
             if (prev && Array.from(sel.options).find(o => o.value === prev)) sel.value = prev;
+
+            populateSearchSiteDropdown();
         }
 
         /* ═══════════════════════════════════════════════════════════
@@ -553,7 +592,7 @@ export default function Page() {
         }
 
         function clearHistoryFilter() {
-            const sd = document.getElementById('searchDate'); if (sd) sd.value = '';
+            const sd = document.getElementById('searchDate'); if (sd) sd.value = getLocalTodayYMD();
             const ss = document.getElementById('searchSite'); if (ss) ss.value = '';
             renderHistory();
         }
@@ -1190,7 +1229,9 @@ export default function Page() {
         <label>Filter by Date <span style="font-weight:400;font-size:10px;text-transform:none;">(leave blank = show all)</span></label>
         <input type="date" id="searchDate" onchange="renderHistory()">
         <label>Search by Site</label>
-        <input type="text" id="searchSite" placeholder="Type site name to filter..." oninput="renderHistory()">
+        <select id="searchSite" onchange="renderHistory()">
+            <option value="">— Show All Sites —</option>
+        </select>
         <div style="display:flex;gap:8px;margin-bottom:12px;">
             <button class="btn-blue btn-sm" onclick="loadHistory()" style="flex:1;">&#128260; Refresh</button>
             <button class="btn-gray btn-sm" onclick="clearHistoryFilter()" style="flex:1;">&#10006; Clear Filter</button>
