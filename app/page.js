@@ -726,7 +726,7 @@ export default function Page() {
                     scale: 3,
                     devicePixelRatio: 3,
                     useCORS: true,
-                    allowTaint: true,
+                    allowTaint: false,
                     backgroundColor: '#ffffff',
                     logging: false,
                     scrollX: 0,
@@ -734,7 +734,7 @@ export default function Page() {
                 }).then(c => {
                     document.body.removeChild(tempContainer);
 
-                    const dataUrl = c.toDataURL('image/png');
+                    const dataUrl = c.toDataURL('image/jpeg', 0.95);
                     if (!dataUrl || dataUrl === 'data:,' || dataUrl.length < 100) {
                         showToast('⚠️ Generated image was empty. Try again.');
                         return;
@@ -747,12 +747,12 @@ export default function Page() {
                         const imgWidth = pdfWidth;
                         const imgHeight = c.height * imgWidth / c.width;
 
-                        pdf.addImage(dataUrl, 'PNG', 10, 10, imgWidth, imgHeight);
+                        pdf.addImage(dataUrl, 'JPEG', 10, 10, imgWidth, imgHeight);
                         pdf.save(`${baseName}.pdf`);
                         showToast('📄 PDF Downloaded!');
                     } else {
                         const a = document.createElement('a');
-                        a.download = `${baseName}.png`;
+                        a.download = `${baseName}.jpg`;
                         a.href = dataUrl;
                         a.click();
                         showToast('📷 Image Downloaded!');
@@ -1573,7 +1573,7 @@ export default function Page() {
                 scale: 3,
                 devicePixelRatio: 3,
                 useCORS: true,
-                allowTaint: true,
+                allowTaint: false,
                 backgroundColor: '#ffffff',
                 logging: false,
                 scrollX: 0,
@@ -1584,9 +1584,10 @@ export default function Page() {
                 rep.style.color = oldColor;
                 rep.style.boxShadow = oldShadow;
                 
+                const dataUrl = c.toDataURL('image/jpeg', 0.95);
                 const a = document.createElement('a');
-                a.download = `DPR_${document.getElementById('date').value}.png`;
-                a.href = c.toDataURL('image/png');
+                a.download = `DPR_${document.getElementById('date').value}.jpg`;
+                a.href = dataUrl;
                 a.click();
                 showToast('📷 Image Downloaded!');
             }).catch(err => {
@@ -1623,7 +1624,7 @@ export default function Page() {
                 scale: 3,
                 devicePixelRatio: 3,
                 useCORS: true,
-                allowTaint: true,
+                allowTaint: false,
                 backgroundColor: '#ffffff',
                 logging: false,
                 scrollX: 0,
@@ -1634,13 +1635,14 @@ export default function Page() {
                 rep.style.color = oldColor;
                 rep.style.boxShadow = oldShadow;
                 
+                const dataUrl = c.toDataURL('image/jpeg', 0.95);
                 const { jsPDF } = window.jspdf;
                 const pdf = new jsPDF('p', 'mm', 'a4');
                 const pdfWidth = pdf.internal.pageSize.getWidth() - 20;
                 const imgWidth = pdfWidth;
                 const imgHeight = c.height * imgWidth / c.width;
                 
-                pdf.addImage(c.toDataURL('image/png'), 'PNG', 10, 10, imgWidth, imgHeight);
+                pdf.addImage(dataUrl, 'JPEG', 10, 10, imgWidth, imgHeight);
                 pdf.save(`DPR_${document.getElementById('date').value}.pdf`);
                 showToast('📄 PDF Downloaded!');
             }).catch(err => {
