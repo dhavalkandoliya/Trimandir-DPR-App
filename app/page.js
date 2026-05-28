@@ -437,14 +437,27 @@ export default function Page() {
                 return `<div class="report-section-title">🔨 ${title}</div>` +
                     Object.entries(grouped).map(([main, rows]) => {
                         const innerRowsHtml = rows.map((r, rIdx) => {
-                            const isSub = r.sub_activity && r.sub_activity.trim() && r.sub_activity !== main;
-                            const label = isSub ? `↳ ${r.sub_activity}` : r.main_activity || r.activity || main;
+                            let childName = (r.sub_activity || r.activity || '').trim();
+                            childName = childName.replace(/^[↳\s\-➔]+/, '').trim();
+                            const mainClean = String(main).trim().toLowerCase();
+                            if (childName.toLowerCase().indexOf(mainClean) === 0) {
+                                childName = childName.substring(mainClean.length).replace(/^[↳\s\-➔]+/, '').trim();
+                            }
+                            
+                            const isSub = childName !== '' && childName.toLowerCase() !== mainClean;
                             const totalVal = (Number(r.skilled) || 0) + (Number(r.unskilled) || 0);
                             const borderVal = rIdx === rows.length - 1 ? 'none' : '1.5px solid #cbd5e1';
                             
+                            // Visual properties based on isSub
+                            const paddingLeft = isSub ? '16px' : '0px';
+                            const fontSize = '13.5px';
+                            const titleColor = isSub ? '#475569' : '#1e293b';
+                            const fontWeight = isSub ? '500' : '700';
+                            const prefix = isSub ? '<span style="color:var(--primary);margin-right:4px;">↳</span>' : '';
+                            
                             return `
-                            <div style="padding: 10px 0; border-bottom: ${borderVal}; font-size: 13px; line-height: 1.6;">
-                                <div style="font-weight: 700; color: #1e293b; font-size: 13px;">${label}</div>
+                            <div style="padding: 10px 0; padding-left: ${paddingLeft}; border-bottom: ${borderVal}; line-height: 1.6;">
+                                <div style="font-weight: ${fontWeight}; color: ${titleColor}; font-size: ${fontSize};">${prefix}${childName || main}</div>
                                 <div style="font-size: 12px; color: #475569; margin-top: 4px;">
                                     Skilled: <b>${r.skilled}</b> &nbsp;·&nbsp; Unskilled: <b>${r.unskilled}</b> &nbsp;·&nbsp; Total: <b>${totalVal}</b>
                                 </div>
@@ -454,7 +467,7 @@ export default function Page() {
 
                         return `
                         <div class="report-activity" style="margin-bottom: 14px; padding: 16px; border-left: 5px solid var(--primary); background: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
-                            <div style="font-weight: 800; font-size: 14px; color: var(--primary); margin-bottom: 12px; border-bottom: 2px solid #e2e8f0; padding-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">
+                            <div style="font-weight: 800; font-size: 16px; color: #1e293b; margin-bottom: 12px; border-bottom: 2px solid #e2e8f0; padding-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">
                                 📦 ${main}
                             </div>
                             <div style="display: flex; flex-direction: column;">
@@ -655,16 +668,29 @@ export default function Page() {
                 return `<div style="font-weight:700;font-size:14px;color:var(--primary);margin:18px 0 10px;">🔨 ${title}</div>` +
                     Object.entries(grouped).map(([main, rows]) => {
                         const innerRowsHtml = rows.map((r, rIdx) => {
-                            const isSub = r.activity && r.activity.trim() && r.activity !== main;
-                            const label = isSub ? `↳ ${r.activity}` : r.main_activity || r.activity || main;
+                            let childName = (r.activity || '').trim();
+                            childName = childName.replace(/^[↳\s\-➔]+/, '').trim();
+                            const mainClean = String(main).trim().toLowerCase();
+                            if (childName.toLowerCase().indexOf(mainClean) === 0) {
+                                childName = childName.substring(mainClean.length).replace(/^[↳\s\-➔]+/, '').trim();
+                            }
+                            
+                            const isSub = childName !== '' && childName.toLowerCase() !== mainClean;
                             const sk = Number(r.skilled) || 0;
                             const un = Number(r.unskilled) || 0;
                             const totalVal = sk + un;
                             const borderVal = rIdx === rows.length - 1 ? 'none' : '1.5px solid #cbd5e1';
 
+                            // Visual properties based on isSub
+                            const paddingLeft = isSub ? '16px' : '0px';
+                            const fontSize = '13.5px';
+                            const titleColor = isSub ? '#475569' : '#1e293b';
+                            const fontWeight = isSub ? '500' : '700';
+                            const prefix = isSub ? '<span style="color:var(--primary);margin-right:4px;">↳</span>' : '';
+
                             return `
-                            <div style="padding: 10px 0; border-bottom: ${borderVal}; font-size: 13px; line-height: 1.6;">
-                                <div style="font-weight: 700; color: #1e293b; font-size: 13px;">${label}</div>
+                            <div style="padding: 10px 0; padding-left: ${paddingLeft}; border-bottom: ${borderVal}; line-height: 1.6;">
+                                <div style="font-weight: ${fontWeight}; color: ${titleColor}; font-size: ${fontSize};">${prefix}${childName || main}</div>
                                 <div style="font-size: 12px; color: #475569; margin-top: 4px;">
                                     Skilled: <b>${sk}</b> &nbsp;·&nbsp; Unskilled: <b>${un}</b> &nbsp;·&nbsp; Total: <b>${totalVal}</b>
                                 </div>
@@ -674,7 +700,7 @@ export default function Page() {
 
                         return `
                         <div style="border-left:5px solid var(--primary);background:#ffffff;padding:16px;margin-bottom:14px;border-radius: 8px;border: 1px solid #e2e8f0;box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
-                            <div style="font-weight: 800; font-size: 14px; color: var(--primary); margin-bottom: 12px; border-bottom: 2px solid #e2e8f0; padding-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">
+                            <div style="font-weight: 800; font-size: 16px; color: #1e293b; margin-bottom: 12px; border-bottom: 2px solid #e2e8f0; padding-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">
                                 📦 ${main}
                             </div>
                             <div style="display: flex; flex-direction: column;">
