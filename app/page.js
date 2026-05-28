@@ -1074,6 +1074,12 @@ export default function Page() {
         /* ═══════════════════════════════════════════════════════════
            DASHBOARD
         ═══════════════════════════════════════════════════════════ */
+        function toggleDashboardAccordion(id) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.style.display = el.style.display === 'none' ? 'block' : 'none';
+        }
+
         function setPeriod(p, btn) {
             _dashPeriod = p;
             document.querySelectorAll('.period-tab').forEach(b => b.classList.remove('active'));
@@ -1105,45 +1111,129 @@ export default function Page() {
             document.getElementById('dAvgWorkers').textContent   = totalD ? Math.round(totalW / totalD) : 0;
             document.getElementById('dActiveSites').textContent  = [...new Set(data.map(i => i.site).filter(Boolean))].length;
 
-            const siteMap = {};
-            data.forEach(item => {
-                const site = item.site;
-                if (!siteMap[site]) {
-                    siteMap[site] = { total: 0, activities: {} };
-                }
-                siteMap[site].total += (Number(item.total) || 0);
+            // Map project name to project for lookup
+            const projMap = {};
+            _projects.forEach(p => { projMap[p.project_name] = p; });
+            const projById = {};
+            _projects.forEach(p => { projById[p.id] = p; });
 
+            // Structure:
+            // mainMap = {
+            //   [mainName]: {
+            //     total: 0,
+            //     hasSubs: false,
+            //     subs: {
+            //       [subName]: { total: 0, activities: { [actName]: total } }
+            //     }
+            //   }
+            // }
+            const mainMap = {};
+            
+            data.forEach(item => {
+                const siteName = item.site || 'Unknown';
+                const p = projMap[siteName];
+                let mainName = siteName;
+                let subName = '';
+                
+                if (p) {
+                    if (p.parent_id && projById[p.parent_id]) {
+                        mainName = projById[p.parent_id].project_name;
+                        subName = p.project_name;
+                    }
+                }
+                
+                if (!mainMap[mainName]) {
+                    mainMap[mainName] = { total: 0, hasSubs: false, subs: {} };
+                }
+                
+                mainMap[mainName].total += (Number(item.total) || 0);
+                
+                if (subName) {
+                    mainMap[mainName].hasSubs = true;
+                }
+                
+                if (!mainMap[mainName].subs[subName]) {
+                    mainMap[mainName].subs[subName] = { total: 0, activities: {} };
+                }
+                mainMap[mainName].subs[subName].total += (Number(item.total) || 0);
+                
                 const details = Array.isArray(item.details) ? item.details : [];
                 details.forEach(det => {
                     const actName = det.activity || 'Unknown';
                     const actTotal = (Number(det.total) || (Number(det.skilled) || 0) + (Number(det.unskilled) || 0));
-                    siteMap[site].activities[actName] = (siteMap[site].activities[actName] || 0) + actTotal;
+                    mainMap[mainName].subs[subName].activities[actName] = 
+                        (mainMap[mainName].subs[subName].activities[actName] || 0) + actTotal;
                 });
             });
 
-            const maxW = Math.max(...Object.values(siteMap).map(s => s.total), 1);
+            const maxW = Math.max(...Object.values(mainMap).map(m => m.total), 1);
+            let counter = 0;
             document.getElementById('siteBreakdown').innerHTML =
-                Object.entries(siteMap)
+                Object.entries(mainMap)
                     .sort((a, b) => b[1].total - a[1].total)
-                    .map(([site, siteData]) => {
-                        const w = siteData.total;
-                        const actEntries = Object.entries(siteData.activities)
-                            .sort((a, b) => b[1] - a[1])
-                            .map(([act, actW]) => `
-                            <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0 4px 18px;font-size:12px;color:var(--muted);border-bottom:1px dashed #f1f5f9;">
-                                <span>↳ ${act}</span>
-                                <span style="font-weight:600;">${actW}</span>
-                            </div>`).join('');
-
+                    .map(([mainName, mainData]) => {
+                        counter++;
+                        const mainId = `db_main_${counter}`;
+                        const w = mainData.total;
+                        
+                        let bodyHtml = '';
+                        if (mainData.hasSubs) {
+                            bodyHtml = Object.entries(mainData.subs)
+                                .sort((a, b) => b[1].total - a[1].total)
+                                .map(([subName, subData]) => {
+                                    counter++;
+                                    const subId = `db_sub_${counter}`;
+                                    const subW = subData.total;
+                                    const displayName = subName ? `↳ ${subName}` : `↳ General / Direct`;
+                                    
+                                    const actEntries = Object.entries(subData.activities)
+                                        .sort((a, b) => b[1] - a[1])
+                                        .map(([act, actW]) => `
+                                        <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0 4px 28px;font-size:12px;color:var(--muted);border-bottom:1px dashed #f1f5f9;">
+                                            <span>${act}</span>
+                                            <span style="font-weight:600;">${actW}</span>
+                                        </div>`).join('') || '<div style="font-size:11px;color:var(--muted);padding-left:28px;">No activity details.</div>';
+                                        
+                                    return `
+                                    <div style="margin-bottom:8px;border-bottom:1px solid #f1f5f9;padding-bottom:6px;">
+                                        <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;cursor:pointer;background:#f8fafc;border-radius:6px;transition:background 0.2s;"
+                                             onclick="toggleDashboardAccordion('${subId}')"
+                                             onmouseover="this.style.background='#f1f5f9'"
+                                             onmouseout="this.style.background='#f8fafc'">
+                                            <span style="font-size:13px;font-weight:600;color:var(--primary);">${displayName}</span>
+                                            <span style="font-size:12px;font-weight:700;color:var(--muted);">${subW}</span>
+                                        </div>
+                                        <div id="${subId}" style="display:none;margin-top:4px;">
+                                            ${actEntries}
+                                        </div>
+                                    </div>`;
+                                }).join('');
+                        } else {
+                            const subData = mainData.subs[''] || { activities: {} };
+                            bodyHtml = Object.entries(subData.activities)
+                                .sort((a, b) => b[1] - a[1])
+                                .map(([act, actW]) => `
+                                <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0 4px 18px;font-size:12px;color:var(--muted);border-bottom:1px dashed #f1f5f9;">
+                                    <span>↳ ${act}</span>
+                                    <span style="font-weight:600;">${actW}</span>
+                                </div>`).join('') || '<div style="font-size:11px;color:var(--muted);padding-left:18px;">No activity details.</div>';
+                        }
+                        
                         return `
-                        <div style="margin-bottom:16px;background:#ffffff;border:1px solid var(--border);border-radius:8px;padding:12px;box-shadow:0 1px 3px rgba(0,0,0,0.02);">
-                            <div class="site-row" style="margin-bottom:8px;border-bottom:1px solid #e2e8f0;padding-bottom:8px;background:transparent;border:none;padding:0;">
-                                <div style="font-size:14px;font-weight:700;flex:0 0 auto;max-width:55%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">📍 ${site}</div>
+                        <div style="margin-bottom:16px;background:#ffffff;border:1px solid var(--border);border-radius:8px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.02);">
+                            <div class="site-row" 
+                                 style="margin-bottom:0;background:transparent;border:none;padding:12px;cursor:pointer;transition:background 0.2s;"
+                                 onclick="toggleDashboardAccordion('${mainId}')"
+                                 onmouseover="this.parentElement.style.borderColor='var(--primary)'"
+                                 onmouseout="this.parentElement.style.borderColor='var(--border)'">
+                                <div style="font-size:14px;font-weight:700;flex:0 0 auto;max-width:55%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">📍 ${mainName}</div>
                                 <div class="bar-wrap"><div class="bar-fill" style="width:${Math.round(w / maxW * 100)}%"></div></div>
                                 <div class="site-total" style="font-weight:700;">${w}</div>
                             </div>
-                            <div class="activities-breakdown">
-                                ${actEntries || '<div style="font-size:11px;color:var(--muted);padding-left:18px;">No sub-activity details.</div>'}
+                            <div id="${mainId}" style="display:none;padding:0 12px 12px;border-top:1px solid #f1f5f9;background:#fafbfc;">
+                                <div style="margin-top:8px;">
+                                    ${bodyHtml}
+                                </div>
                             </div>
                         </div>`;
                     }).join('') ||
@@ -1156,24 +1246,104 @@ export default function Page() {
         function downloadImage() {
             const rep = document.getElementById('report');
             if (rep.style.display === 'none') { showToast('⚠️ Generate DPR first'); return; }
-            html2canvas(rep, { scale: 2 }).then(c => {
+            
+            const oldWidth = rep.style.width;
+            const oldColor = rep.style.color;
+            const oldMaxW = rep.style.maxWidth;
+            const oldShadow = rep.style.boxShadow;
+            
+            rep.style.width = '800px';
+            rep.style.maxWidth = '800px';
+            rep.style.color = '#000000';
+            rep.style.boxShadow = 'none';
+            
+            const allItems = rep.querySelectorAll('.report-activity, .report-meta, .report-total');
+            allItems.forEach(el => {
+                el.style.pageBreakInside = 'avoid';
+                el.style.breakInside = 'avoid';
+            });
+            
+            showToast('⏳ Generating Image...');
+            html2canvas(rep, {
+                scale: 3,
+                devicePixelRatio: 3,
+                useCORS: true,
+                allowTaint: true,
+                backgroundColor: '#ffffff',
+                logging: false,
+                scrollX: 0,
+                scrollY: -window.scrollY
+            }).then(c => {
+                rep.style.width = oldWidth;
+                rep.style.maxWidth = oldMaxW;
+                rep.style.color = oldColor;
+                rep.style.boxShadow = oldShadow;
+                
                 const a = document.createElement('a');
                 a.download = `DPR_${document.getElementById('date').value}.png`;
-                a.href = c.toDataURL(); a.click();
-                showToast('📷 Downloaded!');
+                a.href = c.toDataURL('image/png');
+                a.click();
+                showToast('📷 Image Downloaded!');
+            }).catch(err => {
+                rep.style.width = oldWidth;
+                rep.style.maxWidth = oldMaxW;
+                rep.style.color = oldColor;
+                rep.style.boxShadow = oldShadow;
+                showToast('⚠️ Image generation failed');
             });
         }
 
         function downloadPDF() {
             const rep = document.getElementById('report');
             if (rep.style.display === 'none') { showToast('⚠️ Generate DPR first'); return; }
-            html2canvas(rep, { scale: 2 }).then(c => {
+            
+            const oldWidth = rep.style.width;
+            const oldColor = rep.style.color;
+            const oldMaxW = rep.style.maxWidth;
+            const oldShadow = rep.style.boxShadow;
+            
+            rep.style.width = '800px';
+            rep.style.maxWidth = '800px';
+            rep.style.color = '#000000';
+            rep.style.boxShadow = 'none';
+            
+            const allItems = rep.querySelectorAll('.report-activity, .report-meta, .report-total');
+            allItems.forEach(el => {
+                el.style.pageBreakInside = 'avoid';
+                el.style.breakInside = 'avoid';
+            });
+            
+            showToast('⏳ Generating PDF...');
+            html2canvas(rep, {
+                scale: 3,
+                devicePixelRatio: 3,
+                useCORS: true,
+                allowTaint: true,
+                backgroundColor: '#ffffff',
+                logging: false,
+                scrollX: 0,
+                scrollY: -window.scrollY
+            }).then(c => {
+                rep.style.width = oldWidth;
+                rep.style.maxWidth = oldMaxW;
+                rep.style.color = oldColor;
+                rep.style.boxShadow = oldShadow;
+                
                 const { jsPDF } = window.jspdf;
-                const pdf = new jsPDF('p','mm','a4');
-                const w   = pdf.internal.pageSize.getWidth() - 20;
-                pdf.addImage(c.toDataURL('image/png'), 'PNG', 10, 10, w, c.height * w / c.width);
+                const pdf = new jsPDF('p', 'mm', 'a4');
+                const pdfWidth = pdf.internal.pageSize.getWidth() - 20;
+                const imgWidth = pdfWidth;
+                const imgHeight = c.height * imgWidth / c.width;
+                
+                pdf.addImage(c.toDataURL('image/png'), 'PNG', 10, 10, imgWidth, imgHeight);
                 pdf.save(`DPR_${document.getElementById('date').value}.pdf`);
-                showToast('📄 Downloaded!');
+                showToast('📄 PDF Downloaded!');
+            }).catch(err => {
+                rep.style.width = oldWidth;
+                rep.style.maxWidth = oldMaxW;
+                rep.style.color = oldColor;
+                rep.style.boxShadow = oldShadow;
+                showToast('⚠️ PDF generation failed');
             });
         }
 
@@ -1206,7 +1376,7 @@ export default function Page() {
             loadHistory, renderHistory, clearHistoryFilter,
             openDPR, closeDPRModal, deleteDPR,
             editDPR, requestEditDPR, approveEditDPR, renderPendingEditRequests,
-            setPeriod, renderDashboard,
+            setPeriod, renderDashboard, toggleDashboardAccordion,
             downloadImage, downloadPDF, copyWhats,
             runDataCleanup,
             toYMD, formatDate, sameDate, showToast,
