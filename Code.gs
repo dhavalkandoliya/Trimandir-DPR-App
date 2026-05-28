@@ -923,7 +923,7 @@ function handleGetActivities() {
   return jsonResponse(sheetToObjects(sheet).map(function(a) {
     return {
       id:            String(a.id            || ''),
-      activity_name: String(a.activity_name || ''),
+      activity_name: String(a.activity || a.activity_name || ''),
       parent_id:     (a.parent_id === null || a.parent_id === undefined || a.parent_id === false || a.parent_id === 0) ? '' : String(a.parent_id),
       status:        a.status || 'active'
     };
