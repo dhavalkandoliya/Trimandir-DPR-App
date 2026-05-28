@@ -581,7 +581,7 @@ export default function Page() {
             });
         }
 
-        function populateReportElementForRecord(item) {
+        function getReportHtmlForRecord(item) {
             const civilArr    = Array.isArray(item.civilActivities)    ? item.civilActivities    : [];
             const interiorArr = Array.isArray(item.interiorActivities) ? item.interiorActivities : [];
             const detailRows  = Array.isArray(item.details) ? item.details : [];
@@ -658,8 +658,7 @@ export default function Page() {
                 ? `${item.by} (Edited by: ${item.editedBy})`
                 : (item.by || '—');
 
-            const rep = document.getElementById('report');
-            rep.innerHTML = `
+            return `
                 <h3>DPR &mdash; MAN POWER REPORT</h3>
                 <div class="report-meta">
                     <b>📅 Date :</b> ${formatDate(d) || '—'}<br>
@@ -676,24 +675,40 @@ export default function Page() {
             const item = _history[i];
             if (!item) return;
 
-            const rep = document.getElementById('report');
-            const wasHidden = rep.style.display === 'none';
-            const oldHtml = rep.innerHTML;
+            const reportHtml = getReportHtmlForRecord(item);
 
-            populateReportElementForRecord(item);
-            rep.style.display = 'block';
+            // Create off-screen container
+            const tempContainer = document.createElement('div');
+            tempContainer.id = 'report-temp-capture';
+            tempContainer.style.position = 'absolute';
+            tempContainer.style.left = '-9999px';
+            tempContainer.style.top = '0';
+            tempContainer.style.width = '480px';
+            tempContainer.style.maxWidth = '480px';
+            tempContainer.style.background = '#ffffff';
+            tempContainer.style.color = '#000000';
+            tempContainer.style.padding = '20px';
+            tempContainer.style.boxSizing = 'border-box';
+            tempContainer.style.fontFamily = "'Inter', sans-serif";
+            tempContainer.style.lineHeight = '1.75';
+            tempContainer.style.fontSize = '14px';
+            
+            tempContainer.innerHTML = reportHtml;
 
-            const oldWidth = rep.style.width;
-            const oldColor = rep.style.color;
-            const oldMaxW = rep.style.maxWidth;
-            const oldShadow = rep.style.boxShadow;
+            // Direct inline styles to match header configuration
+            const h3 = tempContainer.querySelector('h3');
+            if (h3) {
+                h3.style.fontFamily = "'Rajdhani', sans-serif";
+                h3.style.fontSize = '21px';
+                h3.style.color = 'var(--primary)';
+                h3.style.marginBottom = '6px';
+                h3.style.textAlign = 'center';
+                h3.style.letterSpacing = '0.5px';
+            }
 
-            rep.style.width = '480px';
-            rep.style.maxWidth = '480px';
-            rep.style.color = '#000000';
-            rep.style.boxShadow = 'none';
+            document.body.appendChild(tempContainer);
 
-            const allItems = rep.querySelectorAll('.report-activity, .report-meta, .report-total');
+            const allItems = tempContainer.querySelectorAll('.report-activity, .report-meta, .report-total');
             allItems.forEach(el => {
                 el.style.pageBreakInside = 'avoid';
                 el.style.breakInside = 'avoid';
@@ -705,49 +720,50 @@ export default function Page() {
 
             showToast(`⏳ Generating ${type === 'pdf' ? 'PDF' : 'Image'}...`);
 
-            html2canvas(rep, {
-                scale: 3,
-                devicePixelRatio: 3,
-                useCORS: true,
-                allowTaint: true,
-                backgroundColor: '#ffffff',
-                logging: false,
-                scrollX: 0,
-                scrollY: -window.scrollY
-            }).then(c => {
-                rep.style.width = oldWidth;
-                rep.style.maxWidth = oldMaxW;
-                rep.style.color = oldColor;
-                rep.style.boxShadow = oldShadow;
-                rep.innerHTML = oldHtml;
-                if (wasHidden) rep.style.display = 'none';
+            // Use 150ms timeout to guarantee dynamic mounting has fully laid out child elements
+            setTimeout(() => {
+                html2canvas(tempContainer, {
+                    scale: 3,
+                    devicePixelRatio: 3,
+                    useCORS: true,
+                    allowTaint: true,
+                    backgroundColor: '#ffffff',
+                    logging: false,
+                    scrollX: 0,
+                    scrollY: 0
+                }).then(c => {
+                    document.body.removeChild(tempContainer);
 
-                if (type === 'pdf') {
-                    const { jsPDF } = window.jspdf;
-                    const pdf = new jsPDF('p', 'mm', 'a4');
-                    const pdfWidth = pdf.internal.pageSize.getWidth() - 20;
-                    const imgWidth = pdfWidth;
-                    const imgHeight = c.height * imgWidth / c.width;
+                    const dataUrl = c.toDataURL('image/png');
+                    if (!dataUrl || dataUrl === 'data:,' || dataUrl.length < 100) {
+                        showToast('⚠️ Generated image was empty. Try again.');
+                        return;
+                    }
 
-                    pdf.addImage(c.toDataURL('image/png'), 'PNG', 10, 10, imgWidth, imgHeight);
-                    pdf.save(`${baseName}.pdf`);
-                    showToast('📄 PDF Downloaded!');
-                } else {
-                    const a = document.createElement('a');
-                    a.download = `${baseName}.png`;
-                    a.href = c.toDataURL('image/png');
-                    a.click();
-                    showToast('📷 Image Downloaded!');
-                }
-            }).catch(err => {
-                rep.style.width = oldWidth;
-                rep.style.maxWidth = oldMaxW;
-                rep.style.color = oldColor;
-                rep.style.boxShadow = oldShadow;
-                rep.innerHTML = oldHtml;
-                if (wasHidden) rep.style.display = 'none';
-                showToast(`⚠️ ${type === 'pdf' ? 'PDF' : 'Image'} generation failed`);
-            });
+                    if (type === 'pdf') {
+                        const { jsPDF } = window.jspdf;
+                        const pdf = new jsPDF('p', 'mm', 'a4');
+                        const pdfWidth = pdf.internal.pageSize.getWidth() - 20;
+                        const imgWidth = pdfWidth;
+                        const imgHeight = c.height * imgWidth / c.width;
+
+                        pdf.addImage(dataUrl, 'PNG', 10, 10, imgWidth, imgHeight);
+                        pdf.save(`${baseName}.pdf`);
+                        showToast('📄 PDF Downloaded!');
+                    } else {
+                        const a = document.createElement('a');
+                        a.download = `${baseName}.png`;
+                        a.href = dataUrl;
+                        a.click();
+                        showToast('📷 Image Downloaded!');
+                    }
+                }).catch(err => {
+                    if (document.getElementById('report-temp-capture')) {
+                        document.body.removeChild(tempContainer);
+                    }
+                    showToast(`⚠️ ${type === 'pdf' ? 'PDF' : 'Image'} generation failed`);
+                });
+            }, 150);
         }
 
         function renderHistory() {
@@ -1669,7 +1685,7 @@ export default function Page() {
             downloadImage, downloadPDF, copyWhats,
             runDataCleanup,
             toYMD, formatDate, sameDate, showToast,
-            toggleHistoryDropdown, closeAllHistoryDropdowns, downloadHistoryDPR, populateReportElementForRecord,
+            toggleHistoryDropdown, closeAllHistoryDropdowns, downloadHistoryDPR, getReportHtmlForRecord,
         });
 
         setTimeout(() => renderLoginChips(), 200);
