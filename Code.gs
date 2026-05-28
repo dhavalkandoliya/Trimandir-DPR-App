@@ -28,7 +28,7 @@ var RECORDS_HEADERS  = ['Date','Site','Prepared By','Activity Details','Total Ma
 // DETAIL: A      B      C         D          E         F           G       H      I            J
 var DETAIL_HEADERS   = ['Date','Site','Section','Activity','Skilled','Unskilled','Total','Note','Prepared By','Timestamp'];
 var USER_HEADERS     = ['username','displayName','password','role'];
-var PROJECT_HEADERS  = ['id', 'main_category_name', 'sub_category_name', 'parent_id', 'status'];
+var PROJECT_HEADERS  = ['id', 'main_project_name', 'sub_project_name', 'parent_id', 'status'];
 var ACTIVITY_HEADERS = ['id', 'main_category_name', 'sub_category_name', 'parent_id', 'status'];
 
 // ── Fixed column indexes (0-based) for DPR_Records ──────────────
@@ -188,6 +188,8 @@ function normalizeKey(raw) {
     'status': 'status',
     'main_category_name': 'main_category_name',
     'sub_category_name': 'sub_category_name',
+    'main_project_name': 'main_project_name',
+    'sub_project_name': 'sub_project_name',
   };
   return map[s] !== undefined ? map[s] : s;
 }
@@ -860,8 +862,8 @@ function handleGetProjects() {
   if (sheet.getDataRange().getValues().length < 2) seedProjects(sheet);
   
   return jsonResponse(sheetToObjects(sheet).map(function(p) {
-    var mainProj = String(p.main_category_name || p.main_project || p.project_name || p.site || p.project || '').trim();
-    var subProj  = String(p.sub_category_name || p.sub_project || p.subproject || '').trim();
+    var mainProj = String(p.main_project_name || p.main_category_name || p.main_project || p.project_name || p.site || p.project || '').trim();
+    var subProj  = String(p.sub_project_name || p.sub_category_name || p.sub_project || p.subproject || '').trim();
     if (subProj.indexOf('↳') === 0) {
       subProj = subProj.substring(1).trim();
     }
