@@ -1310,7 +1310,7 @@ footer {
             const sub = (a.sub_activity || '').toLowerCase();
             const checkStr = (main + ' ' + sub).trim();
             
-            const civilKws = ['rcc', 'waterproofing', 'marble', 'flooring', 'masonry', 'plaster', 'fabrication', 'steel', 'civil'];
+            const civilKws = ['rcc', 'waterproofing', 'marble', 'flooring', 'masonry', 'plaster', 'fabrication', 'steel', 'civil', 'plumbing', 'pipe'];
             const interiorKws = ['furniture', 'carpentry', 'polishing', 'paint', 'ceiling', 'electrical', 'interior'];
             
             if (civilKws.some(kw => checkStr.includes(kw))) {
@@ -1321,7 +1321,7 @@ footer {
             }
             
             // Standard fallback keywords from old detection
-            const otherInteriorKws = ['tile', 'modular', 'hvac', 'ac', 'plumbing', 'cctv', 'it work', 'lift', 'epoxy', 'polish'];
+            const otherInteriorKws = ['tile', 'modular', 'hvac', 'ac', 'cctv', 'it work', 'lift', 'epoxy', 'polish'];
             if (otherInteriorKws.some(kw => checkStr.includes(kw))) {
                 return false;
             }
