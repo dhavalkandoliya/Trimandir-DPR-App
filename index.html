@@ -479,13 +479,16 @@ button:hover {
 
 .report-section-title {
   font-weight: 700;
-  font-size: 13px;
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
   color: var(--primary);
-  margin: 12px 0 8px;
-  padding: 5px 10px;
+  margin: 18px 0 10px;
+  padding: 8px 12px;
   background: var(--primary-light);
-  border-radius: 5px;
-  letter-spacing: 0.3px;
+  border-left: 4px solid var(--primary);
+  border-radius: 0 6px 6px 0;
+  display: block;
 }
 
 .report-activity {
@@ -1300,14 +1303,45 @@ footer {
         function esc(s) { return String(s || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
 
         /* ═══════════════════════════════════════════════════════════
-           INTERIOR SECTION DETECTION
-           (mirrors the server-side detectSection logic)
+           INTERIOR SECTION DETECTION & HELPERS
         ═══════════════════════════════════════════════════════════ */
-        const INTERIOR_KW = ['tile','marble','polish','furniture','modular','paint','ceiling','interior',
-                             'electrical','hvac','ac','plumbing','cctv','it work','lift','epoxy'];
+        function isCivilActivity(a) {
+            const main = (a.main_activity || a.activity || '').toLowerCase();
+            const sub = (a.sub_activity || '').toLowerCase();
+            const checkStr = (main + ' ' + sub).trim();
+            
+            const civilKws = ['rcc', 'waterproofing', 'marble', 'flooring', 'masonry', 'plaster', 'fabrication', 'steel', 'civil'];
+            const interiorKws = ['furniture', 'carpentry', 'polishing', 'paint', 'ceiling', 'electrical', 'interior'];
+            
+            if (civilKws.some(kw => checkStr.includes(kw))) {
+                return true;
+            }
+            if (interiorKws.some(kw => checkStr.includes(kw))) {
+                return false;
+            }
+            
+            // Standard fallback keywords from old detection
+            const otherInteriorKws = ['tile', 'modular', 'hvac', 'ac', 'plumbing', 'cctv', 'it work', 'lift', 'epoxy', 'polish'];
+            if (otherInteriorKws.some(kw => checkStr.includes(kw))) {
+                return false;
+            }
+            
+            return (a.section || 'Civil') !== 'Interior';
+        }
+
+        function toTitleCase(str) {
+            if (!str) return '';
+            let val = str.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+            val = val.replace(/\bRcc\b/g, 'RCC')
+                     .replace(/\bHvac\b/g, 'HVAC')
+                     .replace(/\bCctv\b/g, 'CCTV')
+                     .replace(/\bAc\b/g, 'AC')
+                     .replace(/\bDpr\b/g, 'DPR');
+            return val;
+        }
+
         function detectSection(mainAct, subAct) {
-            const check = ((mainAct || '') + ' ' + (subAct || '')).toLowerCase();
-            return INTERIOR_KW.some(k => check.includes(k)) ? 'Interior' : 'Civil';
+            return isCivilActivity({ main_activity: mainAct, sub_activity: subAct }) ? 'Civil' : 'Interior';
         }
 
         function getSiteDisplayName(siteName) {
@@ -1667,8 +1701,17 @@ footer {
             const editedBy = (existing && existing.by !== _currentUser.username) ? _currentUser.username : null;
 
             // Build section-grouped report HTML
-            const civilActs    = activities.filter(a => a.section === 'Civil'    && (a.skilled > 0 || a.unskilled > 0));
-            const interiorActs = activities.filter(a => a.section === 'Interior' && (a.skilled > 0 || a.unskilled > 0));
+            const civilActs = [];
+            const interiorActs = [];
+            activities.forEach(a => {
+                if (a.skilled > 0 || a.unskilled > 0) {
+                    if (isCivilActivity(a)) {
+                        civilActs.push(a);
+                    } else {
+                        interiorActs.push(a);
+                    }
+                }
+            });
 
             function renderSection(title, acts) {
                 if (!acts.length) return '';
@@ -1701,7 +1744,7 @@ footer {
                             
                             return `
                             <div style="padding: 10px 0; padding-left: ${paddingLeft}; border-bottom: ${borderVal}; line-height: 1.6;">
-                                <div style="font-weight: ${fontWeight}; color: ${titleColor}; font-size: ${fontSize};">${prefix}${childName || main}</div>
+                                <div style="font-weight: ${fontWeight}; color: ${titleColor}; font-size: ${fontSize};">${prefix}${childName || toTitleCase(main)}</div>
                                 <div style="font-size: 12px; color: #475569; margin-top: 4px;">
                                     Skilled: <b>${r.skilled}</b> &nbsp;·&nbsp; Unskilled: <b>${r.unskilled}</b> &nbsp;·&nbsp; Total: <b>${totalVal}</b>
                                 </div>
@@ -1711,8 +1754,8 @@ footer {
 
                         return `
                         <div class="report-activity" style="margin-bottom: 14px; padding: 16px; border-left: 5px solid var(--primary); background: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
-                            <div style="font-weight: 800; font-size: 16px; color: #1e293b; margin-bottom: 12px; border-bottom: 2px solid #e2e8f0; padding-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">
-                                📦 ${main}
+                            <div style="font-weight: 600; font-size: 14.5px; color: #1e293b; margin-bottom: 12px; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 6px; letter-spacing: 0.2px;">
+                                📦 ${toTitleCase(main)}
                             </div>
                             <div style="display: flex; flex-direction: column;">
                                 ${innerRowsHtml}
@@ -1862,7 +1905,7 @@ footer {
 
                             return `
                             <div style="padding: 10px 0; padding-left: ${paddingLeft}; border-bottom: ${borderVal}; line-height: 1.6;">
-                                <div style="font-weight: ${fontWeight}; color: ${titleColor}; font-size: ${fontSize};">${prefix}${childName || main}</div>
+                                <div style="font-weight: ${fontWeight}; color: ${titleColor}; font-size: ${fontSize};">${prefix}${childName || toTitleCase(main)}</div>
                                 <div style="font-size: 12px; color: #475569; margin-top: 4px;">
                                     Skilled: <b>${sk}</b> &nbsp;·&nbsp; Unskilled: <b>${un}</b> &nbsp;·&nbsp; Total: <b>${totalVal}</b>
                                 </div>
@@ -1872,8 +1915,8 @@ footer {
 
                         return `
                         <div class="report-activity" style="margin-bottom: 14px; padding: 16px; border-left: 5px solid var(--primary); background: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
-                            <div style="font-weight: 800; font-size: 16px; color: #1e293b; margin-bottom: 12px; border-bottom: 2px solid #e2e8f0; padding-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">
-                                📦 ${main}
+                            <div style="font-weight: 600; font-size: 14.5px; color: #1e293b; margin-bottom: 12px; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 6px; letter-spacing: 0.2px;">
+                                📦 ${toTitleCase(main)}
                             </div>
                             <div style="display: flex; flex-direction: column;">
                                 ${innerRowsHtml}
@@ -1882,13 +1925,39 @@ footer {
                     }).join('');
             }
 
+            // Pool and classify all activities dynamically based on type
+            let allActs = [];
             if (civilArr.length || interiorArr.length) {
-                bodyHtml = renderActArr('Civil Work', civilArr) + renderActArr('Interior Work', interiorArr);
+                civilArr.forEach(a => { allActs.push({ ...a, section: a.section || 'Civil' }); });
+                interiorArr.forEach(a => { allActs.push({ ...a, section: a.section || 'Interior' }); });
             } else if (detailRows.length) {
-                const civilDet    = detailRows.filter(r => (r.section || 'Civil') !== 'Interior');
-                const interiorDet = detailRows.filter(r => r.section === 'Interior');
-                const toActArr    = rows => rows.map(r => ({ activity: r.activity || r.main_activity, skilled: r.skilled, unskilled: r.unskilled, note: r.note }));
-                bodyHtml = renderActArr('Civil Work', toActArr(civilDet)) + renderActArr('Interior Work', toActArr(interiorDet));
+                detailRows.forEach(r => {
+                    allActs.push({
+                        main_activity: r.main_activity || r.activity,
+                        activity: r.activity || r.main_activity,
+                        sub_activity: r.sub_activity || '',
+                        skilled: r.skilled,
+                        unskilled: r.unskilled,
+                        note: r.note,
+                        section: r.section
+                    });
+                });
+            }
+
+            const civilActs = [];
+            const interiorActs = [];
+            allActs.forEach(a => {
+                if (Number(a.skilled) > 0 || Number(a.unskilled) > 0) {
+                    if (isCivilActivity(a)) {
+                        civilActs.push(a);
+                    } else {
+                        interiorActs.push(a);
+                    }
+                }
+            });
+
+            if (civilActs.length || interiorActs.length) {
+                bodyHtml = renderActArr('Civil Work', civilActs) + renderActArr('Interior Work', interiorActs);
             } else {
                 bodyHtml = '<p style="color:var(--muted);text-align:center;padding:20px;">No activity detail available for this record.</p>';
             }
@@ -2383,7 +2452,7 @@ footer {
                     grouped[mainName].push(a);
                 });
 
-                return `<div style="font-weight:700;font-size:14px;color:var(--primary);margin:18px 0 10px;">🔨 ${title}</div>` +
+                return `<div class="report-section-title">🔨 ${title}</div>` +
                     Object.entries(grouped).map(([main, rows]) => {
                         const innerRowsHtml = rows.map((r, rIdx) => {
                             let childName = (r.activity || '').trim();
@@ -2408,7 +2477,7 @@ footer {
 
                             return `
                             <div style="padding: 10px 0; padding-left: ${paddingLeft}; border-bottom: ${borderVal}; line-height: 1.6;">
-                                <div style="font-weight: ${fontWeight}; color: ${titleColor}; font-size: ${fontSize};">${prefix}${childName || main}</div>
+                                <div style="font-weight: ${fontWeight}; color: ${titleColor}; font-size: ${fontSize};">${prefix}${childName || toTitleCase(main)}</div>
                                 <div style="font-size: 12px; color: #475569; margin-top: 4px;">
                                     Skilled: <b>${sk}</b> &nbsp;·&nbsp; Unskilled: <b>${un}</b> &nbsp;·&nbsp; Total: <b>${totalVal}</b>
                                 </div>
@@ -2417,9 +2486,9 @@ footer {
                         }).join('');
 
                         return `
-                        <div style="border-left:5px solid var(--primary);background:#ffffff;padding:16px;margin-bottom:14px;border-radius: 8px;border: 1px solid #e2e8f0;box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
-                            <div style="font-weight: 800; font-size: 16px; color: #1e293b; margin-bottom: 12px; border-bottom: 2px solid #e2e8f0; padding-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">
-                                📦 ${main}
+                        <div class="report-activity" style="margin-bottom: 14px; padding: 16px; border-left: 5px solid var(--primary); background: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                            <div style="font-weight: 600; font-size: 14.5px; color: #1e293b; margin-bottom: 12px; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 6px; letter-spacing: 0.2px;">
+                                📦 ${toTitleCase(main)}
                             </div>
                             <div style="display: flex; flex-direction: column;">
                                 ${innerRowsHtml}
@@ -2428,14 +2497,39 @@ footer {
                     }).join('');
             }
 
+            // Pool and classify all activities dynamically based on type
+            let allActs = [];
             if (civilArr.length || interiorArr.length) {
-                bodyHtml = renderActArr('Civil Work', civilArr) + renderActArr('Interior Work', interiorArr);
+                civilArr.forEach(a => { allActs.push({ ...a, section: a.section || 'Civil' }); });
+                interiorArr.forEach(a => { allActs.push({ ...a, section: a.section || 'Interior' }); });
             } else if (detailRows.length) {
-                // Group by section from DPR_Detail
-                const civilDet    = detailRows.filter(r => (r.section || 'Civil') !== 'Interior');
-                const interiorDet = detailRows.filter(r => r.section === 'Interior');
-                const toActArr    = rows => rows.map(r => ({ activity: r.activity || r.main_activity, skilled: r.skilled, unskilled: r.unskilled, note: r.note }));
-                bodyHtml = renderActArr('Civil Work', toActArr(civilDet)) + renderActArr('Interior Work', toActArr(interiorDet));
+                detailRows.forEach(r => {
+                    allActs.push({
+                        main_activity: r.main_activity || r.activity,
+                        activity: r.activity || r.main_activity,
+                        sub_activity: r.sub_activity || '',
+                        skilled: r.skilled,
+                        unskilled: r.unskilled,
+                        note: r.note,
+                        section: r.section
+                    });
+                });
+            }
+
+            const civilActs = [];
+            const interiorActs = [];
+            allActs.forEach(a => {
+                if (Number(a.skilled) > 0 || Number(a.unskilled) > 0) {
+                    if (isCivilActivity(a)) {
+                        civilActs.push(a);
+                    } else {
+                        interiorActs.push(a);
+                    }
+                }
+            });
+
+            if (civilActs.length || interiorActs.length) {
+                bodyHtml = renderActArr('Civil Work', civilActs) + renderActArr('Interior Work', interiorActs);
             } else {
                 bodyHtml = '<p style="color:var(--muted);text-align:center;padding:20px;">No activity detail available for this record.</p>';
             }
