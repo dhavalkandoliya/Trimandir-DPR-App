@@ -1,33 +1,18 @@
-$content = Get-Content -Raw "index.html"
-$bodyMatch = [regex]::Match($content, '(?s)<body>(.*?)<script>')
-$bodyHtml = if ($bodyMatch.Success) { $bodyMatch.Groups[1].Value.Trim() } else { "<div>No body found</div>" }
-$bodyHtml = $bodyHtml.Replace('`', '\`').Replace('$', '\$')
+# ─── PARSE index.html ────────────────────────────────────────────────────────
+$raw = Get-Content -Raw "index.html" -Encoding UTF8
 
-$scriptMatch = [regex]::Match($content, '(?s)<script>(.*?)</script>')
-$scriptJs = if ($scriptMatch.Success) { $scriptMatch.Groups[1].Value.Trim() } else { "" }
+# Extract <body> content (everything between <body> and first <script>)
+$bodyMatch = [regex]::Match($raw, '(?s)<body>(.*?)<script>')
+$bodyHtml  = if ($bodyMatch.Success) { $bodyMatch.Groups[1].Value.Trim() } else { "<div>No body found</div>" }
+
+# Extract <script> content
+$scriptMatch = [regex]::Match($raw, '(?s)<script>(.*?)</script>')
+$scriptJs    = if ($scriptMatch.Success) { $scriptMatch.Groups[1].Value.Trim() } else { "" }
+
+# ─── PATCH SHEET_URL ─────────────────────────────────────────────────────────
 $scriptJs = [regex]::Replace($scriptJs, 'const SHEET_URL = "[^"]+";', 'const SHEET_URL = "/api/proxy";')
 
-$funcs = [regex]::Matches($scriptJs, 'function\s+([a-zA-Z0-9_]+)\s*\(')
-$assignedFuncs = [System.Collections.Generic.List[string]]::new()
-foreach ($f in $funcs) {
-    $fn = $f.Groups[1].Value
-    if (-not $assignedFuncs.Contains($fn)) {
-        $assignedFuncs.Add($fn)
-    }
-}
-if (-not $assignedFuncs.Contains("fetchUsersFromCloud")) {
-    $assignedFuncs.Add("fetchUsersFromCloud")
-}
-$assignList = $assignedFuncs -join ",`n      "
-
-$windowAttachments = @"
-    if (typeof window !== "undefined") {
-        Object.assign(window, {
-      $assignList
-        });
-    }
-"@
-
+# ─── PATCH USER MANAGEMENT to cloud-backed versions ──────────────────────────
 $newUsersLogic = @'
         let _usersCache = [SUPER_ADMIN];
 
@@ -110,44 +95,59 @@ $newUsersLogic = @'
 '@
 $scriptJs = [regex]::Replace($scriptJs, '(?s)function getUsers\(\).*?function renderAdminUsers\(\) \{.*?\n\s*\}\n', "$newUsersLogic`n`n")
 
-$template1 = @'
+# ─── ESCAPE JS FOR JSON EMBEDDING ────────────────────────────────────────────
+# We will embed the script as a JSON string so there are NO escaping issues
+# with template literals, backticks, or special chars inside JSX.
+$escapedJs   = $scriptJs -replace '\\', '\\\\' -replace '"', '\"' -replace "`r`n", '\n' -replace "`n", '\n' -replace "`t", '\t'
+$escapedHtml = $bodyHtml -replace '\\', '\\\\' -replace '"', '\"' -replace "`r`n", '\n' -replace "`n", '\n' -replace "`t", '\t'
+
+# ─── GENERATE CLEAN app/page.js ──────────────────────────────────────────────
+$pageJs = @"
 'use client';
 
 import { useEffect } from 'react';
 
 export default function Page() {
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-       const script1 = document.createElement('script');
-       script1.src = "https://html2canvas.hertzen.com/dist/html2canvas.min.js";
-       document.head.appendChild(script1);
-       
-       const script2 = document.createElement('script');
-       script2.src = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
-       document.head.appendChild(script2);
-    }
-'@
+    if (typeof window === 'undefined') return;
 
-$template2 = @'
+    // ── Inject html2canvas and jsPDF from CDN ──
+    const s1 = document.createElement('script');
+    s1.src = 'https://html2canvas.hertzen.com/dist/html2canvas.min.js';
+    document.head.appendChild(s1);
+
+    const s2 = document.createElement('script');
+    s2.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+    document.head.appendChild(s2);
+
+    // ── Render HTML into container ──
+    const container = document.getElementById('__dpr_root__');
+    if (container) {
+      container.innerHTML = "$escapedHtml";
+    }
+
+    // ── Inject all app logic as a live script element ──
+    const appScript = document.createElement('script');
+    appScript.textContent = "$escapedJs";
+    document.body.appendChild(appScript);
+
+    // ── Bootstrap: restore session and fetch users after scripts load ──
     setTimeout(() => {
-      fetchUsersFromCloud();
+      if (typeof fetchUsersFromCloud === 'function') fetchUsersFromCloud();
       try {
-          const s = sessionStorage.getItem('dprUser');
-          if (s) { _currentUser = JSON.parse(s); showApp(); }
-      } catch (e) { }
-    }, 500);
+        const s = sessionStorage.getItem('dprUser');
+        if (s && typeof showApp === 'function') {
+          window._currentUser = JSON.parse(s);
+          showApp();
+        }
+      } catch (e) {}
+    }, 600);
 
   }, []);
 
-  return <div dangerouslySetInnerHTML={{ __html: `
-'@
-
-$template3 = @'
-` }} />;
+  return <div id="__dpr_root__" />;
 }
-'@
+"@
 
-$finalJsx = $template1 + "`n" + $scriptJs + "`n" + $windowAttachments + "`n" + $template2 + $bodyHtml + $template3
-
-[System.IO.File]::WriteAllText("$(Get-Location)\app\page.js", $finalJsx)
-Write-Output "Successfully generated final page.js"
+[System.IO.File]::WriteAllText("$(Get-Location)\app\page.js", $pageJs, [System.Text.Encoding]::UTF8)
+Write-Output "Successfully generated final page.js (clean script-injection pattern)"

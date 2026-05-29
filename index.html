@@ -1249,8 +1249,12 @@ footer {
         let _dashPeriod     = 'week';
         let _editingKey     = null;
         let _rowCounter     = 0;
-        let _historyPage    = 1;
-        const _itemsPerPage = 10;
+        // Pagination state — attached to window so dynamic script injection keeps global access
+        window._historyPage    = window._historyPage    || 1;
+        window._itemsPerPage   = window._itemsPerPage   || 10;
+        // convenience aliases for rest of script
+        let _historyPage    = window._historyPage;
+        const _itemsPerPage = window._itemsPerPage;
 
         /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
            UTILITY: Robust date normaliser â€” always returns YYYY-MM-DD
