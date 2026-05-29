@@ -1989,126 +1989,136 @@ export default function Page() {
         Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */
 
         /* Ã¢â€¢ÂÃ¢â€¢Â INIT Ã¢â€¢ÂÃ¢â€¢Â */
-        window.onload = function () {
-            renderLoginChips();
-            try {
-                const s = sessionStorage.getItem('dprUser');
-                if (s) { _currentUser = JSON.parse(s); showApp(); }
-            } catch (e) { }
+        if (typeof window !== "undefined") {
+            const runInit = () => {
+                renderLoginChips();
+                try {
+                    const s = sessionStorage.getItem('dprUser');
+                    if (s) { _currentUser = JSON.parse(s); showApp(); }
+                } catch (e) { }
 
-            // Set Date cleanly
-            const dateEl = document.getElementById('date');
-            if (dateEl) dateEl.value = new Date().toISOString().split('T')[0];
+                // Set Date cleanly
+                const dateEl = document.getElementById('date');
+                if (dateEl) dateEl.value = new Date().toISOString().split('T')[0];
 
-            window.addEventListener('offline', () => { document.getElementById('offlineBadge').style.display = 'block'; });
-            window.addEventListener('online', () => { document.getElementById('offlineBadge').style.display = 'none'; syncOfflineQueue(); });
-            if (!navigator.onLine) document.getElementById('offlineBadge').style.display = 'block';
-        };
+                window.addEventListener('offline', () => { document.getElementById('offlineBadge').style.display = 'block'; });
+                window.addEventListener('online', () => { document.getElementById('offlineBadge').style.display = 'none'; syncOfflineQueue(); });
+                if (!navigator.onLine) document.getElementById('offlineBadge').style.display = 'block';
+            };
 
-        // Delegate listeners
-        document.addEventListener('click', () => {
-            if (window.closeAllHistoryDropdowns) {
-                window.closeAllHistoryDropdowns();
+            if (document.readyState === 'complete' || document.readyState === 'interactive') {
+                runInit();
+            } else {
+                window.addEventListener('load', runInit);
             }
-        });
-        
-        document.addEventListener('input', (e) => {
-            if (!e.target.closest('#tabForm')) return;
-            if (e.target.classList.contains('skill') || e.target.classList.contains('unskill')) {
-                const row = e.target.closest('.activitybox');
-                if (row) {
-                    const sk = Math.max(0, Number(row.querySelector('.skill')?.value) || 0);
-                    const un = Math.max(0, Number(row.querySelector('.unskill')?.value) || 0);
-                    const valEl = row.querySelector('.row-total-val');
-                    if (valEl) valEl.textContent = sk + un;
+
+            // Delegate listeners
+            document.addEventListener('click', () => {
+                if (window.closeAllHistoryDropdowns) {
+                    window.closeAllHistoryDropdowns();
                 }
-            }
-            saveFormDraft();
-        });
+            });
+            
+            document.addEventListener('input', (e) => {
+                if (!e.target.closest('#tabForm')) return;
+                if (e.target.classList.contains('skill') || e.target.classList.contains('unskill')) {
+                    const row = e.target.closest('.activitybox');
+                    if (row) {
+                        const sk = Math.max(0, Number(row.querySelector('.skill')?.value) || 0);
+                        const un = Math.max(0, Number(row.querySelector('.unskill')?.value) || 0);
+                        const valEl = row.querySelector('.row-total-val');
+                        if (valEl) valEl.textContent = sk + un;
+                    }
+                }
+                saveFormDraft();
+            });
 
-        document.addEventListener('change', (e) => {
-            if (!e.target.closest('#tabForm')) return;
-            saveFormDraft();
+            document.addEventListener('change', (e) => {
+                if (!e.target.closest('#tabForm')) return;
+                saveFormDraft();
+            });
+        }
+    if (typeof window !== "undefined") {
+        Object.assign(window, {
+      toYMD,
+      formatDate,
+      sameDate,
+      esc,
+      detectSection,
+      getSiteDisplayName,
+      showToast,
+      bootApp,
+      renderLoginChips,
+      doLogin,
+      doLogout,
+      showApp,
+      switchTab,
+      resetAndSwitchToForm,
+      getLocalTodayYMD,
+      populateSearchSiteDropdown,
+      populateSiteDropdown,
+      mainActivities,
+      subActivitiesOf,
+      resetForm,
+      addActivityRow,
+      removeActivityRow,
+      onMainActChange,
+      collectActivityRows,
+      generate,
+      renderSection,
+      saveToCloud,
+      syncOfflineQueue,
+      loadHistory,
+      updateHistoryCount,
+      toggleHistoryDropdown,
+      closeAllHistoryDropdowns,
+      getReportHtmlForRecord,
+      renderActArr,
+      downloadHistoryDPR,
+      getSkeletonLoader,
+      updateFormTotals,
+      saveFormDraft,
+      loadFormDraft,
+      exportMasterLogCSV,
+      populateSupervisorDropdown,
+      resetHistoryPageAndRender,
+      changeHistoryPage,
+      renderAdminAnalytics,
+      renderHistory,
+      clearHistoryFilter,
+      openDPR,
+      closeDPRModal,
+      deleteDPR,
+      editDPR,
+      requestEditDPR,
+      approveEditDPR,
+      renderPendingEditRequests,
+      renderAdminPanel,
+      createUser,
+      deleteUser,
+      resetPassword,
+      renderAdminUsers,
+      adminAddProject,
+      toggleProject,
+      editProjectName,
+      deleteProject,
+      renderAdminProjects,
+      adminAddMainActivity,
+      adminAddSubActivity,
+      toggleActivity,
+      editActivityName,
+      deleteActivity,
+      renderAdminActivities,
+      runDataCleanup,
+      toggleDashboardAccordion,
+      setPeriod,
+      renderDashboard,
+      downloadImage,
+      downloadPDF,
+      copyWhats,
+      fetchUsersFromCloud
         });
-
-    window.toYMD = toYMD;
-    window.formatDate = formatDate;
-    window.sameDate = sameDate;
-    window.esc = esc;
-    window.detectSection = detectSection;
-    window.getSiteDisplayName = getSiteDisplayName;
-    window.showToast = showToast;
-    window.bootApp = bootApp;
-    window.renderLoginChips = renderLoginChips;
-    window.doLogin = doLogin;
-    window.doLogout = doLogout;
-    window.showApp = showApp;
-    window.switchTab = switchTab;
-    window.resetAndSwitchToForm = resetAndSwitchToForm;
-    window.getLocalTodayYMD = getLocalTodayYMD;
-    window.populateSearchSiteDropdown = populateSearchSiteDropdown;
-    window.populateSiteDropdown = populateSiteDropdown;
-    window.mainActivities = mainActivities;
-    window.subActivitiesOf = subActivitiesOf;
-    window.resetForm = resetForm;
-    window.addActivityRow = addActivityRow;
-    window.removeActivityRow = removeActivityRow;
-    window.onMainActChange = onMainActChange;
-    window.collectActivityRows = collectActivityRows;
-    window.generate = generate;
-    window.renderSection = renderSection;
-    window.saveToCloud = saveToCloud;
-    window.syncOfflineQueue = syncOfflineQueue;
-    window.loadHistory = loadHistory;
-    window.updateHistoryCount = updateHistoryCount;
-    window.toggleHistoryDropdown = toggleHistoryDropdown;
-    window.closeAllHistoryDropdowns = closeAllHistoryDropdowns;
-    window.getReportHtmlForRecord = getReportHtmlForRecord;
-    window.renderActArr = renderActArr;
-    window.downloadHistoryDPR = downloadHistoryDPR;
-    window.getSkeletonLoader = getSkeletonLoader;
-    window.updateFormTotals = updateFormTotals;
-    window.saveFormDraft = saveFormDraft;
-    window.loadFormDraft = loadFormDraft;
-    window.exportMasterLogCSV = exportMasterLogCSV;
-    window.populateSupervisorDropdown = populateSupervisorDropdown;
-    window.resetHistoryPageAndRender = resetHistoryPageAndRender;
-    window.changeHistoryPage = changeHistoryPage;
-    window.renderAdminAnalytics = renderAdminAnalytics;
-    window.renderHistory = renderHistory;
-    window.clearHistoryFilter = clearHistoryFilter;
-    window.openDPR = openDPR;
-    window.renderActArr = renderActArr;
-    window.closeDPRModal = closeDPRModal;
-    window.deleteDPR = deleteDPR;
-    window.editDPR = editDPR;
-    window.requestEditDPR = requestEditDPR;
-    window.approveEditDPR = approveEditDPR;
-    window.renderPendingEditRequests = renderPendingEditRequests;
-    window.renderAdminPanel = renderAdminPanel;
-    window.createUser = createUser;
-    window.deleteUser = deleteUser;
-    window.resetPassword = resetPassword;
-    window.renderAdminUsers = renderAdminUsers;
-    window.adminAddProject = adminAddProject;
-    window.toggleProject = toggleProject;
-    window.editProjectName = editProjectName;
-    window.deleteProject = deleteProject;
-    window.renderAdminProjects = renderAdminProjects;
-    window.adminAddMainActivity = adminAddMainActivity;
-    window.adminAddSubActivity = adminAddSubActivity;
-    window.toggleActivity = toggleActivity;
-    window.editActivityName = editActivityName;
-    window.deleteActivity = deleteActivity;
-    window.renderAdminActivities = renderAdminActivities;
-    window.runDataCleanup = runDataCleanup;
-    window.toggleDashboardAccordion = toggleDashboardAccordion;
-    window.setPeriod = setPeriod;
-    window.renderDashboard = renderDashboard;
-    window.downloadImage = downloadImage;
-    window.downloadPDF = downloadPDF;
-    window.copyWhats = copyWhats;
-    window.fetchUsersFromCloud = fetchUsersFromCloud;
+    }
     setTimeout(() => {
       fetchUsersFromCloud();
       try {

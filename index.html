@@ -3211,47 +3211,55 @@ footer {
         â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
         /* â•â• INIT â•â• */
-        window.onload = function () {
-            renderLoginChips();
-            try {
-                const s = sessionStorage.getItem('dprUser');
-                if (s) { _currentUser = JSON.parse(s); showApp(); }
-            } catch (e) { }
+        if (typeof window !== "undefined") {
+            const runInit = () => {
+                renderLoginChips();
+                try {
+                    const s = sessionStorage.getItem('dprUser');
+                    if (s) { _currentUser = JSON.parse(s); showApp(); }
+                } catch (e) { }
 
-            // Set Date cleanly
-            const dateEl = document.getElementById('date');
-            if (dateEl) dateEl.value = new Date().toISOString().split('T')[0];
+                // Set Date cleanly
+                const dateEl = document.getElementById('date');
+                if (dateEl) dateEl.value = new Date().toISOString().split('T')[0];
 
-            window.addEventListener('offline', () => { document.getElementById('offlineBadge').style.display = 'block'; });
-            window.addEventListener('online', () => { document.getElementById('offlineBadge').style.display = 'none'; syncOfflineQueue(); });
-            if (!navigator.onLine) document.getElementById('offlineBadge').style.display = 'block';
-        };
+                window.addEventListener('offline', () => { document.getElementById('offlineBadge').style.display = 'block'; });
+                window.addEventListener('online', () => { document.getElementById('offlineBadge').style.display = 'none'; syncOfflineQueue(); });
+                if (!navigator.onLine) document.getElementById('offlineBadge').style.display = 'block';
+            };
 
-        // Delegate listeners
-        document.addEventListener('click', () => {
-            if (window.closeAllHistoryDropdowns) {
-                window.closeAllHistoryDropdowns();
+            if (document.readyState === 'complete' || document.readyState === 'interactive') {
+                runInit();
+            } else {
+                window.addEventListener('load', runInit);
             }
-        });
-        
-        document.addEventListener('input', (e) => {
-            if (!e.target.closest('#tabForm')) return;
-            if (e.target.classList.contains('skill') || e.target.classList.contains('unskill')) {
-                const row = e.target.closest('.activitybox');
-                if (row) {
-                    const sk = Math.max(0, Number(row.querySelector('.skill')?.value) || 0);
-                    const un = Math.max(0, Number(row.querySelector('.unskill')?.value) || 0);
-                    const valEl = row.querySelector('.row-total-val');
-                    if (valEl) valEl.textContent = sk + un;
+
+            // Delegate listeners
+            document.addEventListener('click', () => {
+                if (window.closeAllHistoryDropdowns) {
+                    window.closeAllHistoryDropdowns();
                 }
-            }
-            saveFormDraft();
-        });
+            });
+            
+            document.addEventListener('input', (e) => {
+                if (!e.target.closest('#tabForm')) return;
+                if (e.target.classList.contains('skill') || e.target.classList.contains('unskill')) {
+                    const row = e.target.closest('.activitybox');
+                    if (row) {
+                        const sk = Math.max(0, Number(row.querySelector('.skill')?.value) || 0);
+                        const un = Math.max(0, Number(row.querySelector('.unskill')?.value) || 0);
+                        const valEl = row.querySelector('.row-total-val');
+                        if (valEl) valEl.textContent = sk + un;
+                    }
+                }
+                saveFormDraft();
+            });
 
-        document.addEventListener('change', (e) => {
-            if (!e.target.closest('#tabForm')) return;
-            saveFormDraft();
-        });
+            document.addEventListener('change', (e) => {
+                if (!e.target.closest('#tabForm')) return;
+                saveFormDraft();
+            });
+        }
     </script>
 </body>
 </html>

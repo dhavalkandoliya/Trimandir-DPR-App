@@ -8,12 +8,25 @@ $scriptJs = if ($scriptMatch.Success) { $scriptMatch.Groups[1].Value.Trim() } el
 $scriptJs = [regex]::Replace($scriptJs, 'const SHEET_URL = "[^"]+";', 'const SHEET_URL = "/api/proxy";')
 
 $funcs = [regex]::Matches($scriptJs, 'function\s+([a-zA-Z0-9_]+)\s*\(')
-$windowAttachments = ""
+$assignedFuncs = [System.Collections.Generic.List[string]]::new()
 foreach ($f in $funcs) {
     $fn = $f.Groups[1].Value
-    $windowAttachments += "`n    window.$fn = $fn;"
+    if (-not $assignedFuncs.Contains($fn)) {
+        $assignedFuncs.Add($fn)
+    }
 }
-$windowAttachments += "`n    window.fetchUsersFromCloud = fetchUsersFromCloud;"
+if (-not $assignedFuncs.Contains("fetchUsersFromCloud")) {
+    $assignedFuncs.Add("fetchUsersFromCloud")
+}
+$assignList = $assignedFuncs -join ",`n      "
+
+$windowAttachments = @"
+    if (typeof window !== "undefined") {
+        Object.assign(window, {
+      $assignList
+        });
+    }
+"@
 
 $newUsersLogic = @'
         let _usersCache = [SUPER_ADMIN];
