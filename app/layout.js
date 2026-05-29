@@ -2,7 +2,7 @@ import './globals.css';
 
 export const metadata = {
   title: 'Site DPR — Man Power Report',
-  description: 'Trust Project Department',
+  description: 'Trimandir Construction DPR',
 };
 
 export default function RootLayout({ children }) {
