@@ -13,9 +13,9 @@ export default function Page() {
        script2.src = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
        document.head.appendChild(script2);
     }
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+/* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
            CONSTANTS & STATE
-        â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+        Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */
         const SHEET_URL = "/api/proxy";
         const SUPER_ADMIN = { username: 'TPD-admin', displayName: 'TPD Admin', role: 'admin' };
 
@@ -30,9 +30,9 @@ export default function Page() {
         let _historyPage    = 1;
         const _itemsPerPage = 10;
 
-        /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-           UTILITY: Robust date normaliser â€” always returns YYYY-MM-DD
-        â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+        /* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+           UTILITY: Robust date normaliser Ã¢â‚¬â€ always returns YYYY-MM-DD
+        Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */
         function toYMD(v) {
             if (v === null || v === undefined || v === '') return '';
             if (typeof v === 'number') {
@@ -73,10 +73,10 @@ export default function Page() {
 
         function esc(s) { return String(s || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
 
-        /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        /* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
            INTERIOR SECTION DETECTION
            (mirrors the server-side detectSection logic)
-        â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+        Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */
         const INTERIOR_KW = ['tile','marble','polish','furniture','modular','paint','ceiling','interior',
                              'electrical','hvac','ac','plumbing','cctv','it work','lift','epoxy'];
         function detectSection(mainAct, subAct) {
@@ -85,26 +85,26 @@ export default function Page() {
         }
 
         function getSiteDisplayName(siteName) {
-            if (!siteName) return 'â€”';
+            if (!siteName) return 'Ã¢â‚¬â€';
             const currentProj = _projects.find(p => String(p.project_name).trim().toLowerCase() === String(siteName).trim().toLowerCase());
             if (currentProj && currentProj.parent_id && String(currentProj.parent_id).trim() !== '') {
                 const parentProj = _projects.find(p => String(p.id) === String(currentProj.parent_id));
                 if (parentProj) {
-                    return `${parentProj.project_name} âž” ${currentProj.project_name}`;
+                    return `${parentProj.project_name} Ã¢Å¾â€ ${currentProj.project_name}`;
                 }
             }
             return siteName;
         }
 
-        /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        /* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
            API HELPERS
-        â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+        Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */
         const apiFetch = (action) => fetch(`${API}?action=${action}`).then(r => r.json());
         const apiPost  = (body)   => fetch(SHEET_URL, { method: 'POST', body: JSON.stringify(body) }).then(r => r.json());
 
-        /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        /* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
            TOAST
-        â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+        Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */
         function showToast(msg) {
             const t = document.getElementById('toast');
             if (!t) return;
@@ -114,11 +114,11 @@ export default function Page() {
             t._tid = setTimeout(() => t.classList.remove('show'), 2800);
         }
 
-        /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-           BOOT â€” parallel data fetch after login
-        â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+        /* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+           BOOT Ã¢â‚¬â€ parallel data fetch after login
+        Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */
         async function bootApp() {
-            showToast('â³ Loading data...');
+            showToast('Ã¢ÂÂ³ Loading data...');
             const apList = document.getElementById('adminProjectList');
             if (apList) apList.innerHTML = getSkeletonLoader();
             const aaList = document.getElementById('adminActivityList');
@@ -133,7 +133,7 @@ export default function Page() {
                 if (Array.isArray(users))      _users      = [SUPER_ADMIN, ...users];
                 if (Array.isArray(projects))   _projects   = projects;
                 if (Array.isArray(activities)) _activities = activities;
-            } catch (e) { showToast('âš ï¸ Could not reach server'); }
+            } catch (e) { showToast('Ã¢Å¡Â Ã¯Â¸Â Could not reach server'); }
             renderLoginChips();
             populateSiteDropdown();
 
@@ -145,9 +145,9 @@ export default function Page() {
             loadHistory();
         }
 
-        /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        /* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
            LOGIN / LOGOUT
-        â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+        Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */
         function renderLoginChips() {
             const wrap = document.getElementById('userChips');
             if (!wrap) return;
@@ -168,9 +168,9 @@ export default function Page() {
             const uname = document.getElementById('loginName').value.trim();
             const pass  = document.getElementById('loginPass').value;
             const err   = document.getElementById('loginErr');
-            if (!uname || !pass) { err.textContent = 'âŒ Enter username and password.'; return; }
+            if (!uname || !pass) { err.textContent = 'Ã¢ÂÅ’ Enter username and password.'; return; }
             err.style.color = 'var(--primary)';
-            err.textContent = 'â³ Authenticating...';
+            err.textContent = 'Ã¢ÂÂ³ Authenticating...';
             try {
                 const res = await apiPost({ action: 'login', username: uname, password: pass });
                 if (res.success && res.user) {
@@ -179,12 +179,12 @@ export default function Page() {
                     _currentUser = SUPER_ADMIN;
                 } else {
                     err.style.color = '#e53e3e';
-                    err.textContent = 'âŒ Invalid username or password.';
+                    err.textContent = 'Ã¢ÂÅ’ Invalid username or password.';
                     return;
                 }
             } catch (e) {
                 err.style.color = '#e53e3e';
-                err.textContent = 'âš ï¸ Connection error. Try again.';
+                err.textContent = 'Ã¢Å¡Â Ã¯Â¸Â Connection error. Try again.';
                 return;
             }
             err.textContent = '';
@@ -202,16 +202,16 @@ export default function Page() {
         function showApp() {
             document.getElementById('loginOverlay').style.display = 'none';
             document.getElementById('headerUser').textContent =
-                'ðŸ‘¤ ' + _currentUser.username + (_currentUser.role === 'admin' ? ' Â· Admin' : '');
+                'Ã°Å¸â€˜Â¤ ' + _currentUser.username + (_currentUser.role === 'admin' ? ' Ã‚Â· Admin' : '');
             document.getElementById('adminTabBtn').style.display =
                 _currentUser.role === 'admin' ? 'block' : 'none';
             document.getElementById('date').value = new Date().toISOString().split('T')[0];
             bootApp();
         }
 
-        /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        /* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
            TABS
-        â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+        Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */
         function switchTab(tab, btn) {
             document.getElementById('dprModal').classList.remove('open');
             document.getElementById('report').style.display = 'none';
@@ -243,9 +243,9 @@ export default function Page() {
             }
         }
 
-        /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-           SITE DROPDOWN â€” with sub-project indentation
-        â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+        /* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+           SITE DROPDOWN Ã¢â‚¬â€ with sub-project indentation
+        Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */
         function getLocalTodayYMD() {
             const d = new Date();
             const y = d.getFullYear();
@@ -259,7 +259,7 @@ export default function Page() {
             if (!sel) return;
             const prev = sel.value;
             const tops = _projects.filter(p => (!p.parent_id || String(p.parent_id).trim() === ''));
-            let html = '<option value="">â€” Show All Sites â€”</option>';
+            let html = '<option value="">Ã¢â‚¬â€ Show All Sites Ã¢â‚¬â€</option>';
             if (tops.length) {
                 html += tops.map(proj => {
                     const subs = _projects.filter(p => String(p.parent_id) === String(proj.id));
@@ -268,7 +268,7 @@ export default function Page() {
                     if (subs.length) {
                         inner += subs.map(s => {
                             const sSuffix = s.status === 'inactive' ? ' (Inactive)' : '';
-                            return `<option value="${esc(s.project_name)}">\u00a0\u00a0â†³ ${s.project_name}${sSuffix}</option>`;
+                            return `<option value="${esc(s.project_name)}">\u00a0\u00a0Ã¢â€ Â³ ${s.project_name}${sSuffix}</option>`;
                         }).join('');
                     }
                     return inner;
@@ -287,7 +287,7 @@ export default function Page() {
                 ? tops.map(proj => {
                     const subs = _projects.filter(p => String(p.parent_id) === String(proj.id) && p.status === 'active');
                     return `<option value="${esc(proj.project_name)}">${proj.project_name}</option>` +
-                        subs.map(s => `<option value="${esc(s.project_name)}">\u00a0\u00a0â†³ ${s.project_name}</option>`).join('');
+                        subs.map(s => `<option value="${esc(s.project_name)}">\u00a0\u00a0Ã¢â€ Â³ ${s.project_name}</option>`).join('');
                   }).join('')
                 : '<option value="">No active projects</option>';
             sel.innerHTML = html;
@@ -296,9 +296,9 @@ export default function Page() {
             populateSearchSiteDropdown();
         }
 
-        /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-           ACTIVITY ROWS â€” Main â†’ Sub dependent dropdowns
-        â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+        /* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+           ACTIVITY ROWS Ã¢â‚¬â€ Main Ã¢â€ â€™ Sub dependent dropdowns
+        Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */
         function mainActivities() {
             return _activities.filter(a => (!a.parent_id || String(a.parent_id).trim() === '') && a.status === 'active');
         }
@@ -329,17 +329,17 @@ export default function Page() {
                     <div style="display:flex; align-items:center; gap:8px;">
                         <span class="row-total-badge" style="font-size:11.5px; font-weight:700; color:var(--text); background:var(--primary-light); padding:3px 8px; border-radius:4px;">Total: <b class="row-total-val">0</b></span>
                         <button class="delete-btn" onclick="removeActivityRow('${rowId}')"
-                                style="width:auto;padding:4px 10px;margin-top:0;font-size:11px;">ðŸ—‘ï¸ Remove</button>
+                                style="width:auto;padding:4px 10px;margin-top:0;font-size:11px;">Ã°Å¸â€”â€˜Ã¯Â¸Â Remove</button>
                     </div>
                 </div>
                 <label>Main Activity</label>
                 <select class="main-act-sel" onchange="onMainActChange(this,'${subId}')">
-                    <option value="">â€” Select Main Activity â€”</option>
+                    <option value="">Ã¢â‚¬â€ Select Main Activity Ã¢â‚¬â€</option>
                     ${mains.map(m => `<option value="${esc(m.activity_name)}" data-id="${m.id}">${m.activity_name}</option>`).join('')}
                 </select>
                 <label id="lbl_${subId}" style="display:none;">Sub-Activity</label>
                 <select class="sub-act-sel" id="${subId}" style="display:none;opacity:0.45;" disabled>
-                    <option value="">â€” N/A â€”</option>
+                    <option value="">Ã¢â‚¬â€ N/A Ã¢â‚¬â€</option>
                 </select>
                 <div class="row2">
                     <div><label>Skilled</label><input type="number" class="skill" value="0" min="0"></div>
@@ -361,7 +361,7 @@ export default function Page() {
                     if (found) {
                         mainSel.value = mainName;
                     } else {
-                        // Activity may be deactivated â€” add ephemeral option
+                        // Activity may be deactivated Ã¢â‚¬â€ add ephemeral option
                         const opt = document.createElement('option');
                         opt.value = mainName; opt.textContent = mainName; opt.setAttribute('data-id','');
                         mainSel.appendChild(opt); mainSel.value = mainName;
@@ -390,12 +390,12 @@ export default function Page() {
             const subs    = mainId ? subActivitiesOf(mainId) : [];
 
             if (!subs.length) {
-                if (subSel)  { subSel.innerHTML = '<option value="">â€” N/A â€”</option>'; subSel.disabled = true; subSel.style.opacity = '0.45'; subSel.style.display = 'none'; }
+                if (subSel)  { subSel.innerHTML = '<option value="">Ã¢â‚¬â€ N/A Ã¢â‚¬â€</option>'; subSel.disabled = true; subSel.style.opacity = '0.45'; subSel.style.display = 'none'; }
                 if (label)   label.style.display = 'none';
             } else {
                 if (subSel) {
                     subSel.disabled = false; subSel.style.opacity = '1'; subSel.style.display = '';
-                    subSel.innerHTML = '<option value="">â€” Select Sub-Activity â€”</option>' +
+                    subSel.innerHTML = '<option value="">Ã¢â‚¬â€ Select Sub-Activity Ã¢â‚¬â€</option>' +
                         subs.map(s => `<option value="${esc(s.activity_name)}">${s.activity_name}</option>`).join('');
                     if (preselectSub) subSel.value = preselectSub;
                 }
@@ -421,19 +421,19 @@ export default function Page() {
             return rows;
         }
 
-        /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        /* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
            GENERATE & SAVE
-        â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+        Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */
         function generate() {
-            if (!_currentUser) { showToast('âš ï¸ Please sign in first'); return; }
+            if (!_currentUser) { showToast('Ã¢Å¡Â Ã¯Â¸Â Please sign in first'); return; }
             const dateVal = document.getElementById('date').value;
             const siteVal = document.getElementById('site').value;
-            if (!dateVal) { showToast('âš ï¸ Select a date'); return; }
-            if (!siteVal) { showToast('âš ï¸ Select a site'); return; }
+            if (!dateVal) { showToast('Ã¢Å¡Â Ã¯Â¸Â Select a date'); return; }
+            if (!siteVal) { showToast('Ã¢Å¡Â Ã¯Â¸Â Select a site'); return; }
 
             const activities = collectActivityRows();
             if (!activities.some(a => a.skilled > 0 || a.unskilled > 0))
-                { showToast('âš ï¸ Enter at least one activity with workers'); return; }
+                { showToast('Ã¢Å¡Â Ã¯Â¸Â Enter at least one activity with workers'); return; }
 
             const total    = activities.reduce((s, a) => s + a.skilled + a.unskilled, 0);
             const existing = _history.find(h => toYMD(h.date) === dateVal && String(h.site).trim() === siteVal.trim());
@@ -452,14 +452,14 @@ export default function Page() {
                     if (!grouped[mainName]) grouped[mainName] = [];
                     grouped[mainName].push(a);
                 });
-                return `<div class="report-section-title">ðŸ”¨ ${title}</div>` +
+                return `<div class="report-section-title">Ã°Å¸â€Â¨ ${title}</div>` +
                     Object.entries(grouped).map(([main, rows]) => {
                         const innerRowsHtml = rows.map((r, rIdx) => {
                             let childName = (r.sub_activity || r.activity || '').trim();
-                            childName = childName.replace(/^[â†³\s\-âž”]+/, '').trim();
+                            childName = childName.replace(/^[Ã¢â€ Â³\s\-Ã¢Å¾â€]+/, '').trim();
                             const mainClean = String(main).trim().toLowerCase();
                             if (childName.toLowerCase().indexOf(mainClean) === 0) {
-                                childName = childName.substring(mainClean.length).replace(/^[â†³\s\-âž”]+/, '').trim();
+                                childName = childName.substring(mainClean.length).replace(/^[Ã¢â€ Â³\s\-Ã¢Å¾â€]+/, '').trim();
                             }
                             
                             const isSub = childName !== '' && childName.toLowerCase() !== mainClean;
@@ -471,22 +471,22 @@ export default function Page() {
                             const fontSize = '13.5px';
                             const titleColor = isSub ? '#475569' : '#1e293b';
                             const fontWeight = isSub ? '500' : '700';
-                            const prefix = isSub ? '<span style="color:var(--primary);margin-right:4px;">â†³</span>' : '';
+                            const prefix = isSub ? '<span style="color:var(--primary);margin-right:4px;">Ã¢â€ Â³</span>' : '';
                             
                             return `
                             <div style="padding: 10px 0; padding-left: ${paddingLeft}; border-bottom: ${borderVal}; line-height: 1.6;">
                                 <div style="font-weight: ${fontWeight}; color: ${titleColor}; font-size: ${fontSize};">${prefix}${childName || main}</div>
                                 <div style="font-size: 12px; color: #475569; margin-top: 4px;">
-                                    Skilled: <b>${r.skilled}</b> &nbsp;Â·&nbsp; Unskilled: <b>${r.unskilled}</b> &nbsp;Â·&nbsp; Total: <b>${totalVal}</b>
+                                    Skilled: <b>${r.skilled}</b> &nbsp;Ã‚Â·&nbsp; Unskilled: <b>${r.unskilled}</b> &nbsp;Ã‚Â·&nbsp; Total: <b>${totalVal}</b>
                                 </div>
-                                ${r.note ? `<div style="color: #475569; font-size: 11.5px; margin-top: 6px; font-style: italic; background: #f8fafc; padding: 6px 8px; border-radius: 4px; border-left: 2.5px solid #cbd5e1;">ðŸ“Œ ${r.note}</div>` : ''}
+                                ${r.note ? `<div style="color: #475569; font-size: 11.5px; margin-top: 6px; font-style: italic; background: #f8fafc; padding: 6px 8px; border-radius: 4px; border-left: 2.5px solid #cbd5e1;">Ã°Å¸â€œÅ’ ${r.note}</div>` : ''}
                             </div>`;
                         }).join('');
 
                         return `
                         <div class="report-activity" style="margin-bottom: 14px; padding: 16px; border-left: 5px solid var(--primary); background: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
                             <div style="font-weight: 800; font-size: 16px; color: #1e293b; margin-bottom: 12px; border-bottom: 2px solid #e2e8f0; padding-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">
-                                ðŸ“¦ ${main}
+                                Ã°Å¸â€œÂ¦ ${main}
                             </div>
                             <div style="display: flex; flex-direction: column;">
                                 ${innerRowsHtml}
@@ -498,16 +498,16 @@ export default function Page() {
             const sectionHtml = renderSection('Civil Work', civilActs) + renderSection('Interior Work', interiorActs);
 
             document.getElementById('rdate').innerHTML =
-                `<b>ðŸ“… Date :</b> ${formatDate(dateVal)}<br>
-                 <b>ðŸ“ Site :</b> ${getSiteDisplayName(siteVal)}<br>
-                 <b>ðŸ‘¤ Filled by :</b> ${prepBy}${editedBy ? ` (Edited by: ${editedBy})` : ''}`;
+                `<b>Ã°Å¸â€œâ€¦ Date :</b> ${formatDate(dateVal)}<br>
+                 <b>Ã°Å¸â€œÂ Site :</b> ${getSiteDisplayName(siteVal)}<br>
+                 <b>Ã°Å¸â€˜Â¤ Filled by :</b> ${prepBy}${editedBy ? ` (Edited by: ${editedBy})` : ''}`;
             document.getElementById('rcivil').innerHTML    = sectionHtml;
-            document.getElementById('rmanpower').innerHTML = `<div class="report-total">ðŸ‘· Total Manpower : ${total}</div>`;
+            document.getElementById('rmanpower').innerHTML = `<div class="report-total">Ã°Å¸â€˜Â· Total Manpower : ${total}</div>`;
             document.getElementById('report').style.display = 'block';
             document.getElementById('report').scrollIntoView({ behavior: 'smooth' });
 
             saveToCloud(dateVal, siteVal, total, activities, prepBy, editedBy);
-            showToast('âœ… DPR Generated!');
+            showToast('Ã¢Å“â€¦ DPR Generated!');
         }
 
         function saveToCloud(dateVal, siteVal, total, activities, prepBy, editedBy) {
@@ -526,13 +526,13 @@ export default function Page() {
                 const q = JSON.parse(localStorage.getItem('dprOfflineQ') || '[]');
                 q.push(payload);
                 localStorage.setItem('dprOfflineQ', JSON.stringify(q));
-                showToast('ðŸ’¾ Offline â€” will sync on reconnect');
+                showToast('Ã°Å¸â€™Â¾ Offline Ã¢â‚¬â€ will sync on reconnect');
                 return;
             }
-            showToast('â˜ï¸ Saving to cloud...');
+            showToast('Ã¢ËœÂÃ¯Â¸Â Saving to cloud...');
             apiPost(payload)
                 .then(() => {
-                    showToast(isEdit ? 'âœ… DPR Updated!' : 'âœ… Saved!');
+                    showToast(isEdit ? 'Ã¢Å“â€¦ DPR Updated!' : 'Ã¢Å“â€¦ Saved!');
                     _editingKey = null;
                     localStorage.removeItem('dpr_form_draft');
                     document.getElementById('date').value = new Date().toISOString().split('T')[0];
@@ -540,21 +540,21 @@ export default function Page() {
                     resetForm();
                     loadHistory();
                 })
-                .catch(() => showToast('âš ï¸ Save failed â€” check connection'));
+                .catch(() => showToast('Ã¢Å¡Â Ã¯Â¸Â Save failed Ã¢â‚¬â€ check connection'));
         }
 
         function syncOfflineQueue() {
             const q = JSON.parse(localStorage.getItem('dprOfflineQ') || '[]');
-            if (!q.length) { showToast('âœ… Nothing to sync'); return; }
-            showToast(`ðŸ”„ Syncing ${q.length} queued DPR(s)...`);
+            if (!q.length) { showToast('Ã¢Å“â€¦ Nothing to sync'); return; }
+            showToast(`Ã°Å¸â€â€ž Syncing ${q.length} queued DPR(s)...`);
             Promise.all(q.map(p => apiPost(p)))
-                .then(() => { localStorage.removeItem('dprOfflineQ'); showToast('âœ… All synced!'); loadHistory(); })
-                .catch(() => showToast('âš ï¸ Sync failed'));
+                .then(() => { localStorage.removeItem('dprOfflineQ'); showToast('Ã¢Å“â€¦ All synced!'); loadHistory(); })
+                .catch(() => showToast('Ã¢Å¡Â Ã¯Â¸Â Sync failed'));
         }
 
-        /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-           HISTORY  (no default date filter â€” shows ALL records)
-        â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+        /* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+           HISTORY  (no default date filter Ã¢â‚¬â€ shows ALL records)
+        Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */
         function loadHistory() {
             const el = document.getElementById('historyList');
             if (el) el.innerHTML = getSkeletonLoader();
@@ -568,13 +568,13 @@ export default function Page() {
                     renderDashboard();
                 })
                 .catch(() => {
-                    if (el) el.innerHTML = '<p style="color:#e57373;text-align:center;padding:10px;">âš ï¸ Failed to load records.</p>';
+                    if (el) el.innerHTML = '<p style="color:#e57373;text-align:center;padding:10px;">Ã¢Å¡Â Ã¯Â¸Â Failed to load records.</p>';
                 });
         }
 
         function updateHistoryCount() {
             const el = document.getElementById('historyCount');
-            if (el) el.textContent = `ðŸ“Š ${_history.length} total record${_history.length !== 1 ? 's' : ''} loaded`;
+            if (el) el.textContent = `Ã°Å¸â€œÅ  ${_history.length} total record${_history.length !== 1 ? 's' : ''} loaded`;
         }
 
         function toggleHistoryDropdown(event, idx) {
@@ -611,14 +611,14 @@ export default function Page() {
                     grouped[mainName].push(a);
                 });
 
-                return `<div class="report-section-title">ðŸ”¨ ${title}</div>` +
+                return `<div class="report-section-title">Ã°Å¸â€Â¨ ${title}</div>` +
                     Object.entries(grouped).map(([main, rows]) => {
                         const innerRowsHtml = rows.map((r, rIdx) => {
                             let childName = (r.activity || r.sub_activity || '').trim();
-                            childName = childName.replace(/^[â†³\s\-âž”]+/, '').trim();
+                            childName = childName.replace(/^[Ã¢â€ Â³\s\-Ã¢Å¾â€]+/, '').trim();
                             const mainClean = String(main).trim().toLowerCase();
                             if (childName.toLowerCase().indexOf(mainClean) === 0) {
-                                childName = childName.substring(mainClean.length).replace(/^[â†³\s\-âž”]+/, '').trim();
+                                childName = childName.substring(mainClean.length).replace(/^[Ã¢â€ Â³\s\-Ã¢Å¾â€]+/, '').trim();
                             }
                             
                             const isSub = childName !== '' && childName.toLowerCase() !== mainClean;
@@ -632,22 +632,22 @@ export default function Page() {
                             const fontSize = '13.5px';
                             const titleColor = isSub ? '#475569' : '#1e293b';
                             const fontWeight = isSub ? '500' : '700';
-                            const prefix = isSub ? '<span style="color:var(--primary);margin-right:4px;">â†³</span>' : '';
+                            const prefix = isSub ? '<span style="color:var(--primary);margin-right:4px;">Ã¢â€ Â³</span>' : '';
 
                             return `
                             <div style="padding: 10px 0; padding-left: ${paddingLeft}; border-bottom: ${borderVal}; line-height: 1.6;">
                                 <div style="font-weight: ${fontWeight}; color: ${titleColor}; font-size: ${fontSize};">${prefix}${childName || main}</div>
                                 <div style="font-size: 12px; color: #475569; margin-top: 4px;">
-                                    Skilled: <b>${sk}</b> &nbsp;Â·&nbsp; Unskilled: <b>${un}</b> &nbsp;Â·&nbsp; Total: <b>${totalVal}</b>
+                                    Skilled: <b>${sk}</b> &nbsp;Ã‚Â·&nbsp; Unskilled: <b>${un}</b> &nbsp;Ã‚Â·&nbsp; Total: <b>${totalVal}</b>
                                 </div>
-                                ${r.note ? `<div style="color: #475569; font-size: 11.5px; margin-top: 6px; font-style: italic; background: #f8fafc; padding: 6px 8px; border-radius: 4px; border-left: 2.5px solid #cbd5e1;">ðŸ“Œ ${r.note}</div>` : ''}
+                                ${r.note ? `<div style="color: #475569; font-size: 11.5px; margin-top: 6px; font-style: italic; background: #f8fafc; padding: 6px 8px; border-radius: 4px; border-left: 2.5px solid #cbd5e1;">Ã°Å¸â€œÅ’ ${r.note}</div>` : ''}
                             </div>`;
                         }).join('');
 
                         return `
                         <div class="report-activity" style="margin-bottom: 14px; padding: 16px; border-left: 5px solid var(--primary); background: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
                             <div style="font-weight: 800; font-size: 16px; color: #1e293b; margin-bottom: 12px; border-bottom: 2px solid #e2e8f0; padding-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">
-                                ðŸ“¦ ${main}
+                                Ã°Å¸â€œÂ¦ ${main}
                             </div>
                             <div style="display: flex; flex-direction: column;">
                                 ${innerRowsHtml}
@@ -670,18 +670,18 @@ export default function Page() {
             const d      = toYMD(item.date);
             const byLine = item.editedBy && item.editedBy !== item.by
                 ? `${item.by} (Edited by: ${item.editedBy})`
-                : (item.by || 'â€”');
+                : (item.by || 'Ã¢â‚¬â€');
 
             return `
                 <h3>DPR &mdash; MAN POWER REPORT</h3>
                 <div class="report-meta">
-                    <b>ðŸ“… Date :</b> ${formatDate(d) || 'â€”'}<br>
-                    <b>ðŸ“ Site :</b> ${getSiteDisplayName(item.site)}<br>
-                    <b>ðŸ‘¤ Filled by :</b> ${byLine}<br>
-                    <b>ðŸ‘· Total :</b> ${item.total || 0} workers
+                    <b>Ã°Å¸â€œâ€¦ Date :</b> ${formatDate(d) || 'Ã¢â‚¬â€'}<br>
+                    <b>Ã°Å¸â€œÂ Site :</b> ${getSiteDisplayName(item.site)}<br>
+                    <b>Ã°Å¸â€˜Â¤ Filled by :</b> ${byLine}<br>
+                    <b>Ã°Å¸â€˜Â· Total :</b> ${item.total || 0} workers
                 </div>
                 <div>${bodyHtml}</div>
-                <div class="report-total" style="margin-top:14px;">ðŸ‘· Total Manpower : ${item.total || 0}</div>
+                <div class="report-total" style="margin-top:14px;">Ã°Å¸â€˜Â· Total Manpower : ${item.total || 0}</div>
             `;
         }
 
@@ -732,7 +732,7 @@ export default function Page() {
             const cleanDate = toYMD(item.date);
             const baseName = `DPR_History_${cleanSite}_${cleanDate}`;
 
-            showToast(`â³ Generating ${type === 'pdf' ? 'PDF' : 'Image'}...`);
+            showToast(`Ã¢ÂÂ³ Generating ${type === 'pdf' ? 'PDF' : 'Image'}...`);
 
             // Use 150ms timeout to guarantee dynamic mounting has fully laid out child elements
             setTimeout(() => {
@@ -750,7 +750,7 @@ export default function Page() {
 
                     const dataUrl = c.toDataURL('image/jpeg', 0.95);
                     if (!dataUrl || dataUrl === 'data:,' || dataUrl.length < 100) {
-                        showToast('âš ï¸ Generated image was empty. Try again.');
+                        showToast('Ã¢Å¡Â Ã¯Â¸Â Generated image was empty. Try again.');
                         return;
                     }
 
@@ -766,26 +766,26 @@ export default function Page() {
 
                         pdf.addImage(dataUrl, 'JPEG', 0, 0, imgWidth, imgHeight);
                         pdf.save(`${baseName}.pdf`);
-                        showToast('ðŸ“„ PDF Downloaded!');
+                        showToast('Ã°Å¸â€œâ€ž PDF Downloaded!');
                     } else {
                         const a = document.createElement('a');
                         a.download = `${baseName}.jpg`;
                         a.href = dataUrl;
                         a.click();
-                        showToast('ðŸ“· Image Downloaded!');
+                        showToast('Ã°Å¸â€œÂ· Image Downloaded!');
                     }
                 }).catch(err => {
                     if (document.getElementById('report-temp-capture')) {
                         document.body.removeChild(tempContainer);
                     }
-                    showToast(`âš ï¸ ${type === 'pdf' ? 'PDF' : 'Image'} generation failed`);
+                    showToast(`Ã¢Å¡Â Ã¯Â¸Â ${type === 'pdf' ? 'PDF' : 'Image'} generation failed`);
                 });
             }, 150);
         }
 
-        /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        /* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
            OVERHAUL HELPER FUNCTIONS
-        â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+        Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */
         function getSkeletonLoader() {
             return `
             <div class="skeleton-card">
@@ -861,7 +861,7 @@ export default function Page() {
         }
 
         function exportMasterLogCSV() {
-            if (!_history.length) { showToast('âš ï¸ No history records to export'); return; }
+            if (!_history.length) { showToast('Ã¢Å¡Â Ã¯Â¸Â No history records to export'); return; }
             const headers = [
                 'Date', 'Site', 'Supervisor (Created By)', 'Last Edited By', 'Submitted At',
                 'Total DPR Manpower', 'Activity Category (Main)', 'Sub-Activity', 'Section',
@@ -923,7 +923,7 @@ export default function Page() {
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
-            showToast('âœ… CSV Exported!');
+            showToast('Ã¢Å“â€¦ CSV Exported!');
         }
 
         function populateSupervisorDropdown() {
@@ -933,7 +933,7 @@ export default function Page() {
             const supervisors = new Set();
             _users.forEach(u => supervisors.add(u.username));
             _history.forEach(h => { if (h.by) supervisors.add(h.by); });
-            let html = '<option value="">â€” Show All â€”</option>';
+            let html = '<option value="">Ã¢â‚¬â€ Show All Ã¢â‚¬â€</option>';
             Array.from(supervisors).sort().forEach(sup => {
                 html += `<option value="${esc(sup)}">${sup}</option>`;
             });
@@ -958,7 +958,7 @@ export default function Page() {
             
             const siteCounts = {};
             _history.forEach(h => { if (h.site) siteCounts[h.site] = (siteCounts[h.site] || 0) + 1; });
-            let mostActiveSite = 'â€”';
+            let mostActiveSite = 'Ã¢â‚¬â€';
             let maxCount = 0;
             Object.entries(siteCounts).forEach(([site, count]) => {
                 if (count > maxCount) { maxCount = count; mostActiveSite = site; }
@@ -1076,33 +1076,33 @@ export default function Page() {
                 const granted  = item.editPermission === 'granted';
                 const pending  = item.editPermission === 'pending';
 
-                let editActionLabel = 'âœï¸ Edit';
+                let editActionLabel = 'Ã¢Å“ÂÃ¯Â¸Â Edit';
                 let editActionOnClick = `editDPR(${realIdx})`;
                 if (!isAdmin && isOwn && !within15 && !granted && !pending) {
-                    editActionLabel = 'ðŸ”‘ Request Edit';
+                    editActionLabel = 'Ã°Å¸â€â€˜ Request Edit';
                     editActionOnClick = `requestEditDPR(${realIdx})`;
                 } else if (!isAdmin && isOwn && pending) {
-                    editActionLabel = 'â³ Edit Pending';
-                    editActionOnClick = `showToast("â³ Edit request is pending Admin approval")`;
+                    editActionLabel = 'Ã¢ÂÂ³ Edit Pending';
+                    editActionOnClick = `showToast("Ã¢ÂÂ³ Edit request is pending Admin approval")`;
                 } else if (!isAdmin && !isOwn) {
-                    editActionLabel = 'âœï¸ Edit (Disabled)';
-                    editActionOnClick = `showToast("âŒ You can only edit your own DPRs")`;
+                    editActionLabel = 'Ã¢Å“ÂÃ¯Â¸Â Edit (Disabled)';
+                    editActionOnClick = `showToast("Ã¢ÂÅ’ You can only edit your own DPRs")`;
                 }
 
                 const detCount = Array.isArray(item.details) ? item.details.length : 0;
                 const civCount = Array.isArray(item.civilActivities)    ? item.civilActivities.length    : 0;
                 const intCount = Array.isArray(item.interiorActivities) ? item.interiorActivities.length : 0;
                 const actHint  = (civCount + intCount) > 0
-                    ? `${civCount} civil Â· ${intCount} interior`
+                    ? `${civCount} civil Ã‚Â· ${intCount} interior`
                     : (detCount > 0 ? `${detCount} activit${detCount > 1 ? 'ies' : 'y'}` : '');
 
                 const dropdownHtml = `
                 <button class="history-options-btn" onclick="toggleHistoryDropdown(event, ${realIdx})">&#8942;</button>
                 <div class="history-dropdown" id="dropdown_${realIdx}">
                     <button class="history-dropdown-item" onclick="closeAllHistoryDropdowns(); ${editActionOnClick}">${editActionLabel}</button>
-                    <button class="history-dropdown-item delete-item" onclick="closeAllHistoryDropdowns(); deleteDPR(${realIdx})">âŒ Delete</button>
-                    <button class="history-dropdown-item" onclick="closeAllHistoryDropdowns(); downloadHistoryDPR(${realIdx}, 'image')">ðŸ“¸ Download Image</button>
-                    <button class="history-dropdown-item" onclick="closeAllHistoryDropdowns(); downloadHistoryDPR(${realIdx}, 'pdf')">ðŸ“„ Download PDF</button>
+                    <button class="history-dropdown-item delete-item" onclick="closeAllHistoryDropdowns(); deleteDPR(${realIdx})">Ã¢ÂÅ’ Delete</button>
+                    <button class="history-dropdown-item" onclick="closeAllHistoryDropdowns(); downloadHistoryDPR(${realIdx}, 'image')">Ã°Å¸â€œÂ¸ Download Image</button>
+                    <button class="history-dropdown-item" onclick="closeAllHistoryDropdowns(); downloadHistoryDPR(${realIdx}, 'pdf')">Ã°Å¸â€œâ€ž Download PDF</button>
                 </div>
                 `;
 
@@ -1110,15 +1110,15 @@ export default function Page() {
                 <div class="history-item">
                     ${dropdownHtml}
                     <div style="font-size:14px;font-weight:700;padding-right:30px;">
-                        ðŸ“… ${formatDate(d) || 'â€”'}
+                        Ã°Å¸â€œâ€¦ ${formatDate(d) || 'Ã¢â‚¬â€'}
                         <span style="font-size:12px;font-weight:400;color:var(--muted);margin-left:6px;">${byLine}</span>
                     </div>
                     <div style="font-size:12px;color:var(--muted);margin-top:3px;padding-right:30px;">
-                        ðŸ“ ${getSiteDisplayName(item.site) || 'â€”'} &nbsp;Â·&nbsp; ðŸ‘· <b>${item.total || 0}</b> workers
-                        ${actHint ? `&nbsp;Â·&nbsp; ðŸ“‹ ${actHint}` : ''}
+                        Ã°Å¸â€œÂ ${getSiteDisplayName(item.site) || 'Ã¢â‚¬â€'} &nbsp;Ã‚Â·&nbsp; Ã°Å¸â€˜Â· <b>${item.total || 0}</b> workers
+                        ${actHint ? `&nbsp;Ã‚Â·&nbsp; Ã°Å¸â€œâ€¹ ${actHint}` : ''}
                     </div>
                     <div class="hbtn-group">
-                        <button class="btn-blue btn-sm" onclick="openDPR(${realIdx})" style="width:auto;padding:6px 10px;">ðŸ“‚ View</button>
+                        <button class="btn-blue btn-sm" onclick="openDPR(${realIdx})" style="width:auto;padding:6px 10px;">Ã°Å¸â€œâ€š View</button>
                     </div>
                 </div>`;
             }).join('');
@@ -1132,10 +1132,10 @@ export default function Page() {
             resetHistoryPageAndRender();
         }
 
-        /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-           VIEW DPR MODAL â€” uses civilActivities + interiorActivities
+        /* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+           VIEW DPR MODAL Ã¢â‚¬â€ uses civilActivities + interiorActivities
            from DPR_Records (JSON), falling back to DPR_Detail rows
-        â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+        Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */
         function openDPR(i) {
             const item = _history[i];
             if (!item) return;
@@ -1157,14 +1157,14 @@ export default function Page() {
                     grouped[mainName].push(a);
                 });
 
-                return `<div style="font-weight:700;font-size:14px;color:var(--primary);margin:18px 0 10px;">ðŸ”¨ ${title}</div>` +
+                return `<div style="font-weight:700;font-size:14px;color:var(--primary);margin:18px 0 10px;">Ã°Å¸â€Â¨ ${title}</div>` +
                     Object.entries(grouped).map(([main, rows]) => {
                         const innerRowsHtml = rows.map((r, rIdx) => {
                             let childName = (r.activity || '').trim();
-                            childName = childName.replace(/^[â†³\s\-âž”]+/, '').trim();
+                            childName = childName.replace(/^[Ã¢â€ Â³\s\-Ã¢Å¾â€]+/, '').trim();
                             const mainClean = String(main).trim().toLowerCase();
                             if (childName.toLowerCase().indexOf(mainClean) === 0) {
-                                childName = childName.substring(mainClean.length).replace(/^[â†³\s\-âž”]+/, '').trim();
+                                childName = childName.substring(mainClean.length).replace(/^[Ã¢â€ Â³\s\-Ã¢Å¾â€]+/, '').trim();
                             }
                             
                             const isSub = childName !== '' && childName.toLowerCase() !== mainClean;
@@ -1178,22 +1178,22 @@ export default function Page() {
                             const fontSize = '13.5px';
                             const titleColor = isSub ? '#475569' : '#1e293b';
                             const fontWeight = isSub ? '500' : '700';
-                            const prefix = isSub ? '<span style="color:var(--primary);margin-right:4px;">â†³</span>' : '';
+                            const prefix = isSub ? '<span style="color:var(--primary);margin-right:4px;">Ã¢â€ Â³</span>' : '';
 
                             return `
                             <div style="padding: 10px 0; padding-left: ${paddingLeft}; border-bottom: ${borderVal}; line-height: 1.6;">
                                 <div style="font-weight: ${fontWeight}; color: ${titleColor}; font-size: ${fontSize};">${prefix}${childName || main}</div>
                                 <div style="font-size: 12px; color: #475569; margin-top: 4px;">
-                                    Skilled: <b>${sk}</b> &nbsp;Â·&nbsp; Unskilled: <b>${un}</b> &nbsp;Â·&nbsp; Total: <b>${totalVal}</b>
+                                    Skilled: <b>${sk}</b> &nbsp;Ã‚Â·&nbsp; Unskilled: <b>${un}</b> &nbsp;Ã‚Â·&nbsp; Total: <b>${totalVal}</b>
                                 </div>
-                                ${r.note ? `<div style="color: #475569; font-size: 11.5px; margin-top: 6px; font-style: italic; background: #f8fafc; padding: 6px 8px; border-radius: 4px; border-left: 2.5px solid #cbd5e1;">ðŸ“Œ ${r.note}</div>` : ''}
+                                ${r.note ? `<div style="color: #475569; font-size: 11.5px; margin-top: 6px; font-style: italic; background: #f8fafc; padding: 6px 8px; border-radius: 4px; border-left: 2.5px solid #cbd5e1;">Ã°Å¸â€œÅ’ ${r.note}</div>` : ''}
                             </div>`;
                         }).join('');
 
                         return `
                         <div style="border-left:5px solid var(--primary);background:#ffffff;padding:16px;margin-bottom:14px;border-radius: 8px;border: 1px solid #e2e8f0;box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
                             <div style="font-weight: 800; font-size: 16px; color: #1e293b; margin-bottom: 12px; border-bottom: 2px solid #e2e8f0; padding-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">
-                                ðŸ“¦ ${main}
+                                Ã°Å¸â€œÂ¦ ${main}
                             </div>
                             <div style="display: flex; flex-direction: column;">
                                 ${innerRowsHtml}
@@ -1217,17 +1217,17 @@ export default function Page() {
             const d      = toYMD(item.date);
             const byLine = item.editedBy && item.editedBy !== item.by
                 ? `${item.by} (Edited by: ${item.editedBy})`
-                : (item.by || 'â€”');
+                : (item.by || 'Ã¢â‚¬â€');
 
             document.getElementById('dprModalBody').innerHTML = `
                 <div class="report-meta">
-                    <b>ðŸ“… Date :</b> ${formatDate(d) || 'â€”'}<br>
-                    <b>ðŸ“ Site :</b> ${getSiteDisplayName(item.site)}<br>
-                    <b>ðŸ‘¤ Filled by :</b> ${byLine}<br>
-                    <b>ðŸ‘· Total :</b> ${item.total || 0} workers
+                    <b>Ã°Å¸â€œâ€¦ Date :</b> ${formatDate(d) || 'Ã¢â‚¬â€'}<br>
+                    <b>Ã°Å¸â€œÂ Site :</b> ${getSiteDisplayName(item.site)}<br>
+                    <b>Ã°Å¸â€˜Â¤ Filled by :</b> ${byLine}<br>
+                    <b>Ã°Å¸â€˜Â· Total :</b> ${item.total || 0} workers
                 </div>
                 ${bodyHtml}
-                <div class="report-total" style="margin-top:14px;">ðŸ‘· Total Manpower : ${item.total || 0}</div>`;
+                <div class="report-total" style="margin-top:14px;">Ã°Å¸â€˜Â· Total Manpower : ${item.total || 0}</div>`;
             document.getElementById('dprModal').classList.add('open');
         }
 
@@ -1236,18 +1236,18 @@ export default function Page() {
         }
 
         function deleteDPR(i) {
-            if (!_currentUser || _currentUser.role !== 'admin') { showToast('âŒ Only Admin can delete'); return; }
+            if (!_currentUser || _currentUser.role !== 'admin') { showToast('Ã¢ÂÅ’ Only Admin can delete'); return; }
             if (!confirm('Delete this DPR record permanently?')) return;
             const item = _history[i];
             const key  = toYMD(item.date) + '||' + String(item.site).trim();
             apiPost({ action: 'delete', id: key })
-                .then(() => { showToast('ðŸ—‘ï¸ Deleted!'); loadHistory(); })
-                .catch(() => showToast('âš ï¸ Delete failed'));
+                .then(() => { showToast('Ã°Å¸â€”â€˜Ã¯Â¸Â Deleted!'); loadHistory(); })
+                .catch(() => showToast('Ã¢Å¡Â Ã¯Â¸Â Delete failed'));
         }
 
-        /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-           EDIT DPR â€” reconstructs activity rows from JSON arrays
-        â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+        /* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+           EDIT DPR Ã¢â‚¬â€ reconstructs activity rows from JSON arrays
+        Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */
         function editDPR(i) {
             const item = _history[i];
             if (!item || !_currentUser) return;
@@ -1256,8 +1256,8 @@ export default function Page() {
             const sub      = Number(item.submittedAt) || (item.submittedAt ? new Date(item.submittedAt).getTime() : 0);
             const within15 = sub && (Date.now() - sub) < 15 * 60 * 1000;
             const granted  = item.editPermission === 'granted';
-            if (!isAdmin && !isOwn)               { showToast('âŒ You can only edit your own DPRs'); return; }
-            if (!isAdmin && !within15 && !granted) { showToast('ðŸ”’ Edit window expired. Request Edit first.'); return; }
+            if (!isAdmin && !isOwn)               { showToast('Ã¢ÂÅ’ You can only edit your own DPRs'); return; }
+            if (!isAdmin && !within15 && !granted) { showToast('Ã°Å¸â€â€™ Edit window expired. Request Edit first.'); return; }
 
             _editingKey = toYMD(item.date) + '||' + String(item.site).trim();
 
@@ -1296,29 +1296,29 @@ export default function Page() {
 
             closeDPRModal();
             switchTab('Form', document.getElementById('tabBtnForm'));
-            showToast('âœï¸ Loaded for editing â€” click Generate DPR when done');
+            showToast('Ã¢Å“ÂÃ¯Â¸Â Loaded for editing Ã¢â‚¬â€ click Generate DPR when done');
         }
 
         async function requestEditDPR(i) {
             const item = _history[i];
             if (!item || !_currentUser) return;
             if (!confirm('Request edit permission from Admin for this DPR?')) return;
-            showToast('ðŸ“¤ Sending request...');
+            showToast('Ã°Å¸â€œÂ¤ Sending request...');
             try {
                 await apiPost({ action: 'requestEditDPR', key: toYMD(item.date) + '||' + String(item.site).trim(), requestedBy: _currentUser.username });
-                showToast('âœ… Request sent!');
+                showToast('Ã¢Å“â€¦ Request sent!');
                 loadHistory();
-            } catch (e) { showToast('âš ï¸ Request failed'); }
+            } catch (e) { showToast('Ã¢Å¡Â Ã¯Â¸Â Request failed'); }
         }
 
         async function approveEditDPR(key) {
             if (!confirm('Approve edit access for this DPR?')) return;
-            showToast('â³ Approving...');
+            showToast('Ã¢ÂÂ³ Approving...');
             try {
                 await apiPost({ action: 'approveEditDPR', key });
-                showToast('âœ… Edit access granted!');
+                showToast('Ã¢Å“â€¦ Edit access granted!');
                 loadHistory();
-            } catch (e) { showToast('âš ï¸ Approval failed'); }
+            } catch (e) { showToast('Ã¢Å¡Â Ã¯Â¸Â Approval failed'); }
         }
 
         function renderPendingEditRequests() {
@@ -1326,24 +1326,24 @@ export default function Page() {
             if (!el) return;
             const pending = _history.filter(item => item.editPermission === 'pending');
             if (!pending.length) {
-                el.innerHTML = '<p style="color:var(--muted);font-size:13px;text-align:center;padding:10px;">âœ… No pending requests.</p>';
+                el.innerHTML = '<p style="color:var(--muted);font-size:13px;text-align:center;padding:10px;">Ã¢Å“â€¦ No pending requests.</p>';
                 return;
             }
             el.innerHTML = pending.map(item => {
                 const key = toYMD(item.date) + '||' + String(item.site).trim();
                 return `<div class="admin-user-row">
                     <div>
-                        <div class="admin-user-info">ðŸ“… ${formatDate(toYMD(item.date))} &nbsp;Â·&nbsp; ðŸ“ ${item.site || 'â€”'}</div>
-                        <div class="admin-user-sub">Requested by: <b>${item.requestedBy || 'â€”'}</b></div>
+                        <div class="admin-user-info">Ã°Å¸â€œâ€¦ ${formatDate(toYMD(item.date))} &nbsp;Ã‚Â·&nbsp; Ã°Å¸â€œÂ ${item.site || 'Ã¢â‚¬â€'}</div>
+                        <div class="admin-user-sub">Requested by: <b>${item.requestedBy || 'Ã¢â‚¬â€'}</b></div>
                     </div>
-                    <button class="btn-green btn-sm" style="width:auto;padding:6px 14px;" onclick="approveEditDPR('${key}')">âœ… Approve</button>
+                    <button class="btn-green btn-sm" style="width:auto;padding:6px 14px;" onclick="approveEditDPR('${key}')">Ã¢Å“â€¦ Approve</button>
                 </div>`;
             }).join('');
         }
 
-        /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        /* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
            ADMIN PANEL
-        â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+        Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */
         function renderAdminPanel() {
             renderAdminAnalytics();
             renderPendingEditRequests();
@@ -1352,7 +1352,7 @@ export default function Page() {
             renderAdminActivities();
         }
 
-        // â”€â”€ Users â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // Ã¢â€â‚¬Ã¢â€â‚¬ Users Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
         async function createUser() {
             const username    = document.getElementById('newUsername').value.trim();
             const displayName = document.getElementById('newDisplayName').value.trim();
@@ -1360,13 +1360,13 @@ export default function Page() {
             const role        = document.getElementById('newRole').value;
             if (!username || !password) { showToast('Username and password required'); return; }
             if (_users.find(u => u.username.toLowerCase() === username.toLowerCase())) { showToast('Username already exists'); return; }
-            showToast('â³ Creating...');
+            showToast('Ã¢ÂÂ³ Creating...');
             await apiPost({ action: 'createUser', username, displayName: displayName || username, password, role });
             const d = await apiFetch('getUsers').catch(() => []);
             if (Array.isArray(d)) _users = [SUPER_ADMIN, ...d];
             renderLoginChips(); renderAdminUsers();
             ['newUsername','newDisplayName','newPassword'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
-            showToast('âœ… User created!');
+            showToast('Ã¢Å“â€¦ User created!');
         }
 
         async function deleteUser(username) {
@@ -1376,14 +1376,14 @@ export default function Page() {
             const d = await apiFetch('getUsers').catch(() => []);
             if (Array.isArray(d)) _users = [SUPER_ADMIN, ...d];
             renderLoginChips(); renderAdminUsers();
-            showToast('âœ… User deleted!');
+            showToast('Ã¢Å“â€¦ User deleted!');
         }
 
         async function resetPassword(username) {
             const p = prompt(`New password for "${username}":`);
             if (!p || !p.trim()) return;
             await apiPost({ action: 'resetPassword', username, password: p.trim() });
-            showToast('âœ… Password updated!');
+            showToast('Ã¢Å“â€¦ Password updated!');
         }
 
         function renderAdminUsers() {
@@ -1422,18 +1422,18 @@ export default function Page() {
                 }
                 
                 const statusBadge = isInactive 
-                    ? `<span style="background:#fee2e2;color:#ef4444;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;margin-left:6px;display:inline-block;">âš ï¸ Inactive</span>`
-                    : `<span style="background:#dcfce7;color:#10b981;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;margin-left:6px;display:inline-block;">ðŸŸ¢ Active</span>`;
+                    ? `<span style="background:#fee2e2;color:#ef4444;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;margin-left:6px;display:inline-block;">Ã¢Å¡Â Ã¯Â¸Â Inactive</span>`
+                    : `<span style="background:#dcfce7;color:#10b981;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;margin-left:6px;display:inline-block;">Ã°Å¸Å¸Â¢ Active</span>`;
 
                 return `<div class="admin-user-row" style="flex-direction:column;align-items:stretch;gap:4px;padding:12px;">
                     <div style="display:flex;justify-content:space-between;align-items:center;">
                         <div>
-                            <span class="admin-user-info" style="font-size:14px;">ðŸ‘¤ ${u.username}</span>
+                            <span class="admin-user-info" style="font-size:14px;">Ã°Å¸â€˜Â¤ ${u.username}</span>
                             ${statusBadge}
                         </div>
                         <div style="display:flex;gap:6px;">
-                            ${!sup ? `<button class="btn-gray btn-sm" style="width:auto;padding:4px 8px;margin:0;" onclick="resetPassword('${u.username}')" title="Reset Password">ðŸ”‘</button>` : ''}
-                            ${!sup ? `<button class="btn-red btn-sm"  style="width:auto;padding:4px 8px;margin:0;" onclick="deleteUser('${u.username}')" title="Delete User">ðŸ—‘ï¸</button>`
+                            ${!sup ? `<button class="btn-gray btn-sm" style="width:auto;padding:4px 8px;margin:0;" onclick="resetPassword('${u.username}')" title="Reset Password">Ã°Å¸â€â€˜</button>` : ''}
+                            ${!sup ? `<button class="btn-red btn-sm"  style="width:auto;padding:4px 8px;margin:0;" onclick="deleteUser('${u.username}')" title="Delete User">Ã°Å¸â€”â€˜Ã¯Â¸Â</button>`
                                    : `<span style="font-size:11px;color:var(--muted);">Protected</span>`}
                         </div>
                     </div>
@@ -1447,18 +1447,18 @@ export default function Page() {
             }).join('');
         }
 
-        // â”€â”€ Projects â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // Ã¢â€â‚¬Ã¢â€â‚¬ Projects Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
         async function adminAddProject() {
             const name     = document.getElementById('newProjectName').value.trim();
             const parentId = document.getElementById('newProjectParent').value;
-            if (!name) { showToast('âš ï¸ Enter a project name'); return; }
-            showToast('â³ Adding...');
+            if (!name) { showToast('Ã¢Å¡Â Ã¯Â¸Â Enter a project name'); return; }
+            showToast('Ã¢ÂÂ³ Adding...');
             await apiPost({ action: 'addProject', project_name: name, parent_id: parentId || '' });
             const d = await apiFetch('getProjects').catch(() => _projects);
             if (Array.isArray(d)) _projects = d;
             populateSiteDropdown(); renderAdminProjects();
             document.getElementById('newProjectName').value = '';
-            showToast('âœ… Project added!');
+            showToast('Ã¢Å“â€¦ Project added!');
         }
 
         async function toggleProject(id, curStatus) {
@@ -1467,7 +1467,7 @@ export default function Page() {
             const d = await apiFetch('getProjects').catch(() => _projects);
             if (Array.isArray(d)) _projects = d;
             populateSiteDropdown(); renderAdminProjects();
-            showToast(`âœ… ${ns === 'active' ? 'Activated' : 'Deactivated'}!`);
+            showToast(`Ã¢Å“â€¦ ${ns === 'active' ? 'Activated' : 'Deactivated'}!`);
         }
 
         async function editProjectName(id, cur) {
@@ -1477,25 +1477,25 @@ export default function Page() {
             const d = await apiFetch('getProjects').catch(() => _projects);
             if (Array.isArray(d)) _projects = d;
             populateSiteDropdown(); renderAdminProjects();
-            showToast('âœ… Project renamed!');
+            showToast('Ã¢Å“â€¦ Project renamed!');
         }
 
         async function deleteProject(id, name) {
             if (!confirm(`Are you sure you want to delete "${name}"?\nThis will permanently delete this project and all its sub-projects from the Google Sheet.`)) return;
-            showToast('â³ Deleting...');
+            showToast('Ã¢ÂÂ³ Deleting...');
             try {
                 const res = await apiPost({ action: 'deleteProject', id });
                 if (res.error) {
-                    showToast('âš ï¸ Error: ' + res.error);
+                    showToast('Ã¢Å¡Â Ã¯Â¸Â Error: ' + res.error);
                 } else {
-                    showToast(`âœ… Deleted project and child dependencies!`);
+                    showToast(`Ã¢Å“â€¦ Deleted project and child dependencies!`);
                     const d = await apiFetch('getProjects').catch(() => _projects);
                     if (Array.isArray(d)) _projects = d;
                     populateSiteDropdown();
                     renderAdminProjects();
                 }
             } catch (e) {
-                showToast('âš ï¸ Delete failed');
+                showToast('Ã¢Å¡Â Ã¯Â¸Â Delete failed');
             }
         }
 
@@ -1505,7 +1505,7 @@ export default function Page() {
             const tops    = _projects.filter(p => (!p.parent_id || String(p.parent_id).trim() === ''));
             const parentSel = document.getElementById('newProjectParent');
             if (parentSel) {
-                parentSel.innerHTML = '<option value="">â€” None (Top-level) â€”</option>' +
+                parentSel.innerHTML = '<option value="">Ã¢â‚¬â€ None (Top-level) Ã¢â‚¬â€</option>' +
                     tops.filter(p => p.status === 'active')
                         .map(p => `<option value="${p.id}">${p.project_name}</option>`).join('');
             }
@@ -1517,18 +1517,18 @@ export default function Page() {
                 <div style="margin-bottom:12px;border:1.5px solid var(--border);border-radius:8px;overflow:hidden;">
                     <div style="background:#f8fafc;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:8px;">
                         <div>
-                            <span style="font-weight:700;font-size:14px;">ðŸ“ ${proj.project_name}</span>
-                            <span style="font-size:11px;margin-left:8px;color:${act ? '#38a169' : '#e53e3e'};">${act ? 'ðŸŸ¢' : 'ðŸ”´'}</span>
+                            <span style="font-weight:700;font-size:14px;">Ã°Å¸â€œÂ ${proj.project_name}</span>
+                            <span style="font-size:11px;margin-left:8px;color:${act ? '#38a169' : '#e53e3e'};">${act ? 'Ã°Å¸Å¸Â¢' : 'Ã°Å¸â€Â´'}</span>
                         </div>
                         <div style="display:flex;gap:6px;">
                             <button class="btn-blue btn-sm" style="width:auto;padding:4px 8px;font-size:11px;"
-                                    onclick="editProjectName('${proj.id}','${esc(proj.project_name)}')">âœï¸</button>
+                                    onclick="editProjectName('${proj.id}','${esc(proj.project_name)}')">Ã¢Å“ÂÃ¯Â¸Â</button>
                             <button class="btn-red btn-sm" style="width:auto;padding:4px 8px;font-size:11px;background:#e53e3e;border-color:#e53e3e;"
-                                    onclick="deleteProject('${proj.id}','${esc(proj.project_name)}')">ðŸ—‘ï¸</button>
+                                    onclick="deleteProject('${proj.id}','${esc(proj.project_name)}')">Ã°Å¸â€”â€˜Ã¯Â¸Â</button>
                             <button class="${act ? 'btn-red' : 'btn-green'} btn-sm"
                                     style="width:auto;padding:4px 10px;font-size:11px;"
                                     onclick="toggleProject('${proj.id}','${proj.status}')">
-                                ${act ? 'ðŸ”´ Off' : 'ðŸŸ¢ On'}
+                                ${act ? 'Ã°Å¸â€Â´ Off' : 'Ã°Å¸Å¸Â¢ On'}
                             </button>
                         </div>
                     </div>
@@ -1536,16 +1536,16 @@ export default function Page() {
                     <div style="padding:6px 14px 8px;">
                         ${subs.map(s => `
                         <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid #f1f5f9;">
-                            <span style="font-size:13px;${s.status !== 'active' ? 'color:var(--muted);text-decoration:line-through;' : ''}">â†³ ${s.project_name}</span>
+                            <span style="font-size:13px;${s.status !== 'active' ? 'color:var(--muted);text-decoration:line-through;' : ''}">Ã¢â€ Â³ ${s.project_name}</span>
                             <div style="display:flex;gap:5px;">
                                 <button class="btn-blue btn-sm" style="width:auto;padding:2px 7px;font-size:11px;"
-                                        onclick="editProjectName('${s.id}','${esc(s.project_name)}')">âœï¸</button>
+                                        onclick="editProjectName('${s.id}','${esc(s.project_name)}')">Ã¢Å“ÂÃ¯Â¸Â</button>
                                 <button class="btn-red btn-sm" style="width:auto;padding:2px 7px;font-size:11px;background:#e53e3e;border-color:#e53e3e;"
-                                        onclick="deleteProject('${s.id}','${esc(s.project_name)}')">ðŸ—‘ï¸</button>
+                                        onclick="deleteProject('${s.id}','${esc(s.project_name)}')">Ã°Å¸â€”â€˜Ã¯Â¸Â</button>
                                 <button class="${s.status === 'active' ? 'btn-red' : 'btn-green'} btn-sm"
                                         style="width:auto;padding:2px 8px;font-size:11px;"
                                         onclick="toggleProject('${s.id}','${s.status}')">
-                                    ${s.status === 'active' ? 'ðŸ”´' : 'ðŸŸ¢'}
+                                    ${s.status === 'active' ? 'Ã°Å¸â€Â´' : 'Ã°Å¸Å¸Â¢'}
                                 </button>
                             </div>
                         </div>`).join('')}
@@ -1554,31 +1554,31 @@ export default function Page() {
             }).join('');
         }
 
-        // â”€â”€ Activities â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // Ã¢â€â‚¬Ã¢â€â‚¬ Activities Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
         async function adminAddMainActivity() {
             const name = document.getElementById('newMainActivityName').value.trim();
-            if (!name) { showToast('âš ï¸ Enter category name'); return; }
-            showToast('â³ Adding...');
+            if (!name) { showToast('Ã¢Å¡Â Ã¯Â¸Â Enter category name'); return; }
+            showToast('Ã¢ÂÂ³ Adding...');
             await apiPost({ action: 'addActivity', activity_name: name, parent_id: '' });
             const d = await apiFetch('getActivities').catch(() => _activities);
             if (Array.isArray(d)) _activities = d;
             renderAdminActivities();
             document.getElementById('newMainActivityName').value = '';
-            showToast('âœ… Main activity added!');
+            showToast('Ã¢Å“â€¦ Main activity added!');
         }
 
         async function adminAddSubActivity() {
             const name     = document.getElementById('newSubActivityName').value.trim();
             const parentId = document.getElementById('subActivityParent').value;
-            if (!name)     { showToast('âš ï¸ Enter sub-activity name'); return; }
-            if (!parentId) { showToast('âš ï¸ Select a parent activity'); return; }
-            showToast('â³ Adding...');
+            if (!name)     { showToast('Ã¢Å¡Â Ã¯Â¸Â Enter sub-activity name'); return; }
+            if (!parentId) { showToast('Ã¢Å¡Â Ã¯Â¸Â Select a parent activity'); return; }
+            showToast('Ã¢ÂÂ³ Adding...');
             await apiPost({ action: 'addActivity', activity_name: name, parent_id: parentId });
             const d = await apiFetch('getActivities').catch(() => _activities);
             if (Array.isArray(d)) _activities = d;
             renderAdminActivities();
             document.getElementById('newSubActivityName').value = '';
-            showToast('âœ… Sub-activity added!');
+            showToast('Ã¢Å“â€¦ Sub-activity added!');
         }
 
         async function toggleActivity(id, curStatus) {
@@ -1587,7 +1587,7 @@ export default function Page() {
             const d = await apiFetch('getActivities').catch(() => _activities);
             if (Array.isArray(d)) _activities = d;
             renderAdminActivities();
-            showToast(`âœ… ${ns === 'active' ? 'Activated' : 'Deactivated'}!`);
+            showToast(`Ã¢Å“â€¦ ${ns === 'active' ? 'Activated' : 'Deactivated'}!`);
         }
 
         async function editActivityName(id, cur) {
@@ -1597,24 +1597,24 @@ export default function Page() {
             const d = await apiFetch('getActivities').catch(() => _activities);
             if (Array.isArray(d)) _activities = d;
             renderAdminActivities();
-            showToast('âœ… Activity renamed!');
+            showToast('Ã¢Å“â€¦ Activity renamed!');
         }
 
         async function deleteActivity(id, name) {
             if (!confirm(`Are you sure you want to delete "${name}"?\nThis will permanently delete this activity and all its sub-activities from the Google Sheet.`)) return;
-            showToast('â³ Deleting...');
+            showToast('Ã¢ÂÂ³ Deleting...');
             try {
                 const res = await apiPost({ action: 'deleteActivity', id });
                 if (res.error) {
-                    showToast('âš ï¸ Error: ' + res.error);
+                    showToast('Ã¢Å¡Â Ã¯Â¸Â Error: ' + res.error);
                 } else {
-                    showToast(`âœ… Deleted activity and child dependencies!`);
+                    showToast(`Ã¢Å“â€¦ Deleted activity and child dependencies!`);
                     const d = await apiFetch('getActivities').catch(() => _activities);
                     if (Array.isArray(d)) _activities = d;
                     renderAdminActivities();
                 }
             } catch (e) {
-                showToast('âš ï¸ Delete failed');
+                showToast('Ã¢Å¡Â Ã¯Â¸Â Delete failed');
             }
         }
 
@@ -1624,7 +1624,7 @@ export default function Page() {
             const mains = _activities.filter(a => (!a.parent_id || String(a.parent_id).trim() === ''));
             const parentSel = document.getElementById('subActivityParent');
             if (parentSel) {
-                parentSel.innerHTML = '<option value="">â€” Select Main Activity â€”</option>' +
+                parentSel.innerHTML = '<option value="">Ã¢â‚¬â€ Select Main Activity Ã¢â‚¬â€</option>' +
                     mains.filter(m => m.status === 'active')
                          .map(m => `<option value="${m.id}">${m.activity_name}</option>`).join('');
             }
@@ -1636,18 +1636,18 @@ export default function Page() {
                 <div style="margin-bottom:12px;border:1.5px solid var(--border);border-radius:8px;overflow:hidden;">
                     <div style="background:#f8fafc;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:8px;">
                         <div>
-                            <span style="font-weight:700;font-size:14px;color:var(--primary);">ðŸ”¨ ${main.activity_name}</span>
-                            <span style="font-size:11px;margin-left:8px;color:${act ? '#38a169' : '#e53e3e'};">${act ? 'ðŸŸ¢' : 'ðŸ”´'}</span>
+                            <span style="font-weight:700;font-size:14px;color:var(--primary);">Ã°Å¸â€Â¨ ${main.activity_name}</span>
+                            <span style="font-size:11px;margin-left:8px;color:${act ? '#38a169' : '#e53e3e'};">${act ? 'Ã°Å¸Å¸Â¢' : 'Ã°Å¸â€Â´'}</span>
                         </div>
                         <div style="display:flex;gap:6px;">
                             <button class="btn-blue btn-sm" style="width:auto;padding:4px 8px;font-size:11px;"
-                                    onclick="editActivityName('${main.id}','${esc(main.activity_name)}')">âœï¸</button>
+                                    onclick="editActivityName('${main.id}','${esc(main.activity_name)}')">Ã¢Å“ÂÃ¯Â¸Â</button>
                             <button class="btn-red btn-sm" style="width:auto;padding:4px 8px;font-size:11px;background:#e53e3e;border-color:#e53e3e;"
-                                    onclick="deleteActivity('${main.id}','${esc(main.activity_name)}')">ðŸ—‘ï¸</button>
+                                    onclick="deleteActivity('${main.id}','${esc(main.activity_name)}')">Ã°Å¸â€”â€˜Ã¯Â¸Â</button>
                             <button class="${act ? 'btn-red' : 'btn-green'} btn-sm"
                                     style="width:auto;padding:4px 10px;font-size:11px;"
                                     onclick="toggleActivity('${main.id}','${main.status}')">
-                                ${act ? 'ðŸ”´ Off' : 'ðŸŸ¢ On'}
+                                ${act ? 'Ã°Å¸â€Â´ Off' : 'Ã°Å¸Å¸Â¢ On'}
                             </button>
                         </div>
                     </div>
@@ -1655,16 +1655,16 @@ export default function Page() {
                         ${subs.length
                             ? subs.map(s => `
                             <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid #f1f5f9;">
-                                <span style="font-size:13px;${s.status !== 'active' ? 'color:var(--muted);text-decoration:line-through;' : ''}">â†³ ${s.activity_name}</span>
+                                <span style="font-size:13px;${s.status !== 'active' ? 'color:var(--muted);text-decoration:line-through;' : ''}">Ã¢â€ Â³ ${s.activity_name}</span>
                                 <div style="display:flex;gap:5px;">
                                     <button class="btn-blue btn-sm" style="width:auto;padding:2px 7px;font-size:11px;"
-                                            onclick="editActivityName('${s.id}','${esc(s.activity_name)}')">âœï¸</button>
+                                            onclick="editActivityName('${s.id}','${esc(s.activity_name)}')">Ã¢Å“ÂÃ¯Â¸Â</button>
                                     <button class="btn-red btn-sm" style="width:auto;padding:2px 7px;font-size:11px;background:#e53e3e;border-color:#e53e3e;"
-                                            onclick="deleteActivity('${s.id}','${esc(s.activity_name)}')">ðŸ—‘ï¸</button>
+                                            onclick="deleteActivity('${s.id}','${esc(s.activity_name)}')">Ã°Å¸â€”â€˜Ã¯Â¸Â</button>
                                     <button class="${s.status === 'active' ? 'btn-red' : 'btn-green'} btn-sm"
                                             style="width:auto;padding:2px 8px;font-size:11px;"
                                             onclick="toggleActivity('${s.id}','${s.status}')">
-                                        ${s.status === 'active' ? 'ðŸ”´' : 'ðŸŸ¢'}
+                                        ${s.status === 'active' ? 'Ã°Å¸â€Â´' : 'Ã°Å¸Å¸Â¢'}
                                     </button>
                                 </div>
                             </div>`).join('')
@@ -1674,23 +1674,23 @@ export default function Page() {
             }).join('');
         }
 
-        // â”€â”€ Data Maintenance â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // Ã¢â€â‚¬Ã¢â€â‚¬ Data Maintenance Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
         async function runDataCleanup() {
             if (!confirm('This will delete rows with corrupted/shifted column data from DPR_Records and DPR_Detail. Proceed?')) return;
-            showToast('ðŸ§¹ Running cleanup...');
+            showToast('Ã°Å¸Â§Â¹ Running cleanup...');
             try {
                 const res = await apiPost({ action: 'cleanCorrupted' });
                 const r   = res.cleaned || {};
                 const rDel = (r.records || []).length;
                 const dDel = (r.detail  || []).length;
-                showToast(`âœ… Cleaned ${rDel} Records + ${dDel} Detail rows`);
+                showToast(`Ã¢Å“â€¦ Cleaned ${rDel} Records + ${dDel} Detail rows`);
                 loadHistory();
-            } catch (e) { showToast('âš ï¸ Cleanup failed'); }
+            } catch (e) { showToast('Ã¢Å¡Â Ã¯Â¸Â Cleanup failed'); }
         }
 
-        /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        /* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
            DASHBOARD
-        â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+        Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */
         function toggleDashboardAccordion(id) {
             const el = document.getElementById(id);
             if (!el) return;
@@ -1801,7 +1801,7 @@ export default function Page() {
                                     counter++;
                                     const subId = `db_sub_${counter}`;
                                     const subW = subData.total;
-                                    const displayName = subName ? `â†³ ${subName}` : `â†³ General / Direct`;
+                                    const displayName = subName ? `Ã¢â€ Â³ ${subName}` : `Ã¢â€ Â³ General / Direct`;
                                     
                                     const actEntries = Object.entries(subData.activities)
                                         .sort((a, b) => b[1] - a[1])
@@ -1831,7 +1831,7 @@ export default function Page() {
                                 .sort((a, b) => b[1] - a[1])
                                 .map(([act, actW]) => `
                                 <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0 4px 18px;font-size:12px;color:var(--muted);border-bottom:1px dashed #f1f5f9;">
-                                    <span>â†³ ${act}</span>
+                                    <span>Ã¢â€ Â³ ${act}</span>
                                     <span style="font-weight:600;">${actW}</span>
                                 </div>`).join('') || '<div style="font-size:11px;color:var(--muted);padding-left:18px;">No activity details.</div>';
                         }
@@ -1843,7 +1843,7 @@ export default function Page() {
                                  onclick="toggleDashboardAccordion('${mainId}')"
                                  onmouseover="this.parentElement.style.borderColor='var(--primary)'"
                                  onmouseout="this.parentElement.style.borderColor='var(--border)'">
-                                <div style="font-size:14px;font-weight:700;flex:0 0 auto;max-width:55%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">ðŸ“ ${mainName}</div>
+                                <div style="font-size:14px;font-weight:700;flex:0 0 auto;max-width:55%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Ã°Å¸â€œÂ ${mainName}</div>
                                 <div class="bar-wrap"><div class="bar-fill" style="width:${Math.round(w / maxW * 100)}%"></div></div>
                                 <div class="site-total" style="font-weight:700;">${w}</div>
                             </div>
@@ -1857,12 +1857,12 @@ export default function Page() {
                     '<p style="color:#aaa;font-size:13px;text-align:center;">No data for this period</p>';
         }
 
-        /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        /* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
            DOWNLOADS
-        â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+        Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */
         function downloadImage() {
             const rep = document.getElementById('report');
-            if (rep.style.display === 'none') { showToast('âš ï¸ Generate DPR first'); return; }
+            if (rep.style.display === 'none') { showToast('Ã¢Å¡Â Ã¯Â¸Â Generate DPR first'); return; }
             
             const oldWidth = rep.style.width;
             const oldColor = rep.style.color;
@@ -1880,7 +1880,7 @@ export default function Page() {
                 el.style.breakInside = 'avoid';
             });
             
-            showToast('â³ Generating Image...');
+            showToast('Ã¢ÂÂ³ Generating Image...');
             html2canvas(rep, {
                 scale: 3,
                 devicePixelRatio: 3,
@@ -1901,19 +1901,19 @@ export default function Page() {
                 a.download = `DPR_${document.getElementById('date').value}.jpg`;
                 a.href = dataUrl;
                 a.click();
-                showToast('ðŸ“· Image Downloaded!');
+                showToast('Ã°Å¸â€œÂ· Image Downloaded!');
             }).catch(err => {
                 rep.style.width = oldWidth;
                 rep.style.maxWidth = oldMaxW;
                 rep.style.color = oldColor;
                 rep.style.boxShadow = oldShadow;
-                showToast('âš ï¸ Image generation failed');
+                showToast('Ã¢Å¡Â Ã¯Â¸Â Image generation failed');
             });
         }
 
         function downloadPDF() {
             const rep = document.getElementById('report');
-            if (rep.style.display === 'none') { showToast('âš ï¸ Generate DPR first'); return; }
+            if (rep.style.display === 'none') { showToast('Ã¢Å¡Â Ã¯Â¸Â Generate DPR first'); return; }
             
             const oldWidth = rep.style.width;
             const oldColor = rep.style.color;
@@ -1931,7 +1931,7 @@ export default function Page() {
                 el.style.breakInside = 'avoid';
             });
             
-            showToast('â³ Generating PDF...');
+            showToast('Ã¢ÂÂ³ Generating PDF...');
             html2canvas(rep, {
                 scale: 3,
                 devicePixelRatio: 3,
@@ -1959,36 +1959,36 @@ export default function Page() {
                 
                 pdf.addImage(dataUrl, 'JPEG', 0, 0, imgWidth, imgHeight);
                 pdf.save(`DPR_${document.getElementById('date').value}.pdf`);
-                showToast('ðŸ“„ PDF Downloaded!');
+                showToast('Ã°Å¸â€œâ€ž PDF Downloaded!');
             }).catch(err => {
                 rep.style.width = oldWidth;
                 rep.style.maxWidth = oldMaxW;
                 rep.style.color = oldColor;
                 rep.style.boxShadow = oldShadow;
-                showToast('âš ï¸ PDF generation failed');
+                showToast('Ã¢Å¡Â Ã¯Â¸Â PDF generation failed');
             });
         }
 
         function copyWhats() {
             const rep = document.getElementById('report');
-            if (rep.style.display === 'none') { showToast('âš ï¸ Generate DPR first'); return; }
+            if (rep.style.display === 'none') { showToast('Ã¢Å¡Â Ã¯Â¸Â Generate DPR first'); return; }
             const text = rep.innerText.replace(/\n{3,}/g, '\n\n');
             navigator.clipboard.writeText(text)
-                .then(() => showToast('ðŸ’¬ Copied for WhatsApp!'))
+                .then(() => showToast('Ã°Å¸â€™Â¬ Copied for WhatsApp!'))
                 .catch(() => {
                     const ta = document.createElement('textarea');
                     ta.value = text; document.body.appendChild(ta);
                     ta.select(); document.execCommand('copy');
                     document.body.removeChild(ta);
-                    showToast('ðŸ’¬ Copied!');
+                    showToast('Ã°Å¸â€™Â¬ Copied!');
                 });
         }
 
-        /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        /* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
            WINDOW EXPORTS (for onclick= handlers in HTML)
-        â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+        Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */
 
-        /* â•â• INIT â•â• */
+        /* Ã¢â€¢ÂÃ¢â€¢Â INIT Ã¢â€¢ÂÃ¢â€¢Â */
         window.onload = function () {
             renderLoginChips();
             try {
@@ -2121,10 +2121,10 @@ export default function Page() {
 
   return <div dangerouslySetInnerHTML={{ __html: `\`
 
-<!-- â”€â”€ LOGIN â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+<!-- Ã¢â€â‚¬Ã¢â€â‚¬ LOGIN Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ -->
 <div id="loginOverlay">
     <div class="login-box">
-        <div class="login-logo">ðŸ“‹ DPR â€” Man Power Report</div>
+        <div class="login-logo">Ã°Å¸â€œâ€¹ DPR Ã¢â‚¬â€ Man Power Report</div>
         <div class="login-sub">Trust Project Department<br>Please sign in to continue</div>
         <label style="text-align:left;">Username</label>
         <input type="text"     id="loginName" placeholder="Enter username" autocomplete="username">
@@ -2135,12 +2135,12 @@ export default function Page() {
         <div class="login-err" id="loginErr"></div>
     </div>
     <div style="text-align:center;">
-        <div style="color:rgba(255,255,255,.55);font-size:11px;margin-bottom:8px;">â€” Quick Select â€”</div>
+        <div style="color:rgba(255,255,255,.55);font-size:11px;margin-bottom:8px;">Ã¢â‚¬â€ Quick Select Ã¢â‚¬â€</div>
         <div class="user-chips" id="userChips"></div>
     </div>
 </div>
 
-<!-- â”€â”€ HEADER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+<!-- Ã¢â€â‚¬Ã¢â€â‚¬ HEADER Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ -->
 <div class="header-wrap">
     <div>
         <div class="logo">&#128203; MAN POWER REPORT</div>
@@ -2152,9 +2152,9 @@ export default function Page() {
     </div>
 </div>
 
-<div id="offlineBadge">&#9888;&#65039; Offline Mode â€” data will sync on reconnect</div>
+<div id="offlineBadge">&#9888;&#65039; Offline Mode Ã¢â‚¬â€ data will sync on reconnect</div>
 
-<!-- â”€â”€ TABS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+<!-- Ã¢â€â‚¬Ã¢â€â‚¬ TABS Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ -->
 <div class="tab-bar">
     <button class="tab-btn active" id="tabBtnForm"      onclick="resetAndSwitchToForm(this)">&#128221; New DPR</button>
     <button class="tab-btn"        id="tabBtnHistory"   onclick="switchTab('History',this)">&#128194; History</button>
@@ -2162,9 +2162,9 @@ export default function Page() {
     <button class="tab-btn"        id="adminTabBtn"     onclick="switchTab('Admin',this)" style="display:none;">&#9881;&#65039; Admin</button>
 </div>
 
-<!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+<!-- Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
      NEW DPR FORM
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â -->
 <div class="tab-page active" id="tabForm">
     <div class="card">
         <div class="section-title">&#128197; Date &amp; Site</div>
@@ -2195,9 +2195,9 @@ export default function Page() {
     </div>
 </div>
 
-<!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+<!-- Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
      HISTORY TAB
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â -->
 <div class="tab-page" id="tabHistory" style="display:none;">
     <div class="card">
         <div class="section-title">&#128194; DPR History</div>
@@ -2217,36 +2217,36 @@ export default function Page() {
             <div>
                 <label>Site / Project</label>
                 <select id="searchSite" onchange="resetHistoryPageAndRender()" style="margin-bottom:0;">
-                    <option value="">â€” Show All Sites â€”</option>
+                    <option value="">Ã¢â‚¬â€ Show All Sites Ã¢â‚¬â€</option>
                 </select>
             </div>
             <div>
                 <label>Supervisor</label>
                 <select id="searchSupervisor" onchange="resetHistoryPageAndRender()" style="margin-bottom:0;">
-                    <option value="">â€” Show All Supervisors â€”</option>
+                    <option value="">Ã¢â‚¬â€ Show All Supervisors Ã¢â‚¬â€</option>
                 </select>
             </div>
         </div>
 
         <div style="display:flex;gap:8px;margin-bottom:12px;">
-            <button class="btn-blue btn-sm" onclick="loadHistory()" style="flex:1;">ðŸ”„ Refresh</button>
-            <button class="btn-gray btn-sm" onclick="clearHistoryFilter()" style="flex:1;">âŒ Clear Filter</button>
+            <button class="btn-blue btn-sm" onclick="loadHistory()" style="flex:1;">Ã°Å¸â€â€ž Refresh</button>
+            <button class="btn-gray btn-sm" onclick="clearHistoryFilter()" style="flex:1;">Ã¢ÂÅ’ Clear Filter</button>
         </div>
         
         <div id="historyCount" style="font-size:12px;color:var(--muted);text-align:center;margin-bottom:8px;"></div>
-        <div id="historyList"><p style="color:#aaa;text-align:center;padding:16px;">â³ Loading...</p></div>
+        <div id="historyList"><p style="color:#aaa;text-align:center;padding:16px;">Ã¢ÂÂ³ Loading...</p></div>
         
         <div id="historyPagination" style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;border-top:1px solid var(--border);padding-top:12px;">
-            <button id="btnPrevPage" class="btn-blue btn-sm" style="width:auto;margin:0;" onclick="changeHistoryPage(-1)">â—€ Previous</button>
+            <button id="btnPrevPage" class="btn-blue btn-sm" style="width:auto;margin:0;" onclick="changeHistoryPage(-1)">Ã¢â€”â‚¬ Previous</button>
             <span id="historyPageIndicator" style="font-size:12.5px;font-weight:600;color:var(--text);">Page 1 of 1</span>
-            <button id="btnNextPage" class="btn-blue btn-sm" style="width:auto;margin:0;" onclick="changeHistoryPage(1)">Next â–¶</button>
+            <button id="btnNextPage" class="btn-blue btn-sm" style="width:auto;margin:0;" onclick="changeHistoryPage(1)">Next Ã¢â€“Â¶</button>
         </div>
     </div>
 </div>
 
-<!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+<!-- Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
      DASHBOARD TAB
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â -->
 <div class="tab-page" id="tabDashboard" style="display:none;">
     <div class="card">
         <div class="section-title">&#128202; Summary Dashboard</div>
@@ -2256,31 +2256,31 @@ export default function Page() {
             <button class="period-tab"        onclick="setPeriod('all',this)">All Time</button>
         </div>
         <div class="dash-grid">
-            <div class="dash-stat"><div class="num" id="dTotalWorkers">â€”</div><div class="lbl">Total Workers</div></div>
-            <div class="dash-stat"><div class="num" id="dTotalDPR">â€”</div><div class="lbl">Total DPRs</div></div>
-            <div class="dash-stat"><div class="num" id="dAvgWorkers">â€”</div><div class="lbl">Avg / Day</div></div>
-            <div class="dash-stat"><div class="num" id="dActiveSites">â€”</div><div class="lbl">Active Sites</div></div>
+            <div class="dash-stat"><div class="num" id="dTotalWorkers">Ã¢â‚¬â€</div><div class="lbl">Total Workers</div></div>
+            <div class="dash-stat"><div class="num" id="dTotalDPR">Ã¢â‚¬â€</div><div class="lbl">Total DPRs</div></div>
+            <div class="dash-stat"><div class="num" id="dAvgWorkers">Ã¢â‚¬â€</div><div class="lbl">Avg / Day</div></div>
+            <div class="dash-stat"><div class="num" id="dActiveSites">Ã¢â‚¬â€</div><div class="lbl">Active Sites</div></div>
         </div>
         <div class="section-title" style="margin-top:4px;">&#128205; Site-wise Manpower</div>
         <div id="siteBreakdown"><p style="color:#aaa;font-size:13px;">Load history first</p></div>
     </div>
 </div>
 
-<!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+<!-- Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
      ADMIN TAB
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â -->
 <div class="tab-page" id="tabAdmin" style="display:none;">
 
     <!-- Analytics Dashboard -->
     <div class="card" style="margin-bottom:12px;">
-        <div class="section-title">ðŸ“Š Admin Analytics Dashboard</div>
+        <div class="section-title">Ã°Å¸â€œÅ  Admin Analytics Dashboard</div>
         <div class="dash-grid" style="grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 10px; margin-bottom: 12px;">
             <div class="dash-stat" style="padding: 12px 8px;">
                 <div class="num" id="adminWorkforceToday" style="font-size: 24px;">0</div>
                 <div class="lbl">Workforce Today</div>
             </div>
             <div class="dash-stat" style="padding: 12px 8px;">
-                <div class="num" id="adminActiveSite" style="font-size: 14px; word-break: break-all; height: 32px; display: flex; align-items: center; justify-content: center; font-weight:700;">â€”</div>
+                <div class="num" id="adminActiveSite" style="font-size: 14px; word-break: break-all; height: 32px; display: flex; align-items: center; justify-content: center; font-weight:700;">Ã¢â‚¬â€</div>
                 <div class="lbl">Most Active Site</div>
             </div>
             <div class="dash-stat" style="padding: 12px 8px;">
@@ -2289,7 +2289,7 @@ export default function Page() {
             </div>
         </div>
         <button class="btn-green" onclick="exportMasterLogCSV()" style="margin-top: 4px; display: flex; align-items: center; justify-content: center; gap: 8px; font-size:13px; padding: 10px 14px;">
-            ðŸ“¥ Export Master Log (CSV)
+            Ã°Å¸â€œÂ¥ Export Master Log (CSV)
         </button>
     </div>
 
@@ -2331,8 +2331,8 @@ export default function Page() {
                 <input type="text" id="newPassword" placeholder="Set a password">
                 <label>Role</label>
                 <select id="newRole">
-                    <option value="user">User â€” Can create &amp; view DPRs</option>
-                    <option value="admin">Admin â€” Full access + Management</option>
+                    <option value="user">User Ã¢â‚¬â€ Can create &amp; view DPRs</option>
+                    <option value="admin">Admin Ã¢â‚¬â€ Full access + Management</option>
                 </select>
                 <button class="btn-green" onclick="createUser()">&#9989; Create User</button>
             </div>
@@ -2354,7 +2354,7 @@ export default function Page() {
             <div style="background:#f8fafc;border:1.5px solid var(--border);border-radius:8px;padding:14px;margin-bottom:14px;">
                 <div style="font-weight:700;font-size:14px;color:var(--primary);margin-bottom:10px;">&#10133; Add Project</div>
                 <label>Parent Project (blank = top-level)</label>
-                <select id="newProjectParent"><option value="">â€” None (Top-level) â€”</option></select>
+                <select id="newProjectParent"><option value="">Ã¢â‚¬â€ None (Top-level) Ã¢â‚¬â€</option></select>
                 <label>Project Name</label>
                 <input type="text" id="newProjectName" placeholder="e.g. New Hospital Wing">
                 <button class="btn-green" onclick="adminAddProject()">&#9989; Add Project</button>
@@ -2386,7 +2386,7 @@ export default function Page() {
             <div style="background:#f8fafc;border:1.5px solid var(--border);border-radius:8px;padding:14px;margin-bottom:14px;">
                 <div style="font-weight:700;font-size:14px;color:var(--primary);margin-bottom:10px;">&#10133; Add Sub-Activity</div>
                 <label>Parent Main Activity</label>
-                <select id="subActivityParent"><option value="">â€” Select Main Activity â€”</option></select>
+                <select id="subActivityParent"><option value="">Ã¢â‚¬â€ Select Main Activity Ã¢â‚¬â€</option></select>
                 <label>Sub-Activity Name</label>
                 <input type="text" id="newSubActivityName" placeholder="e.g. Panel Wiring">
                 <button class="btn-green" onclick="adminAddSubActivity()">&#9989; Add Sub-Activity</button>
@@ -2399,9 +2399,9 @@ export default function Page() {
     </div>
 </div>
 
-<!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+<!-- Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
      DPR VIEW MODAL
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â -->
 <div id="dprModal" onclick="if(event.target===this)closeDPRModal()">
     <div class="modal-box">
         <div class="modal-header">
