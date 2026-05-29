@@ -2195,7 +2195,7 @@ footer {
                     activities.forEach(act => {
                         const mainAct = act.main_activity || act.activity || '';
                         const subAct = act.sub_activity || '';
-                        const sect = act.section || 'Civil';
+                        const sect = isCivilActivity(act) ? 'Civil' : 'Interior';
                         const sk = Number(act.skilled) || 0;
                         const un = Number(act.unskilled) || 0;
                         const actTotal = sk + un;
@@ -2384,12 +2384,43 @@ footer {
                     editActionOnClick = `showToast("❌ You can only edit your own DPRs")`;
                 }
 
-                const detCount = Array.isArray(item.details) ? item.details.length : 0;
-                const civCount = Array.isArray(item.civilActivities)    ? item.civilActivities.length    : 0;
-                const intCount = Array.isArray(item.interiorActivities) ? item.interiorActivities.length : 0;
+                const civilArr    = Array.isArray(item.civilActivities)    ? item.civilActivities    : [];
+                const interiorArr = Array.isArray(item.interiorActivities) ? item.interiorActivities : [];
+                const detailRows  = Array.isArray(item.details) ? item.details : [];
+
+                let allActs = [];
+                if (civilArr.length || interiorArr.length) {
+                    civilArr.forEach(a => { allActs.push({ ...a, section: a.section || 'Civil' }); });
+                    interiorArr.forEach(a => { allActs.push({ ...a, section: a.section || 'Interior' }); });
+                } else if (detailRows.length) {
+                    detailRows.forEach(r => {
+                        allActs.push({
+                            main_activity: r.main_activity || r.activity,
+                            activity: r.activity || r.main_activity,
+                            sub_activity: r.sub_activity || '',
+                            skilled: r.skilled,
+                            unskilled: r.unskilled,
+                            note: r.note,
+                            section: r.section
+                        });
+                    });
+                }
+
+                let civCount = 0;
+                let intCount = 0;
+                allActs.forEach(a => {
+                    if (Number(a.skilled) > 0 || Number(a.unskilled) > 0) {
+                        if (isCivilActivity(a)) {
+                            civCount++;
+                        } else {
+                            intCount++;
+                        }
+                    }
+                });
+
                 const actHint  = (civCount + intCount) > 0
                     ? `${civCount} civil · ${intCount} interior`
-                    : (detCount > 0 ? `${detCount} activit${detCount > 1 ? 'ies' : 'y'}` : '');
+                    : (allActs.length > 0 ? `${allActs.length} activit${allActs.length > 1 ? 'ies' : 'y'}` : '');
 
                 const dropdownHtml = `
                 <button class="history-options-btn" onclick="toggleHistoryDropdown(event, ${realIdx})">&#8942;</button>
