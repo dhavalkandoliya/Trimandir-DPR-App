@@ -1255,7 +1255,7 @@ footer {
 /* ═══════════════════════════════════════════════════════════
            CONSTANTS & STATE
         ═══════════════════════════════════════════════════════════ */
-        const SHEET_URL = "https://script.google.com/macros/s/AKfycbzkT7ZMprLvL2ReEYcxcsVIVml_7ev-5BLtLDXXQWf14Ynoo68fm3q6n2oM3VRsFo2N/exec";
+        const SHEET_URL = "https://script.google.com/macros/s/AKfycbzyjSPIlewC31HdvS0LQneOudT-gQ1h-qCs_1q_50U47nej9zGSFRyaW7QI91yvVk1PEw/exec";
         const SUPER_ADMIN = { username: 'TPD-admin', displayName: 'TPD Admin', role: 'admin' };
 
         let _users      = [SUPER_ADMIN];
@@ -3003,11 +3003,19 @@ footer {
                          .map(m => `<option value="${m.id}">${m.activity_name}</option>`).join('');
             }
             if (!mains.length) { el.innerHTML = '<p style="color:var(--muted);font-size:13px;text-align:center;padding:12px;">No activities yet.</p>'; return; }
+            
+            // Clean HTML5 drag-and-drop template
             el.innerHTML = mains.map(main => {
                 const subs = _activities.filter(a => String(a.parent_id) === String(main.id));
                 const act  = main.status === 'active';
                 return `
-                <div draggable="true" data-id="${main.id}" ondragstart="dragStart(event)" ondragover="dragOver(event)" ondrop="dropActivity(event)" style="margin-bottom:12px;border:1.5px solid var(--border);border-radius:8px;overflow:hidden;cursor:move;">
+                <div draggable="true" 
+                     data-id="${main.id}" 
+                     ondragstart="dragStartActivity(event)" 
+                     ondragover="dragOverActivity(event)" 
+                     ondragend="dragEndActivity(event)"
+                     ondrop="dropActivity(event)" 
+                     style="margin-bottom:12px;border:1.5px solid var(--border);border-radius:8px;overflow:hidden;cursor:move;transition:opacity 0.2s ease;">
                     <div style="background:#f8fafc;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:8px;">
                         <div>
                             <span style="font-weight:700;font-size:14px;color:var(--primary);">🔨 ${main.activity_name}</span>
@@ -3048,6 +3056,7 @@ footer {
             }).join('');
         }
 
+        // Project specific drag-and-drop (retained cleanly)
         let _draggedId = null;
 
         function dragStart(e) {
@@ -3093,19 +3102,40 @@ footer {
             }
         }
 
-        async function dropActivity(e) {
+        // Clean HTML5 drag-and-drop state trackers for Activities module
+        let _draggedActivityId = null;
+
+        function dragStartActivity(e) {
+            _draggedActivityId = e.currentTarget.getAttribute('data-id');
+            e.dataTransfer.setData('text/plain', _draggedActivityId);
+            e.dataTransfer.effectAllowed = 'move';
+            e.currentTarget.style.opacity = '0.4';
+        }
+
+        function dragOverActivity(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+        }
+
+        function dragEndActivity(e) {
+            e.currentTarget.style.opacity = '1';
+        }
+
+        function dropActivity(e) {
             e.preventDefault();
             const targetId = e.currentTarget.getAttribute('data-id');
-            if (!_draggedId || _draggedId === targetId) return;
+            if (!_draggedActivityId || _draggedActivityId === targetId) return;
 
             const mains = _activities.filter(a => (!a.parent_id || String(a.parent_id).trim() === ''));
-            const draggedIdx = mains.findIndex(a => a.id === _draggedId);
+            const draggedIdx = mains.findIndex(a => a.id === _draggedActivityId);
             const targetIdx = mains.findIndex(a => a.id === targetId);
 
             if (draggedIdx !== -1 && targetIdx !== -1) {
+                // Calculate clean new array position in memory
                 const [moved] = mains.splice(draggedIdx, 1);
                 mains.splice(targetIdx, 0, moved);
 
+                // Flatten and extract flat array of IDs
                 const newOrder = [];
                 mains.forEach(main => {
                     newOrder.push(main.id);
@@ -3113,18 +3143,55 @@ footer {
                     subs.forEach(s => newOrder.push(s.id));
                 });
 
+                // Update in-memory state representation
                 const sortedActivities = [];
                 newOrder.forEach(id => {
                     const found = _activities.find(a => a.id === id);
                     if (found) sortedActivities.push(found);
                 });
                 _activities = sortedActivities;
+
+                // Instantly trigger local state re-render
                 renderAdminActivities();
 
-                await saveOrderToCloud('activities', newOrder);
+                // Direct un-proxied background network request targeting the active sheet macro URL
+                saveActivityOrderDirect(newOrder);
             }
         }
 
+        function saveActivityOrderDirect(orderedIds) {
+            console.log("Direct un-proxied Activities sync request triggered. IDs:", JSON.stringify(orderedIds));
+            const directUrl = "https://script.google.com/macros/s/AKfycbzyjSPIlewC31HdvS0LQneOudT-gQ1h-qCs_1q_50U47nej9zGSFRyaW7QI91yvVk1PEw/exec";
+            const payload = {
+                action: 'updateSortOrder',
+                type: 'activities',
+                orderedIds: orderedIds
+            };
+            
+            // Standard vanilla fetch stream
+            fetch(directUrl, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: {
+                    'Content-Type': 'text/plain;charset=utf-8'
+                },
+                body: JSON.stringify(payload)
+            })
+            .then(() => {
+                console.log("Direct Apps Script reordering handshake resolved successfully.");
+                const t = document.getElementById('toast');
+                if (t) {
+                    t.classList.remove('show');
+                    t.textContent = '';
+                    clearTimeout(t._tid);
+                }
+            })
+            .catch(err => {
+                console.warn("Direct Apps Script network communication block details:", err);
+            });
+        }
+
+        // Shared/Projects network sync
         async function saveOrderToCloud(type, orderedIds) {
             console.log(`Optimistic Update Triggered: Syncing sorted ${type} order to cloud in the background...`);
             const payload = {
@@ -3134,7 +3201,6 @@ footer {
             };
             console.log("Reordering Sync Payload:", JSON.stringify(payload));
             
-            // Dispatch raw HTTP fetch asynchronously in a fire-and-forget background transaction
             fetch(SHEET_URL, {
                 method: 'POST',
                 headers: {
@@ -3149,7 +3215,6 @@ footer {
                 const resText = await response.text();
                 console.log('Background sort order sync raw response text:', resText);
                 
-                // Clear any pending/existing toast container once the handshake/communication resolves
                 const t = document.getElementById('toast');
                 if (t) {
                     t.classList.remove('show');
@@ -3158,7 +3223,6 @@ footer {
                 }
             })
             .catch(err => {
-                // Log network proxy metadata silently via console.warn instead of firing user-facing alerts
                 console.warn('Background sort order sync failed silently (optimistic UI remains active):', err);
             });
         }
@@ -3168,6 +3232,9 @@ footer {
             window.dragOver = dragOver;
             window.dropProject = dropProject;
             window.dropActivity = dropActivity;
+            window.dragStartActivity = dragStartActivity;
+            window.dragOverActivity = dragOverActivity;
+            window.dragEndActivity = dragEndActivity;
         }
 
         // ── Data Maintenance ────────────────────────────────────────
