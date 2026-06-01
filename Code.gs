@@ -29,8 +29,8 @@ var RECORDS_HEADERS  = ['Date','Site','Prepared By','Activity Details','Total Ma
 // DETAIL: A      B      C         D          E         F           G       H      I            J
 var DETAIL_HEADERS   = ['Date','Site','Section','Activity','Skilled','Unskilled','Total','Note','Prepared By','Timestamp'];
 var USER_HEADERS     = ['username','displayName','password','role'];
-var PROJECT_HEADERS  = ['id', 'main_project_name', 'sub_project_name', 'parent_id', 'status'];
-var ACTIVITY_HEADERS = ['id', 'main_category_name', 'sub_category_name', 'parent_id', 'status'];
+var PROJECT_HEADERS  = ['id', 'main_project_name', 'sub_project_name', 'parent_id', 'status', 'sort_order'];
+var ACTIVITY_HEADERS = ['id', 'main_category_name', 'sub_category_name', 'parent_id', 'status', 'sort_order'];
 
 // ── Fixed column indexes (0-based) for DPR_Records ──────────────
 var REC = {
@@ -707,14 +707,19 @@ function handleResetPassword(body) {
 function handleGetProjects() {
   var sheet = getSheet(SHEET_PROJECTS);
   if (!sheet) return jsonResponse([]);
-  return jsonResponse(sheetToObjects(sheet).map(function(p) {
+  var projects = sheetToObjects(sheet).map(function(p) {
     return {
       id:            p.id,
       project_name:  p.sub_project_name || p.main_project_name,
       parent_id:     p.parent_id || '',
-      status:        p.status || 'active'
+      status:        p.status || 'active',
+      sort_order:    p.sort_order !== undefined && p.sort_order !== '' ? Number(p.sort_order) : 9999
     };
-  }));
+  });
+  projects.sort(function(a, b) {
+    return a.sort_order - b.sort_order;
+  });
+  return jsonResponse(projects);
 }
 
 function handleAddProject(body) {
@@ -724,7 +729,8 @@ function handleAddProject(body) {
   var isSub = !!body.parent_id;
   var mainName = isSub ? '' : (body.project_name || body.main_project_name || '');
   var subName  = isSub ? (body.project_name || body.sub_project_name || '') : '';
-  sheet.appendRow([newId, mainName, subName, body.parent_id || '', 'active']);
+  var maxSortOrder = getMaxId(sheet, 5);
+  sheet.appendRow([newId, mainName, subName, body.parent_id || '', 'active', maxSortOrder + 1]);
   return jsonResponse({ status: 'ok', id: newId });
 }
 
@@ -765,21 +771,27 @@ function handleDeleteProject(body) {
 function handleGetActivities() {
   var sheet = getSheet(SHEET_ACTIVITIES);
   if (!sheet) return jsonResponse([]);
-  return jsonResponse(sheetToObjects(sheet).map(function(a) {
+  var activities = sheetToObjects(sheet).map(function(a) {
     return {
       id:            a.id,
       activity_name: a.sub_category_name || a.main_category_name,
       parent_id:     a.parent_id || '',
-      status:        a.status || 'active'
+      status:        a.status || 'active',
+      sort_order:    a.sort_order !== undefined && a.sort_order !== '' ? Number(a.sort_order) : 9999
     };
-  }));
+  });
+  activities.sort(function(a, b) {
+    return a.sort_order - b.sort_order;
+  });
+  return jsonResponse(activities);
 }
 
 function handleAddActivity(body) {
   var sheet = getOrCreateSheet(SHEET_ACTIVITIES, ACTIVITY_HEADERS);
   var maxId = getMaxId(sheet, 0);
   var newId = 'a' + (maxId + 1);
-  sheet.appendRow([newId, body.main_category_name || '', body.sub_category_name || '', body.parent_id || '', 'active']);
+  var maxSortOrder = getMaxId(sheet, 5);
+  sheet.appendRow([newId, body.main_category_name || '', body.sub_category_name || '', body.parent_id || '', 'active', maxSortOrder + 1]);
   return jsonResponse({ status: 'ok', id: newId });
 }
 
@@ -837,41 +849,66 @@ function handleUpdateSortOrder(body) {
   var headers = values[0];
   var rows = values.slice(1);
   
-  // Sort rows based on order in orderedIds
-  rows.sort(function(rowA, rowB) {
-    var idA = rowA[0];
-    var idB = rowB[0];
+  // Find sort_order column index dynamically
+  var sortOrderColIdx = headers.indexOf('sort_order');
+  if (sortOrderColIdx === -1) {
+    for (var col = 0; col < headers.length; col++) {
+      if (normalizeKey(headers[col]) === 'sort_order') {
+        sortOrderColIdx = col;
+        break;
+      }
+    }
+  }
+  
+  // Append sort_order header and values dynamically if not present
+  if (sortOrderColIdx === -1) {
+    sortOrderColIdx = headers.length;
+    sheet.getRange(1, sortOrderColIdx + 1).setValue('sort_order');
+    for (var r = 0; r < rows.length; r++) {
+      rows[r].push(9999);
+    }
+    headers.push('sort_order');
+  }
+  
+  // Update sort_order column inside the JS context securely
+  for (var r = 0; r < rows.length; r++) {
+    var rowId = rows[r][0];
+    var strId = String(rowId).trim();
+    var numId = Number(rowId);
     
-    var strA = String(idA).trim();
-    var strB = String(idB).trim();
-    var numA = Number(idA);
-    var numB = Number(idB);
-    
-    var idxA = -1;
-    var idxB = -1;
-    
+    var foundIdx = -1;
     for (var i = 0; i < orderedIds.length; i++) {
       var targetId = orderedIds[i];
       var targetStr = String(targetId).trim();
       var targetNum = Number(targetId);
       
-      if (strA === targetStr || (!isNaN(numA) && !isNaN(targetNum) && numA === targetNum)) {
-        idxA = i;
-      }
-      if (strB === targetStr || (!isNaN(numB) && !isNaN(targetNum) && numB === targetNum)) {
-        idxB = i;
+      if (strId === targetStr || (!isNaN(numId) && !isNaN(targetNum) && numId === targetNum)) {
+        foundIdx = i;
+        break;
       }
     }
     
-    if (idxA === -1 && idxB === -1) return 0;
-    if (idxA === -1) return 1;
-    if (idxB === -1) return -1;
-    return idxA - idxB;
+    if (foundIdx !== -1) {
+      rows[r][sortOrderColIdx] = foundIdx + 1;
+    } else {
+      var existingVal = Number(rows[r][sortOrderColIdx]);
+      rows[r][sortOrderColIdx] = (!isNaN(existingVal) && existingVal > 0) ? existingVal : 9999;
+    }
+  }
+  
+  // Sort rows in JS memory based on the updated sort_order values
+  rows.sort(function(a, b) {
+    var orderA = Number(a[sortOrderColIdx]) || 9999;
+    var orderB = Number(b[sortOrderColIdx]) || 9999;
+    return orderA - orderB;
   });
   
-  // Clear data rows (row 2 onwards) and rewrite sorted rows
-  sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).clearContent();
+  // Write the entire corrected data block back to the sheet in one atomic transaction
   sheet.getRange(2, 1, rows.length, headers.length).setValues(rows);
+  
+  // Enforce server-side formatting
+  var sortOrderRange = sheet.getRange(2, sortOrderColIdx + 1, rows.length, 1);
+  sortOrderRange.setNumberFormat('0');
   
   return jsonResponse({ success: true });
 }

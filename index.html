@@ -3133,12 +3133,21 @@ footer {
                     type: type,
                     orderedIds: orderedIds
                 });
+                console.log('Sort order sync response:', res);
                 if (res && res.success) {
+                    const t = document.getElementById('toast');
+                    if (t) {
+                        t.classList.remove('show');
+                        t.textContent = '';
+                        clearTimeout(t._tid);
+                    }
                     showToast('✅ Order saved to cloud!');
                 } else {
-                    throw new Error('Apps Script failure');
+                    const errStr = res ? JSON.stringify(res) : 'Empty response';
+                    throw new Error(errStr);
                 }
             } catch (e) {
+                console.error('Sort order sync failed:', e);
                 if (attempt < 3) {
                     showToast(`🔄 Retry saving order (attempt ${attempt + 1})...`);
                     await new Promise(resolve => setTimeout(resolve, 1000));
