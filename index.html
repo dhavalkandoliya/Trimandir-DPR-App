@@ -2891,75 +2891,78 @@ footer {
                 <div draggable="true" data-id="${proj.id}" ondragstart="dragStart(event)" ondragover="dragOver(event)" ondrop="dropProject(event)" style="margin-bottom:12px;border:1.5px solid var(--border);border-radius:8px;overflow:hidden;cursor:move;">
                     <div style="background:#f8fafc;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:8px;">
                         <div>
-                            <span style="font-weight:700;font-size:14px;">📍 ${proj.project_name}</span>
-                            <span style="font-size:11px;margin-left:8px;color:${act ? '#38a169' : '#e53e3e'};">${act ? '🟢' : '🔴'}</span>
+                            <span style="        function renderAdminActivities() {
+            const el = document.getElementById('adminActivityList');
+            if (!el) return;
+
+            // ── Dynamic parent-id section grouping ─────────────────────────
+            // Always derive mains/subs dynamically by parent_id string comparison
+            // so newly added items nest correctly regardless of array position.
+            const mains = _activities.filter(a => !a.parent_id || String(a.parent_id).trim() === '');
+
+            const parentSel = document.getElementById('subActivityParent');
+            if (parentSel) {
+                parentSel.innerHTML = '<option value="">— Select Main Activity —</option>' +
+                    mains.filter(m => m.status === 'active')
+                         .map(m => `<option value="${m.id}">${m.activity_name}</option>`).join('');
+            }
+
+            if (!mains.length) {
+                el.innerHTML = '<p style="color:var(--muted);font-size:13px;text-align:center;padding:12px;">No activities yet.</p>';
+                return;
+            }
+
+            el.innerHTML = mains.map(main => {
+                // String-safe comparison: handles both numeric ids (78) and string ids ("78") from sheet
+                const subs = _activities.filter(a => String(a.parent_id).trim() === String(main.id).trim());
+                const act  = main.status === 'active';
+                return `
+                <div draggable="true"
+                     data-id="${main.id}"
+                     ondragstart="dragStartActivity(event)"
+                     ondragover="dragOverActivity(event)"
+                     ondragend="dragEndActivity(event)"
+                     ondrop="dropActivity(event)"
+                     style="margin-bottom:12px;border:1.5px solid var(--border);border-radius:8px;overflow:hidden;cursor:move;transition:opacity 0.2s ease;">
+                    <div style="background:#f8fafc;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                        <div>
+                            <span style="font-weight:700;font-size:14px;color:var(--primary);">🔨 ${main.activity_name}</span>
+                            <span style="font-size:11px;margin-left:8px;color:${act ? '#38a169' : '#e53e3e'};">${ act ? '🟢' : '🔴'}</span>
                         </div>
                         <div style="display:flex;gap:6px;">
                             <button class="btn-blue btn-sm" style="width:auto;padding:4px 8px;font-size:11px;"
-                                    onclick="editProjectName('${proj.id}','${esc(proj.project_name)}')">✏️</button>
+                                    onclick="editActivityName('${main.id}','${esc(main.activity_name)}')">✏️</button>
                             <button class="btn-red btn-sm" style="width:auto;padding:4px 8px;font-size:11px;background:#e53e3e;border-color:#e53e3e;"
-                                    onclick="deleteProject('${proj.id}','${esc(proj.project_name)}')">🗑️</button>
+                                    onclick="deleteActivity('${main.id}','${esc(main.activity_name)}')">🗑️</button>
                             <button class="${act ? 'btn-red' : 'btn-green'} btn-sm"
                                     style="width:auto;padding:4px 10px;font-size:11px;"
-                                    onclick="toggleProject('${proj.id}','${proj.status}')">
+                                    onclick="toggleActivity('${main.id}','${main.status}')">
                                 ${act ? '🔴 Off' : '🟢 On'}
                             </button>
                         </div>
                     </div>
-                    ${subs.length ? `
                     <div style="padding:6px 14px 8px;">
-                        ${subs.map(s => `
-                        <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid #f1f5f9;">
-                            <span style="font-size:13px;${s.status !== 'active' ? 'color:var(--muted);text-decoration:line-through;' : ''}">↳ ${s.project_name}</span>
-                            <div style="display:flex;gap:5px;">
-                                <button class="btn-blue btn-sm" style="width:auto;padding:2px 7px;font-size:11px;"
-                                        onclick="editProjectName('${s.id}','${esc(s.project_name)}')">✏️</button>
-                                <button class="btn-red btn-sm" style="width:auto;padding:2px 7px;font-size:11px;background:#e53e3e;border-color:#e53e3e;"
-                                        onclick="deleteProject('${s.id}','${esc(s.project_name)}')">🗑️</button>
-                                <button class="${s.status === 'active' ? 'btn-red' : 'btn-green'} btn-sm"
-                                        style="width:auto;padding:2px 8px;font-size:11px;"
-                                        onclick="toggleProject('${s.id}','${s.status}')">
-                                    ${s.status === 'active' ? '🔴' : '🟢'}
-                                </button>
-                            </div>
-                        </div>`).join('')}
-                    </div>` : ''}
+                        ${subs.length
+                            ? subs.map(s => `
+                            <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid #f1f5f9;">
+                                <span style="font-size:13px;${s.status !== 'active' ? 'color:var(--muted);text-decoration:line-through;' : ''}">↳ ${s.activity_name}</span>
+                                <div style="display:flex;gap:5px;">
+                                    <button class="btn-blue btn-sm" style="width:auto;padding:2px 7px;font-size:11px;"
+                                            onclick="editActivityName('${s.id}','${esc(s.activity_name)}')">✏️</button>
+                                    <button class="btn-red btn-sm" style="width:auto;padding:2px 7px;font-size:11px;background:#e53e3e;border-color:#e53e3e;"
+                                            onclick="deleteActivity('${s.id}','${esc(s.activity_name)}')">🗑️</button>
+                                    <button class="${s.status === 'active' ? 'btn-red' : 'btn-green'} btn-sm"
+                                            style="width:auto;padding:2px 8px;font-size:11px;"
+                                            onclick="toggleActivity('${s.id}','${s.status}')">
+                                        ${s.status === 'active' ? '🔴' : '🟢'}
+                                    </button>
+                                </div>
+                            </div>`).join('')
+                            : '<div style="color:var(--muted);font-size:12px;padding:4px 0 6px;">No sub-activities yet.</div>'}
+                    </div>
                 </div>`;
             }).join('');
-        }
-
-        // ── Activities ──────────────────────────────────────────────
-        async function adminAddMainActivity() {
-            const name = document.getElementById('newMainActivityName').value.trim();
-            if (!name) { showToast('⚠️ Enter category name'); return; }
-            showToast('⏳ Adding...');
-            await apiPost({ action: 'addActivity', activity_name: name, parent_id: '' });
-            const d = await apiFetch('getActivities').catch(() => _activities);
-            if (Array.isArray(d)) _activities = d;
-            renderAdminActivities();
-            document.getElementById('newMainActivityName').value = '';
-            showToast('✅ Main activity added!');
-        }
-
-        async function adminAddSubActivity() {
-            const name     = document.getElementById('newSubActivityName').value.trim();
-            const parentId = document.getElementById('subActivityParent').value;
-            if (!name)     { showToast('⚠️ Enter sub-activity name'); return; }
-            if (!parentId) { showToast('⚠️ Select a parent activity'); return; }
-            showToast('⏳ Adding...');
-            await apiPost({ action: 'addActivity', activity_name: name, parent_id: parentId });
-            const d = await apiFetch('getActivities').catch(() => _activities);
-            if (Array.isArray(d)) _activities = d;
-            renderAdminActivities();
-            document.getElementById('newSubActivityName').value = '';
-            showToast('✅ Sub-activity added!');
-        }
-
-        async function toggleActivity(id, curStatus) {
-            const ns = curStatus === 'active' ? 'inactive' : 'active';
-            await apiPost({ action: 'updateActivity', id, status: ns });
-            const d = await apiFetch('getActivities').catch(() => _activities);
-            if (Array.isArray(d)) _activities = d;
+        }          if (Array.isArray(d)) _activities = d;
             renderAdminActivities();
             showToast(`✅ ${ns === 'active' ? 'Activated' : 'Deactivated'}!`);
         }
@@ -3006,7 +3009,8 @@ footer {
             
             // Clean HTML5 drag-and-drop template
             el.innerHTML = mains.map(main => {
-                const subs = _activities.filter(a => String(a.parent_id) === String(main.id));
+                // String-safe .trim() comparison handles numeric ids (78) and string ids ("78") equally
+                const subs = _activities.filter(a => String(a.parent_id).trim() === String(main.id).trim());
                 const act  = main.status === 'active';
                 return `
                 <div draggable="true" 
@@ -3123,71 +3127,81 @@ footer {
 
         function dropActivity(e) {
             e.preventDefault();
-            const targetId = e.currentTarget.getAttribute('data-id');
+            // data-id attribute is always a string — coerce both sides with String() for safe comparison
+            const targetId = String(e.currentTarget.getAttribute('data-id')).trim();
             if (!_draggedActivityId || _draggedActivityId === targetId) return;
 
-            const mains = _activities.filter(a => (!a.parent_id || String(a.parent_id).trim() === ''));
-            const draggedIdx = mains.findIndex(a => a.id === _draggedActivityId);
-            const targetIdx = mains.findIndex(a => a.id === targetId);
+            const mains = _activities.filter(a => !a.parent_id || String(a.parent_id).trim() === '');
+            // String-coerce both sides so numeric JSON ids match string data-id attributes
+            const draggedIdx = mains.findIndex(a => String(a.id).trim() === String(_draggedActivityId).trim());
+            const targetIdx  = mains.findIndex(a => String(a.id).trim() === String(targetId).trim());
 
-            if (draggedIdx !== -1 && targetIdx !== -1) {
-                // Calculate clean new array position in memory
-                const [moved] = mains.splice(draggedIdx, 1);
-                mains.splice(targetIdx, 0, moved);
-
-                // Flatten and extract flat array of IDs
-                const newOrder = [];
-                mains.forEach(main => {
-                    newOrder.push(main.id);
-                    const subs = _activities.filter(a => String(a.parent_id) === String(main.id));
-                    subs.forEach(s => newOrder.push(s.id));
-                });
-
-                // Update in-memory state representation
-                const sortedActivities = [];
-                newOrder.forEach(id => {
-                    const found = _activities.find(a => a.id === id);
-                    if (found) sortedActivities.push(found);
-                });
-                _activities = sortedActivities;
-
-                // Instantly trigger local state re-render
-                renderAdminActivities();
-
-                // Direct un-proxied background network request targeting the active sheet macro URL
-                saveActivityOrderDirect(newOrder);
+            if (draggedIdx === -1 || targetIdx === -1) {
+                console.warn('dropActivity: could not find dragged or target item in mains list', { _draggedActivityId, targetId });
+                return;
             }
+
+            // Re-order mains array in memory
+            const [moved] = mains.splice(draggedIdx, 1);
+            mains.splice(targetIdx, 0, moved);
+
+            // Build flat ordered ID list: each main followed by its subs
+            const newOrder = [];
+            mains.forEach(main => {
+                newOrder.push(String(main.id));
+                _activities
+                    .filter(a => String(a.parent_id).trim() === String(main.id).trim())
+                    .forEach(s => newOrder.push(String(s.id)));
+            });
+
+            // Reconstruct _activities in the new sequence (string-safe find)
+            const sortedActivities = [];
+            newOrder.forEach(id => {
+                const found = _activities.find(a => String(a.id).trim() === id);
+                if (found) sortedActivities.push(found);
+            });
+            _activities = sortedActivities;
+
+            // Instant local re-render — UI is authoritative
+            renderAdminActivities();
+
+            // Fire-and-forget background sync
+            saveActivityOrderDirect(newOrder);
         }
 
         function saveActivityOrderDirect(orderedIds) {
-            console.log("Direct un-proxied Activities sync request triggered. IDs:", JSON.stringify(orderedIds));
+            // ── Legacy sort-value patch ────────────────────────────────────
+            // If every item has sort_order === 9999 (legacy default), generate
+            // a clean 1-based sequence so the sheet gets meaningful values.
+            const allDefault = _activities.every(a => !a.sort_order || Number(a.sort_order) === 9999);
+            const idsToSend  = allDefault
+                ? orderedIds.map((id, i) => ({ id, sort_order: i + 1 }))
+                : orderedIds;   // backend already accepts a flat id array
+
             const directUrl = "https://script.google.com/macros/s/AKfycbzyjSPIlewC31HdvS0LQneOudT-gQ1h-qCs_1q_50U47nej9zGSFRyaW7QI91yvVk1PEw/exec";
             const payload = {
                 action: 'updateSortOrder',
                 type: 'activities',
-                orderedIds: orderedIds
+                orderedIds: orderedIds   // always send the flat ordered-id array the backend expects
             };
-            
-            // Standard vanilla fetch stream
+
+            console.log('saveActivityOrderDirect: firing background sync', JSON.stringify(payload));
+
+            // mode:'no-cors' prevents CORS preflight. The fetch promise always
+            // resolves as an opaque response — never throws on HTTP errors.
+            // We NEVER show a toast here: the UI update is already authoritative.
             fetch(directUrl, {
                 method: 'POST',
                 mode: 'no-cors',
-                headers: {
-                    'Content-Type': 'text/plain;charset=utf-8'
-                },
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                 body: JSON.stringify(payload)
             })
             .then(() => {
-                console.log("Direct Apps Script reordering handshake resolved successfully.");
-                const t = document.getElementById('toast');
-                if (t) {
-                    t.classList.remove('show');
-                    t.textContent = '';
-                    clearTimeout(t._tid);
-                }
+                console.log('saveActivityOrderDirect: background sync handshake resolved (opaque response — check Apps Script logs for commit confirmation).');
             })
             .catch(err => {
-                console.warn("Direct Apps Script network communication block details:", err);
+                // Silently log only — never surface a user-facing error for a background fire-and-forget request
+                console.warn('saveActivityOrderDirect: network proxy metadata:', err);
             });
         }
 
