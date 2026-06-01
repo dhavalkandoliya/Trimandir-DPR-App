@@ -94,6 +94,7 @@ function doPost(e) {
     case 'deleteActivity':   return handleDeleteActivity(body);
     case 'cleanCorrupted':   return handleCleanCorrupted(body);
     case 'updateSortOrder':  return handleUpdateSortOrder(body);
+    case 'reinitSortingSchema': reinitSpreadsheetSortingSchema(); return jsonResponse({ success: true, message: 'Sorting schema self-healed successfully' });
     default:                 return jsonResponse({ error: 'Unknown action: ' + body.action });
   }
 }
@@ -824,92 +825,146 @@ function handleDeleteActivity(body) {
 }
 
 function handleUpdateSortOrder(body) {
-  var type = body.type;
-  var orderedIds = body.orderedIds;
-  
-  if (!orderedIds || !Array.isArray(orderedIds)) {
-    return jsonResponse({ error: 'Missing or invalid orderedIds' });
-  }
-  
-  var sheetName;
-  if (type === 'projects') {
-    sheetName = SHEET_PROJECTS;
-  } else if (type === 'activities') {
-    sheetName = SHEET_ACTIVITIES;
-  } else {
-    return jsonResponse({ error: 'Invalid type: ' + type });
-  }
-  
-  var sheet = getSheet(sheetName);
-  if (!sheet) return jsonResponse({ error: 'Sheet not found: ' + sheetName });
-  
-  var values = sheet.getDataRange().getValues();
-  if (values.length < 2) return jsonResponse({ success: true });
-  
-  var headers = values[0];
-  var rows = values.slice(1);
-  
-  // Find sort_order column index dynamically
-  var sortOrderColIdx = headers.indexOf('sort_order');
-  if (sortOrderColIdx === -1) {
+  try {
+    // Run self-healing schema migration to guarantee sort_order columns are initialized
+    reinitSpreadsheetSortingSchema();
+    
+    var type = body.type;
+    var orderedIds = body.orderedIds;
+    
+    if (!orderedIds || !Array.isArray(orderedIds)) {
+      return jsonResponse({ error: 'Missing or invalid orderedIds' });
+    }
+    
+    var sheetName;
+    if (type === 'projects') {
+      sheetName = SHEET_PROJECTS;
+    } else if (type === 'activities') {
+      sheetName = SHEET_ACTIVITIES;
+    } else {
+      return jsonResponse({ error: 'Invalid type: ' + type });
+    }
+    
+    var sheet = getSheet(sheetName);
+    if (!sheet) return jsonResponse({ error: 'Sheet not found: ' + sheetName });
+    
+    var values = sheet.getDataRange().getValues();
+    if (values.length < 2) return jsonResponse({ success: true });
+    
+    var headers = values[0];
+    var sortOrderColIdx = -1;
+    
+    // Find sort_order column index dynamically
     for (var col = 0; col < headers.length; col++) {
-      if (normalizeKey(headers[col]) === 'sort_order') {
+      var headerName = String(headers[col]).trim().toLowerCase();
+      if (headerName === 'sort_order') {
         sortOrderColIdx = col;
         break;
       }
     }
-  }
-  
-  // Append sort_order header and values dynamically if not present
-  if (sortOrderColIdx === -1) {
-    sortOrderColIdx = headers.length;
-    sheet.getRange(1, sortOrderColIdx + 1).setValue('sort_order');
-    for (var r = 0; r < rows.length; r++) {
-      rows[r].push(9999);
-    }
-    headers.push('sort_order');
-  }
-  
-  // Update sort_order column inside the JS context securely
-  for (var r = 0; r < rows.length; r++) {
-    var rowId = rows[r][0];
-    var strId = String(rowId).trim();
-    var numId = Number(rowId);
     
-    var foundIdx = -1;
+    if (sortOrderColIdx === -1) {
+      return jsonResponse({ error: 'sort_order column not found in sheet: ' + sheetName });
+    }
+    
+    // Loop through orderedIds and directly overwrite the sort_order cell in the spreadsheet range
     for (var i = 0; i < orderedIds.length; i++) {
-      var targetId = orderedIds[i];
-      var targetStr = String(targetId).trim();
+      var targetId = String(orderedIds[i]).trim();
       var targetNum = Number(targetId);
       
-      if (strId === targetStr || (!isNaN(numId) && !isNaN(targetNum) && numId === targetNum)) {
-        foundIdx = i;
+      // Find row index where ID matches
+      for (var r = 1; r < values.length; r++) {
+        var rowId = String(values[r][0]).trim();
+        var rowNum = Number(rowId);
+        
+        if (rowId === targetId || (!isNaN(rowNum) && !isNaN(targetNum) && rowNum === targetNum)) {
+          // Set sort_order value to index + 1
+          // sheet.getRange(row, col) indices are 1-based, so row index is r + 1, col index is sortOrderColIdx + 1
+          sheet.getRange(r + 1, sortOrderColIdx + 1).setValue(i + 1);
+          break;
+        }
+      }
+    }
+    
+    // Force a dynamic cell sync via SpreadsheetApp.flush() to commit changes immediately
+    SpreadsheetApp.flush();
+    
+    return ContentService.createTextOutput(JSON.stringify({ success: true, message: "Order updated successfully" }))
+                         .setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return jsonResponse({ error: 'Error in handleUpdateSortOrder: ' + err.toString() });
+  }
+}
+
+function reinitSpreadsheetSortingSchema() {
+  var sheetsToProcess = [
+    { name: SHEET_PROJECTS, headers: PROJECT_HEADERS },
+    { name: SHEET_ACTIVITIES, headers: ACTIVITY_HEADERS }
+  ];
+  
+  sheetsToProcess.forEach(function(item) {
+    var sheet = getOrCreateSheet(item.name, item.headers);
+    var data = sheet.getDataRange().getValues();
+    if (data.length === 0) return;
+    
+    var headers = data[0];
+    var sortOrderColIdx = -1;
+    
+    // Find sort_order dynamically
+    for (var col = 0; col < headers.length; col++) {
+      if (String(headers[col]).trim().toLowerCase() === 'sort_order') {
+        sortOrderColIdx = col;
         break;
       }
     }
     
-    if (foundIdx !== -1) {
-      rows[r][sortOrderColIdx] = foundIdx + 1;
-    } else {
-      var existingVal = Number(rows[r][sortOrderColIdx]);
-      rows[r][sortOrderColIdx] = (!isNaN(existingVal) && existingVal > 0) ? existingVal : 9999;
+    // If sort_order column is missing, add it
+    if (sortOrderColIdx === -1) {
+      sortOrderColIdx = headers.length;
+      sheet.getRange(1, sortOrderColIdx + 1).setValue('sort_order');
+      // Read values again to include the new column space
+      data = sheet.getDataRange().getValues();
+      headers = data[0];
     }
-  }
-  
-  // Sort rows in JS memory based on the updated sort_order values
-  rows.sort(function(a, b) {
-    var orderA = Number(a[sortOrderColIdx]) || 9999;
-    var orderB = Number(b[sortOrderColIdx]) || 9999;
-    return orderA - orderB;
+    
+    // Scan rows to clear duplicate IDs and enforce numeric constraints
+    var seenIds = {};
+    var rowsToDelete = [];
+    
+    for (var r = 1; r < data.length; r++) {
+      var rowId = String(data[r][0]).trim();
+      if (!rowId) {
+        rowsToDelete.push(r + 1);
+        continue;
+      }
+      
+      if (seenIds[rowId]) {
+        // Duplicate ID found, mark this row number for deletion
+        rowsToDelete.push(r + 1);
+      } else {
+        seenIds[rowId] = true;
+        
+        // Enforce numeric constraint in sort_order column
+        var cellVal = data[r][sortOrderColIdx];
+        var numVal = Number(cellVal);
+        if (isNaN(numVal) || cellVal === '' || cellVal === null || cellVal === undefined) {
+          sheet.getRange(r + 1, sortOrderColIdx + 1).setValue(r); // default to row index
+        }
+      }
+    }
+    
+    // Delete duplicate rows in reverse order to keep indices correct
+    for (var d = rowsToDelete.length - 1; d >= 0; d--) {
+      sheet.deleteRow(rowsToDelete[d]);
+    }
+    
+    // Enforce numeric cell formatting on the entire sort_order column
+    var lastRow = sheet.getLastRow();
+    if (lastRow >= 2) {
+      var sortOrderRange = sheet.getRange(2, sortOrderColIdx + 1, lastRow - 1, 1);
+      sortOrderRange.setNumberFormat('0');
+    }
   });
   
-  // Write the entire corrected data block back to the sheet in one atomic transaction
-  sheet.getRange(2, 1, rows.length, headers.length).setValues(rows);
-  
-  // Enforce server-side formatting
-  var sortOrderRange = sheet.getRange(2, sortOrderColIdx + 1, rows.length, 1);
-  sortOrderRange.setNumberFormat('0');
-  
-  return ContentService.createTextOutput(JSON.stringify({ success: true, message: "Order updated successfully" }))
-                       .setMimeType(ContentService.MimeType.JSON);
+  SpreadsheetApp.flush();
 }

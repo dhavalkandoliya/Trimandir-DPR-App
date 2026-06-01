@@ -3126,15 +3126,29 @@ footer {
         }
 
         async function saveOrderToCloud(type, orderedIds) {
-            console.log(`Optimistic update: Syncing sorted ${type} order to cloud in the background...`);
-            
-            // Dispatch the sync request asynchronously in a fire-and-forget background cycle
-            apiPost({
+            console.log(`Optimistic Update Triggered: Syncing sorted ${type} order to cloud in the background...`);
+            const payload = {
                 action: 'updateSortOrder',
                 type: type,
                 orderedIds: orderedIds
-            }).then(res => {
-                console.log('Background sort order sync completed successfully:', res);
+            };
+            console.log("Reordering Sync Payload:", JSON.stringify(payload));
+            
+            // Dispatch raw HTTP fetch asynchronously in a fire-and-forget background transaction
+            fetch(SHEET_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            })
+            .then(async (response) => {
+                if (!response.ok) {
+                    throw new Error(`HTTP status ${response.status}`);
+                }
+                const resText = await response.text();
+                console.log('Background sort order sync raw response text:', resText);
+                
                 // Clear any pending/existing toast container once the handshake/communication resolves
                 const t = document.getElementById('toast');
                 if (t) {
@@ -3142,7 +3156,8 @@ footer {
                     t.textContent = '';
                     clearTimeout(t._tid);
                 }
-            }).catch(err => {
+            })
+            .catch(err => {
                 // Log network proxy metadata silently via console.warn instead of firing user-facing alerts
                 console.warn('Background sort order sync failed silently (optimistic UI remains active):', err);
             });

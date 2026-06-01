@@ -53,10 +53,21 @@ export async function GET(request) {
     const params = url.searchParams.toString();
     const targetUrl = params ? `${googleScriptUrl}?${params}` : googleScriptUrl;
 
-    const response = await fetch(targetUrl);
+    // CRITICAL: Force Next.js fetch cache to bypass and fetch from Google Apps Script directly
+    const response = await fetch(targetUrl, { 
+      cache: 'no-store',
+      next: { revalidate: 0 }
+    });
     const data = await response.json();
 
-    return NextResponse.json(data);
+    // CRITICAL: Prevent browser or edge network caching of query data
+    return NextResponse.json(data, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+      }
+    });
   } catch (error) {
     console.error('Error fetching from Google Script:', error);
     return NextResponse.json(
