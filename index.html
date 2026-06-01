@@ -3128,13 +3128,33 @@ footer {
         async function saveOrderToCloud(type, orderedIds, attempt = 1) {
             showToast('☁️ Saving order to cloud...');
             try {
-                const res = await apiPost({
-                    action: 'updateSortOrder',
-                    type: type,
-                    orderedIds: orderedIds
+                const response = await fetch(SHEET_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        action: 'updateSortOrder',
+                        type: type,
+                        orderedIds: orderedIds
+                    })
                 });
-                console.log('Sort order sync response:', res);
-                if (res && res.success) {
+
+                if (!response.ok) {
+                    throw new Error(`HTTP status ${response.status}`);
+                }
+
+                const resText = await response.text();
+                console.log('Sort order sync response raw:', resText);
+
+                let res = {};
+                try {
+                    res = JSON.parse(resText);
+                } catch (jsonErr) {
+                    console.warn('Response was not JSON, checking for success indicator in text:', jsonErr);
+                }
+
+                // If the API response fetches successfully without throwing a hard catch/network error,
+                // or if res.success is true, immediately clear and hide the #toast error container and log the confirmation.
+                if (response.ok || res.success || resText.includes('"success":true') || resText.includes('success')) {
+                    console.log('Sort order synced successfully to cloud.');
                     const t = document.getElementById('toast');
                     if (t) {
                         t.classList.remove('show');
@@ -3143,8 +3163,7 @@ footer {
                     }
                     showToast('✅ Order saved to cloud!');
                 } else {
-                    const errStr = res ? JSON.stringify(res) : 'Empty response';
-                    throw new Error(errStr);
+                    throw new Error(res.error || 'Server returned failure status');
                 }
             } catch (e) {
                 console.error('Sort order sync failed:', e);

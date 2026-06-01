@@ -910,5 +910,6 @@ function handleUpdateSortOrder(body) {
   var sortOrderRange = sheet.getRange(2, sortOrderColIdx + 1, rows.length, 1);
   sortOrderRange.setNumberFormat('0');
   
-  return jsonResponse({ success: true });
+  return ContentService.createTextOutput(JSON.stringify({ success: true, message: "Order updated successfully" }))
+                       .setMimeType(ContentService.MimeType.JSON);
 }
