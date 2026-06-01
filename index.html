@@ -2888,7 +2888,7 @@ footer {
                 const subs = _projects.filter(p => String(p.parent_id) === String(proj.id));
                 const act  = proj.status === 'active';
                 return `
-                <div style="margin-bottom:12px;border:1.5px solid var(--border);border-radius:8px;overflow:hidden;">
+                <div draggable="true" data-id="${proj.id}" ondragstart="dragStart(event)" ondragover="dragOver(event)" ondrop="dropProject(event)" style="margin-bottom:12px;border:1.5px solid var(--border);border-radius:8px;overflow:hidden;cursor:move;">
                     <div style="background:#f8fafc;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:8px;">
                         <div>
                             <span style="font-weight:700;font-size:14px;">📍 ${proj.project_name}</span>
@@ -3007,7 +3007,7 @@ footer {
                 const subs = _activities.filter(a => String(a.parent_id) === String(main.id));
                 const act  = main.status === 'active';
                 return `
-                <div style="margin-bottom:12px;border:1.5px solid var(--border);border-radius:8px;overflow:hidden;">
+                <div draggable="true" data-id="${main.id}" ondragstart="dragStart(event)" ondragover="dragOver(event)" ondrop="dropActivity(event)" style="margin-bottom:12px;border:1.5px solid var(--border);border-radius:8px;overflow:hidden;cursor:move;">
                     <div style="background:#f8fafc;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:8px;">
                         <div>
                             <span style="font-weight:700;font-size:14px;color:var(--primary);">🔨 ${main.activity_name}</span>
@@ -3046,6 +3046,114 @@ footer {
                     </div>
                 </div>`;
             }).join('');
+        }
+
+        let _draggedId = null;
+
+        function dragStart(e) {
+            _draggedId = e.currentTarget.getAttribute('data-id');
+            e.dataTransfer.setData('text/plain', _draggedId);
+            e.dataTransfer.effectAllowed = 'move';
+        }
+
+        function dragOver(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+        }
+
+        async function dropProject(e) {
+            e.preventDefault();
+            const targetId = e.currentTarget.getAttribute('data-id');
+            if (!_draggedId || _draggedId === targetId) return;
+
+            const tops = _projects.filter(p => (!p.parent_id || String(p.parent_id).trim() === ''));
+            const draggedIdx = tops.findIndex(p => p.id === _draggedId);
+            const targetIdx = tops.findIndex(p => p.id === targetId);
+
+            if (draggedIdx !== -1 && targetIdx !== -1) {
+                const [moved] = tops.splice(draggedIdx, 1);
+                tops.splice(targetIdx, 0, moved);
+
+                const newOrder = [];
+                tops.forEach(top => {
+                    newOrder.push(top.id);
+                    const subs = _projects.filter(p => String(p.parent_id) === String(top.id));
+                    subs.forEach(s => newOrder.push(s.id));
+                });
+                
+                const sortedProjects = [];
+                newOrder.forEach(id => {
+                    const found = _projects.find(p => p.id === id);
+                    if (found) sortedProjects.push(found);
+                });
+                _projects = sortedProjects;
+                renderAdminProjects();
+                
+                await saveOrderToCloud('projects', newOrder);
+            }
+        }
+
+        async function dropActivity(e) {
+            e.preventDefault();
+            const targetId = e.currentTarget.getAttribute('data-id');
+            if (!_draggedId || _draggedId === targetId) return;
+
+            const mains = _activities.filter(a => (!a.parent_id || String(a.parent_id).trim() === ''));
+            const draggedIdx = mains.findIndex(a => a.id === _draggedId);
+            const targetIdx = mains.findIndex(a => a.id === targetId);
+
+            if (draggedIdx !== -1 && targetIdx !== -1) {
+                const [moved] = mains.splice(draggedIdx, 1);
+                mains.splice(targetIdx, 0, moved);
+
+                const newOrder = [];
+                mains.forEach(main => {
+                    newOrder.push(main.id);
+                    const subs = _activities.filter(a => String(a.parent_id) === String(main.id));
+                    subs.forEach(s => newOrder.push(s.id));
+                });
+
+                const sortedActivities = [];
+                newOrder.forEach(id => {
+                    const found = _activities.find(a => a.id === id);
+                    if (found) sortedActivities.push(found);
+                });
+                _activities = sortedActivities;
+                renderAdminActivities();
+
+                await saveOrderToCloud('activities', newOrder);
+            }
+        }
+
+        async function saveOrderToCloud(type, orderedIds, attempt = 1) {
+            showToast('☁️ Saving order to cloud...');
+            try {
+                const res = await apiPost({
+                    action: 'updateSortOrder',
+                    type: type,
+                    orderedIds: orderedIds
+                });
+                if (res && res.success) {
+                    showToast('✅ Order saved to cloud!');
+                } else {
+                    throw new Error('Apps Script failure');
+                }
+            } catch (e) {
+                if (attempt < 3) {
+                    showToast(`🔄 Retry saving order (attempt ${attempt + 1})...`);
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    await saveOrderToCloud(type, orderedIds, attempt + 1);
+                } else {
+                    showToast('❌ Failed to save order to cloud');
+                }
+            }
+        }
+
+        if (typeof window !== "undefined") {
+            window.dragStart = dragStart;
+            window.dragOver = dragOver;
+            window.dropProject = dropProject;
+            window.dropActivity = dropActivity;
         }
 
         // ── Data Maintenance ────────────────────────────────────────

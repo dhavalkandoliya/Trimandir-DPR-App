@@ -93,6 +93,7 @@ function doPost(e) {
     case 'updateActivity':   return handleUpdateActivity(body);
     case 'deleteActivity':   return handleDeleteActivity(body);
     case 'cleanCorrupted':   return handleCleanCorrupted(body);
+    case 'updateSortOrder':  return handleUpdateSortOrder(body);
     default:                 return jsonResponse({ error: 'Unknown action: ' + body.action });
   }
 }
@@ -808,4 +809,69 @@ function handleDeleteActivity(body) {
     }
   }
   return jsonResponse({ status: 'ok' });
+}
+
+function handleUpdateSortOrder(body) {
+  var type = body.type;
+  var orderedIds = body.orderedIds;
+  
+  if (!orderedIds || !Array.isArray(orderedIds)) {
+    return jsonResponse({ error: 'Missing or invalid orderedIds' });
+  }
+  
+  var sheetName;
+  if (type === 'projects') {
+    sheetName = SHEET_PROJECTS;
+  } else if (type === 'activities') {
+    sheetName = SHEET_ACTIVITIES;
+  } else {
+    return jsonResponse({ error: 'Invalid type: ' + type });
+  }
+  
+  var sheet = getSheet(sheetName);
+  if (!sheet) return jsonResponse({ error: 'Sheet not found: ' + sheetName });
+  
+  var values = sheet.getDataRange().getValues();
+  if (values.length < 2) return jsonResponse({ success: true });
+  
+  var headers = values[0];
+  var rows = values.slice(1);
+  
+  // Sort rows based on order in orderedIds
+  rows.sort(function(rowA, rowB) {
+    var idA = rowA[0];
+    var idB = rowB[0];
+    
+    var strA = String(idA).trim();
+    var strB = String(idB).trim();
+    var numA = Number(idA);
+    var numB = Number(idB);
+    
+    var idxA = -1;
+    var idxB = -1;
+    
+    for (var i = 0; i < orderedIds.length; i++) {
+      var targetId = orderedIds[i];
+      var targetStr = String(targetId).trim();
+      var targetNum = Number(targetId);
+      
+      if (strA === targetStr || (!isNaN(numA) && !isNaN(targetNum) && numA === targetNum)) {
+        idxA = i;
+      }
+      if (strB === targetStr || (!isNaN(numB) && !isNaN(targetNum) && numB === targetNum)) {
+        idxB = i;
+      }
+    }
+    
+    if (idxA === -1 && idxB === -1) return 0;
+    if (idxA === -1) return 1;
+    if (idxB === -1) return -1;
+    return idxA - idxB;
+  });
+  
+  // Clear data rows (row 2 onwards) and rewrite sorted rows
+  sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).clearContent();
+  sheet.getRange(2, 1, rows.length, headers.length).setValues(rows);
+  
+  return jsonResponse({ success: true });
 }
