@@ -3125,56 +3125,27 @@ footer {
             }
         }
 
-        async function saveOrderToCloud(type, orderedIds, attempt = 1) {
-            showToast('☁️ Saving order to cloud...');
-            try {
-                const response = await fetch(SHEET_URL, {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        action: 'updateSortOrder',
-                        type: type,
-                        orderedIds: orderedIds
-                    })
-                });
-
-                if (!response.ok) {
-                    throw new Error(`HTTP status ${response.status}`);
+        async function saveOrderToCloud(type, orderedIds) {
+            console.log(`Optimistic update: Syncing sorted ${type} order to cloud in the background...`);
+            
+            // Dispatch the sync request asynchronously in a fire-and-forget background cycle
+            apiPost({
+                action: 'updateSortOrder',
+                type: type,
+                orderedIds: orderedIds
+            }).then(res => {
+                console.log('Background sort order sync completed successfully:', res);
+                // Clear any pending/existing toast container once the handshake/communication resolves
+                const t = document.getElementById('toast');
+                if (t) {
+                    t.classList.remove('show');
+                    t.textContent = '';
+                    clearTimeout(t._tid);
                 }
-
-                const resText = await response.text();
-                console.log('Sort order sync response raw:', resText);
-
-                let res = {};
-                try {
-                    res = JSON.parse(resText);
-                } catch (jsonErr) {
-                    console.warn('Response was not JSON, checking for success indicator in text:', jsonErr);
-                }
-
-                // If the API response fetches successfully without throwing a hard catch/network error,
-                // or if res.success is true, immediately clear and hide the #toast error container and log the confirmation.
-                if (response.ok || res.success || resText.includes('"success":true') || resText.includes('success')) {
-                    console.log('Sort order synced successfully to cloud.');
-                    const t = document.getElementById('toast');
-                    if (t) {
-                        t.classList.remove('show');
-                        t.textContent = '';
-                        clearTimeout(t._tid);
-                    }
-                    showToast('✅ Order saved to cloud!');
-                } else {
-                    throw new Error(res.error || 'Server returned failure status');
-                }
-            } catch (e) {
-                console.error('Sort order sync failed:', e);
-                if (attempt < 3) {
-                    showToast(`🔄 Retry saving order (attempt ${attempt + 1})...`);
-                    await new Promise(resolve => setTimeout(resolve, 1000));
-                    await saveOrderToCloud(type, orderedIds, attempt + 1);
-                } else {
-                    showToast('❌ Failed to save order to cloud');
-                }
-            }
+            }).catch(err => {
+                // Log network proxy metadata silently via console.warn instead of firing user-facing alerts
+                console.warn('Background sort order sync failed silently (optimistic UI remains active):', err);
+            });
         }
 
         if (typeof window !== "undefined") {
