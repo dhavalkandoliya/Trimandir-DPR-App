@@ -852,8 +852,9 @@ function handleUpdateSortOrder(body) {
     if (values.length < 2) return jsonResponse({ success: true });
     
     var headers = values[0];
-    var sortOrderColIdx = -1;
+    var rows = values.slice(1);
     
+    var sortOrderColIdx = -1;
     // Find sort_order column index dynamically
     for (var col = 0; col < headers.length; col++) {
       var headerName = String(headers[col]).trim().toLowerCase();
@@ -867,24 +868,39 @@ function handleUpdateSortOrder(body) {
       return jsonResponse({ error: 'sort_order column not found in sheet: ' + sheetName });
     }
     
-    // Loop through orderedIds and directly overwrite the sort_order cell in the spreadsheet range
-    for (var i = 0; i < orderedIds.length; i++) {
-      var targetId = String(orderedIds[i]).trim();
-      var targetNum = Number(targetId);
+    // Update sort_order values in memory
+    for (var r = 0; r < rows.length; r++) {
+      var rowId = String(rows[r][0]).trim();
+      var rowNum = Number(rowId);
       
-      // Find row index where ID matches
-      for (var r = 1; r < values.length; r++) {
-        var rowId = String(values[r][0]).trim();
-        var rowNum = Number(rowId);
+      var foundIdx = -1;
+      for (var i = 0; i < orderedIds.length; i++) {
+        var targetId = String(orderedIds[i]).trim();
+        var targetNum = Number(targetId);
         
         if (rowId === targetId || (!isNaN(rowNum) && !isNaN(targetNum) && rowNum === targetNum)) {
-          // Set sort_order value to index + 1
-          // sheet.getRange(row, col) indices are 1-based, so row index is r + 1, col index is sortOrderColIdx + 1
-          sheet.getRange(r + 1, sortOrderColIdx + 1).setValue(i + 1);
+          foundIdx = i;
           break;
         }
       }
+      
+      if (foundIdx !== -1) {
+        rows[r][sortOrderColIdx] = foundIdx + 1;
+      } else {
+        var existingVal = Number(rows[r][sortOrderColIdx]);
+        rows[r][sortOrderColIdx] = (!isNaN(existingVal) && existingVal > 0) ? existingVal : 9999;
+      }
     }
+    
+    // Sort rows in JS memory based on the updated sort_order values
+    rows.sort(function(a, b) {
+      var orderA = Number(a[sortOrderColIdx]) || 9999;
+      var orderB = Number(b[sortOrderColIdx]) || 9999;
+      return orderA - orderB;
+    });
+    
+    // Write the entire sorted data block back to the sheet in one atomic transaction
+    sheet.getRange(2, 1, rows.length, headers.length).setValues(rows);
     
     // Force a dynamic cell sync via SpreadsheetApp.flush() to commit changes immediately
     SpreadsheetApp.flush();
