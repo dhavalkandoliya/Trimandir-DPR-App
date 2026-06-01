@@ -789,9 +789,17 @@ function handleGetActivities() {
 function handleAddActivity(body) {
   var sheet = getOrCreateSheet(SHEET_ACTIVITIES, ACTIVITY_HEADERS);
   var maxId = getMaxId(sheet, 0);
-  var newId = 'a' + (maxId + 1);
+  var newId = maxId + 1;  // Pure integer, never prepend letters
   var maxSortOrder = getMaxId(sheet, 5);
-  sheet.appendRow([newId, body.main_category_name || '', body.sub_category_name || '', body.parent_id || '', 'active', maxSortOrder + 1]);
+
+  var parentId = body.parent_id || '';
+  var activityName = body.activity_name || '';
+
+  // Route the name into the correct column based on whether it is a sub-activity
+  var mainName = body.main_category_name || (parentId === '' ? activityName : '');
+  var subName  = body.sub_category_name  || (parentId !== '' ? activityName : '');
+
+  sheet.appendRow([newId, mainName, subName, parentId, 'active', maxSortOrder + 1]);
   return jsonResponse({ status: 'ok', id: newId });
 }
 
