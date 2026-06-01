@@ -3170,38 +3170,31 @@ footer {
         }
 
         function saveActivityOrderDirect(orderedIds) {
-            // ── Legacy sort-value patch ────────────────────────────────────
-            // If every item has sort_order === 9999 (legacy default), generate
-            // a clean 1-based sequence so the sheet gets meaningful values.
-            const allDefault = _activities.every(a => !a.sort_order || Number(a.sort_order) === 9999);
-            const idsToSend  = allDefault
-                ? orderedIds.map((id, i) => ({ id, sort_order: i + 1 }))
-                : orderedIds;   // backend already accepts a flat id array
-
-            const directUrl = "https://script.google.com/macros/s/AKfycbzyjSPIlewC31HdvS0LQneOudT-gQ1h-qCs_1q_50U47nej9zGSFRyaW7QI91yvVk1PEw/exec";
+            // Always send the flat ordered-id string array the backend expects.
+            // orderedIds[0] → sort_order 1, orderedIds[1] → sort_order 2, etc.
+            const directUrl = 'https://script.google.com/macros/s/AKfycbzyjSPIlewC31HdvS0LQneOudT-gQ1h-qCs_1q_50U47nej9zGSFRyaW7QI91yvVk1PEw/exec';
             const payload = {
-                action: 'updateSortOrder',
-                type: 'activities',
-                orderedIds: orderedIds   // always send the flat ordered-id array the backend expects
+                action:     'updateSortOrder',
+                type:       'activities',
+                orderedIds: orderedIds.map(id => String(id))   // normalise to strings before sending
             };
 
-            console.log('saveActivityOrderDirect: firing background sync', JSON.stringify(payload));
+            console.info('[ActivitySync] Firing background sort commit →', JSON.stringify(payload));
 
-            // mode:'no-cors' prevents CORS preflight. The fetch promise always
-            // resolves as an opaque response — never throws on HTTP errors.
-            // We NEVER show a toast here: the UI update is already authoritative.
+            // mode:'no-cors' → opaque response, fetch promise ALWAYS resolves,
+            // never rejects on HTTP errors. UI is already authoritative; we never
+            // show a toast or alert from this background transaction.
             fetch(directUrl, {
-                method: 'POST',
-                mode: 'no-cors',
+                method:  'POST',
+                mode:    'no-cors',
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify(payload)
+                body:    JSON.stringify(payload)
             })
             .then(() => {
-                console.log('saveActivityOrderDirect: background sync handshake resolved (opaque response — check Apps Script logs for commit confirmation).');
+                console.info('[ActivitySync] Background sort commit handshake resolved (opaque — verify in Apps Script execution log).');
             })
             .catch(err => {
-                // Silently log only — never surface a user-facing error for a background fire-and-forget request
-                console.warn('saveActivityOrderDirect: network proxy metadata:', err);
+                console.warn('[ActivitySync] Network proxy metadata (non-blocking):', err);
             });
         }
 

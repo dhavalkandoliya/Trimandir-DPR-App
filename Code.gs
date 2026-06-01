@@ -833,78 +833,104 @@ function handleDeleteActivity(body) {
 
 function handleUpdateSortOrder(body) {
   try {
-    var type = body.type;
+    var type       = body.type;
     var orderedIds = body.orderedIds;
-    
-    if (!orderedIds || !Array.isArray(orderedIds)) {
+
+    if (!orderedIds || !Array.isArray(orderedIds) || orderedIds.length === 0) {
       return jsonResponse({ error: 'Missing or invalid orderedIds' });
     }
-    
+
     var sheetName;
-    if (type === 'projects') {
-      sheetName = SHEET_PROJECTS;
-    } else if (type === 'activities') {
-      sheetName = SHEET_ACTIVITIES;
-    } else {
-      return jsonResponse({ error: 'Invalid type: ' + type });
-    }
-    
+    if      (type === 'projects')    sheetName = SHEET_PROJECTS;
+    else if (type === 'activities')  sheetName = SHEET_ACTIVITIES;
+    else return jsonResponse({ error: 'Invalid type: ' + type });
+
     var sheet = getSheet(sheetName);
     if (!sheet) return jsonResponse({ error: 'Sheet not found: ' + sheetName });
-    
-    var values = sheet.getDataRange().getValues();
-    if (values.length < 2) return jsonResponse({ success: true });
-    
-    var headers = values[0];
-    var rows = values.slice(1);
-    
-    // Find sort_order column index dynamically
+
+    // ── Step 1: Read headers to locate the sort_order column index ──
+    var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
     var sortOrderColIdx = -1;
-    for (var col = 0; col < headers.length; col++) {
-      if (String(headers[col]).trim().toLowerCase() === 'sort_order') {
-        sortOrderColIdx = col;
+    for (var c = 0; c < headers.length; c++) {
+      if (String(headers[c]).trim().toLowerCase() === 'sort_order') {
+        sortOrderColIdx = c;
         break;
       }
     }
-    
-    // If sort_order column is missing, append it dynamically
+
+    // If sort_order column does not exist yet, create it as the next column
     if (sortOrderColIdx === -1) {
       sortOrderColIdx = headers.length;
       sheet.getRange(1, sortOrderColIdx + 1).setValue('sort_order');
-      headers.push('sort_order');
-      for (var r = 0; r < rows.length; r++) {
-        rows[r].push(9999);
-      }
     }
-    
-    // Overwrite the sort_order in memory for every row based on incoming ordered sequence
-    for (var r = 0; r < rows.length; r++) {
-      var rowId = String(rows[r][0]).trim();
-      var foundIdx = orderedIds.indexOf(rowId);
-      
-      if (foundIdx !== -1) {
-        rows[r][sortOrderColIdx] = foundIdx + 1;
+
+    // ── Step 2: Build a dictionary: normalised-id → physical row number ──
+    // This avoids any full-block setValues that could corrupt column counts.
+    var lastRow  = sheet.getLastRow();
+    if (lastRow < 2) return jsonResponse({ success: true, message: 'No data rows to update' });
+
+    var idCol    = sheet.getRange(2, 1, lastRow - 1, 1).getValues(); // col A only
+    var idToRow  = {};  // { "78": 2, "79": 3, ... }
+    for (var r = 0; r < idCol.length; r++) {
+      var rawId = idCol[r][0];
+      if (rawId === '' || rawId === null || rawId === undefined) continue;
+      // Store by both String and numeric representations to handle type mismatches
+      var strId = String(rawId).trim();
+      idToRow[strId] = r + 2;  // +2: 1-based rows + skip header row
+    }
+
+    // ── Step 3: Write sort_order cell-by-cell for each ID in the payload ──
+    // orderedIds[0] → sort_order = 1, orderedIds[1] → sort_order = 2, etc.
+    var sortColNumber = sortOrderColIdx + 1;  // convert 0-based idx to 1-based sheet col
+    var unmatched     = [];
+
+    for (var i = 0; i < orderedIds.length; i++) {
+      var payloadId = String(orderedIds[i]).trim();
+      var physRow   = idToRow[payloadId];
+
+      // Fallback: try matching by numeric value (handles "78" vs 78 edge cases)
+      if (physRow === undefined) {
+        var numericId = String(Number(payloadId));
+        physRow = idToRow[numericId];
+      }
+
+      if (physRow !== undefined) {
+        sheet.getRange(physRow, sortColNumber).setValue(i + 1);
       } else {
-        rows[r][sortOrderColIdx] = 9999;
+        unmatched.push(payloadId);
       }
     }
-    
-    // Sort rows in JS memory based on the updated sort_order values
-    rows.sort(function(a, b) {
-      var orderA = Number(a[sortOrderColIdx]) || 9999;
-      var orderB = Number(b[sortOrderColIdx]) || 9999;
-      return orderA - orderB;
-    });
-    
-    // Completely overwrite the sheet data rows with the newly sorted rows block
-    sheet.getRange(2, 1, rows.length, headers.length).setValues(rows);
-    
-    // Force a dynamic cell sync and hard lock using flush
+
+    // ── Step 4: Assign high-end sequence to any rows not in the payload ──
+    // (orphan rows, deleted items, etc.) so they don't pollute the front
+    var fallbackOrder = orderedIds.length + 1;
+    for (var strKey in idToRow) {
+      if (!idToRow.hasOwnProperty(strKey)) continue;
+      // Check if this row's id was part of the ordered payload
+      var inPayload = false;
+      for (var j = 0; j < orderedIds.length; j++) {
+        if (String(orderedIds[j]).trim() === strKey) { inPayload = true; break; }
+      }
+      if (!inPayload) {
+        sheet.getRange(idToRow[strKey], sortColNumber).setValue(fallbackOrder++);
+      }
+    }
+
+    // ── Step 5: Hard commit all pending cell writes ──────────────────
     SpreadsheetApp.flush();
-    
-    return ContentService.createTextOutput(JSON.stringify({ success: true, message: "Order synced successfully" }))
-                         .setMimeType(ContentService.MimeType.JSON);
+
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        success:   true,
+        message:   'Sort order committed successfully',
+        type:      type,
+        count:     orderedIds.length,
+        unmatched: unmatched
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
+
   } catch (err) {
-    return jsonResponse({ error: 'Error: ' + err.toString() });
+    return jsonResponse({ error: 'handleUpdateSortOrder error: ' + err.toString() });
   }
 }
+
