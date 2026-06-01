@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server';
 
+export const dynamic = 'force-dynamic'; // Prevent Next.js from caching GET requests to this route
+export const fetchCache = 'force-no-store';
+
 export async function POST(request) {
   try {
     const body = await request.json();

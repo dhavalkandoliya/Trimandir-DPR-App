@@ -458,6 +458,19 @@ button:hover {
   border: 1px solid var(--border);
 }
 
+#report, .report-card, .report-meta, #report-temp-capture {
+  text-rendering: geometricPrecision !important;
+}
+
+#report, #report-temp-capture {
+  color: #000000 !important;
+  font-weight: 500;
+}
+
+#report *, #report-temp-capture * {
+  color: #000000 !important;
+}
+
 #report h3 {
   font-family: 'Rajdhani', sans-serif;
   font-size: 21px;

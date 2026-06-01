@@ -468,6 +468,19 @@ button:hover {
   border: 1px solid var(--border);
 }
 
+#report, .report-card, .report-meta, #report-temp-capture {
+  text-rendering: geometricPrecision !important;
+}
+
+#report, #report-temp-capture {
+  color: #000000 !important;
+  font-weight: 500;
+}
+
+#report *, #report-temp-capture * {
+  color: #000000 !important;
+}
+
 #report h3 {
   font-family: 'Rajdhani', sans-serif;
   font-size: 21px;
@@ -2033,14 +2046,23 @@ footer {
             // Use 150ms timeout to guarantee dynamic mounting has fully laid out child elements
             setTimeout(() => {
                 html2canvas(tempContainer, {
-                    scale: 3,
-                    devicePixelRatio: 3,
+                    scale: 3.5,
+                    devicePixelRatio: 3.5,
                     useCORS: true,
                     allowTaint: false,
                     backgroundColor: '#ffffff',
                     logging: false,
                     scrollX: 0,
-                    scrollY: 0
+                    scrollY: 0,
+                    onclone: function(clonedDoc) {
+                        const canvas = clonedDoc.querySelector('canvas');
+                        if (canvas) {
+                            const ctx = canvas.getContext('2d');
+                            ctx.imageSmoothingEnabled = false;
+                            ctx.webkitImageSmoothingEnabled = false;
+                            ctx.mozImageSmoothingEnabled = false;
+                        }
+                    }
                 }).then(c => {
                     document.body.removeChild(tempContainer);
 
@@ -3234,14 +3256,23 @@ footer {
             
             showToast('⏳ Generating Image...');
             html2canvas(rep, {
-                scale: 3,
-                devicePixelRatio: 3,
+                scale: 3.5,
+                devicePixelRatio: 3.5,
                 useCORS: true,
                 allowTaint: false,
                 backgroundColor: '#ffffff',
                 logging: false,
                 scrollX: 0,
-                scrollY: -window.scrollY
+                scrollY: -window.scrollY,
+                onclone: function(clonedDoc) {
+                    const canvas = clonedDoc.querySelector('canvas');
+                    if (canvas) {
+                        const ctx = canvas.getContext('2d');
+                        ctx.imageSmoothingEnabled = false;
+                        ctx.webkitImageSmoothingEnabled = false;
+                        ctx.mozImageSmoothingEnabled = false;
+                    }
+                }
             }).then(c => {
                 rep.style.width = oldWidth;
                 rep.style.maxWidth = oldMaxW;
@@ -3285,14 +3316,23 @@ footer {
             
             showToast('⏳ Generating PDF...');
             html2canvas(rep, {
-                scale: 3,
-                devicePixelRatio: 3,
+                scale: 3.5,
+                devicePixelRatio: 3.5,
                 useCORS: true,
                 allowTaint: false,
                 backgroundColor: '#ffffff',
                 logging: false,
                 scrollX: 0,
-                scrollY: -window.scrollY
+                scrollY: -window.scrollY,
+                onclone: function(clonedDoc) {
+                    const canvas = clonedDoc.querySelector('canvas');
+                    if (canvas) {
+                        const ctx = canvas.getContext('2d');
+                        ctx.imageSmoothingEnabled = false;
+                        ctx.webkitImageSmoothingEnabled = false;
+                        ctx.mozImageSmoothingEnabled = false;
+                    }
+                }
             }).then(c => {
                 rep.style.width = oldWidth;
                 rep.style.maxWidth = oldMaxW;
