@@ -1024,11 +1024,11 @@ footer {
         <div class="login-logo">📋 DPR — Man Power Report</div>
         <div class="login-sub">Trust Project Department</div>
         <label style="text-align:left;">Username</label>
-        <input type="text"     id="loginName" placeholder="Enter username" autocomplete="username">
+        <input type="text" id="loginName" placeholder="Enter username" autocapitalize="none" autocorrect="off" autocomplete="username">
         <label style="text-align:left;">Password</label>
-        <input type="password" id="loginPass" placeholder="Enter password"
+        <input type="password" id="loginPass" placeholder="Enter password" autocapitalize="none" autocorrect="off"
                onkeydown="if(event.key==='Enter')doLogin()" autocomplete="current-password">
-        <button class="btn-green" id="loginSubmitBtn" style="margin-top:6px;">Sign In &#8594;</button>
+        <button class="btn-green" onclick="doLogin()" style="margin-top:6px;">Sign In &#8594;</button>
         <div class="login-err" id="loginErr"></div>
         <div style="font-size: 12px; color: var(--muted); margin-top: 16px; text-align: center;">Please sign in to continue</div>
     </div>
@@ -1436,45 +1436,8 @@ footer {
         /* ═══════════════════════════════════════════════════════════
            API HELPERS
         ═══════════════════════════════════════════════════════════ */
-        const fetchWithTimeout = (url, options = {}, timeout = 15000) => {
-            const controller = new AbortController();
-            const id = setTimeout(() => controller.abort(), timeout);
-            return fetch(url, {
-                ...options,
-                signal: controller.signal
-            }).finally(() => clearTimeout(id));
-        };
-
-        const apiFetch = (action) => fetchWithTimeout(`${SHEET_URL}?action=${action}&_t=${Date.now()}`, { 
-            cache: 'no-store',
-            headers: {
-                'Cache-Control': 'no-cache, no-store, must-revalidate',
-                'Pragma': 'no-cache'
-            }
-        })
-        .then(async r => {
-            if (!r.ok) {
-                const text = await r.text().catch(() => '');
-                throw new Error(text || `Status ${r.status}`);
-            }
-            return r.json();
-        });
-
-        const apiPost  = (body)   => fetchWithTimeout(SHEET_URL, {
-            method:  'POST',
-            headers: { 
-                'Content-Type': 'application/json',
-                'Cache-Control': 'no-cache, no-store, must-revalidate',
-                'Pragma': 'no-cache'
-            },
-            body:    JSON.stringify(body)
-        }).then(async r => {
-            if (!r.ok) {
-                const text = await r.text().catch(() => '');
-                throw new Error(text || `Status ${r.status}`);
-            }
-            return r.json();
-        });
+        const apiFetch = (action) => fetch(`${SHEET_URL}?action=${action}`).then(r => r.json());
+        const apiPost  = (body)   => fetch(SHEET_URL, { method: 'POST', body: JSON.stringify(body) }).then(r => r.json());
 
         /* ═══════════════════════════════════════════════════════════
            TOAST
@@ -1538,62 +1501,31 @@ footer {
             });
         }
 
-        let _loginBusy = false;   // prevents double-tap race on mobile
         async function doLogin() {
-            if (_loginBusy) return;   // debounce: ignore repeat taps while authenticating
-            const uname = document.getElementById('loginName').value.trim();
-            const pass  = document.getElementById('loginPass').value;
+            const uname = document.getElementById('loginName').value.trim().toLowerCase();
+            const pass  = document.getElementById('loginPass').value.trim();
             const err   = document.getElementById('loginErr');
-            const btn   = document.getElementById('loginSubmitBtn');
-
-            if (!uname || !pass) {
-                err.style.color = '#e53e3e';
-                err.textContent = '❌ Enter username and password.';
-                showToast('❌ Enter username and password.');
-                return;
-            }
-
-            // Visual feedback: disable button and show loading state
-            _loginBusy = true;
+            if (!uname || !pass) { err.textContent = '❌ Enter username and password.'; return; }
             err.style.color = 'var(--primary)';
             err.textContent = '⏳ Authenticating...';
-            showToast('⏳ Authenticating...');
-            if (btn) { btn.disabled = true; btn.textContent = '⏳ Signing in...'; }
-
-            let loginSuccess = false;
-
             try {
                 const res = await apiPost({ action: 'login', username: uname, password: pass });
-                if (res && res.success && res.user) {
+                if (res.success && res.user) {
                     _currentUser = res.user;
-                    loginSuccess = true;
                 } else if (uname === 'TPD-admin' && pass === 'tpd@2026') {
                     _currentUser = SUPER_ADMIN;
-                    loginSuccess = true;
                 } else {
-                    const failMsg = (res && res.error) ? `❌ ${res.error}` : '❌ Invalid username or password.';
                     err.style.color = '#e53e3e';
-                    err.textContent = failMsg;
-                    showToast(failMsg);
+                    err.textContent = '❌ Invalid username or password.';
+                    return;
                 }
             } catch (e) {
-                console.error('Login Exception:', e);
                 err.style.color = '#e53e3e';
                 err.textContent = '⚠️ Connection error. Try again.';
-                showToast('⚠️ Connection error. Check your internet.');
-            } finally {
-                // FORCEFULLY turn off the loading spinner state under all circumstances
-                _loginBusy = false;
-                if (btn) {
-                    btn.disabled = false;
-                    btn.textContent = 'Sign In →';
-                }
+                return;
             }
-
-            if (loginSuccess) {
-                err.textContent = '';
-                showApp();
-            }
+            err.textContent = '';
+            showApp();
         }
 
         function doLogout() {
@@ -3763,32 +3695,7 @@ footer {
                 saveFormDraft();
             });
 
-            // ── Wire Sign In button: click (desktop) + touchend (iOS Safari) ──────
-            // Using addEventListener instead of inline onclick prevents the 300ms
-            // ghost-click issue on iOS when doLogin() is loaded via dynamic script.
-            const loginBtn = document.getElementById('loginSubmitBtn');
-            if (loginBtn) {
-                loginBtn.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    doLogin();
-                });
-                // touchend fires immediately on iOS without the 300ms delay
-                loginBtn.addEventListener('touchend', function(e) {
-                    e.preventDefault();   // cancel the subsequent ghost click
-                    doLogin();
-                }, { passive: false });
-            }
 
-            // ── Also wire Enter key on username field (mobile keyboards) ─────────
-            const loginNameEl = document.getElementById('loginName');
-            if (loginNameEl) {
-                loginNameEl.addEventListener('keydown', function(e) {
-                    if (e.key === 'Enter') {
-                        e.preventDefault();
-                        document.getElementById('loginPass')?.focus();
-                    }
-                });
-            }
         }
     </script>
 </body>

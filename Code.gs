@@ -837,8 +837,7 @@ function handleLogin(body) {
   for (var i = 1; i < data.length; i++) {
     var rowUser = String(data[i][uIdx] || '').trim();
     var rowPass = String(data[i][pIdx] || '').trim();
-    if (rowUser.toLowerCase() === String(body.username || '').toLowerCase().trim() &&
-        rowPass === String(body.password || '').trim()) {
+    if (rowUser.toLowerCase().trim() === String(body.username || '').toLowerCase().trim() && rowPass.trim() === String(body.password || '').trim()) {
       return jsonResponse({ success: true, user: {
         username:    rowUser,
         displayName: String(data[i][dIdx] || rowUser).trim() || rowUser,
