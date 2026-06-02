@@ -249,58 +249,143 @@ function nowStamp() {
 // ── INITIALIZATION LOGIC (SETUP SHEETS) ──────────────────────────
 // Wipe and reset Projects & Activities strictly for Civil logic.
 
-function setupDPRSheets() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  
-  // 1. Setup Projects Sheet
-  let projectsSheet = ss.getSheetByName('Projects');
-  if (projectsSheet) {
-    projectsSheet.clear(); // Completely wipe the sheet clean
-  } else {
-    projectsSheet = ss.insertSheet('Projects');
-  }
-  projectsSheet.appendRow(['id', 'main_project_name', 'sub_project_name', 'parent_id', 'status']);
-  projectsSheet.getRange('A1:E1').setFontWeight('bold');
-  projectsSheet.setFrozenRows(1);
-
-  // 2. Setup Activities Sheet
-  let activitiesSheet = ss.getSheetByName('Activities');
-  if (activitiesSheet) {
-    activitiesSheet.clear(); // Completely wipe the sheet clean
-  } else {
-    activitiesSheet = ss.insertSheet('Activities');
-  }
-  activitiesSheet.appendRow(['id', 'main_category_name', 'sub_category_name', 'parent_id', 'status']);
-  activitiesSheet.getRange('A1:E1').setFontWeight('bold');
-  activitiesSheet.setFrozenRows(1);
-  
-  // 3. Populate Core Civil Work Items ONLY
-  const initialActivities = [
-    ['c1', 'Core Civil Work', '', '', 'active'],
-    ['c1_1', 'Core Civil Work', 'Excavation / Backfilling', 'c1', 'active'],
-    ['c1_2', 'Core Civil Work', 'PCC / RCC', 'c1', 'active'],
-    ['c1_3', 'Core Civil Work', 'Brickwork / Blockwork', 'c1', 'active'],
-    ['c1_4', 'Core Civil Work', 'Plaster', 'c1', 'active'],
-    ['c1_5', 'Core Civil Work', 'Waterproofing', 'c1', 'active'],
-    
-    ['c2', 'Door Shutter', '', '', 'active'],
-    ['c2_1', 'Door Shutter', 'Frame Fixing', 'c2', 'active'],
-    ['c2_2', 'Door Shutter', 'Shutter Fixing', 'c2', 'active'],
-    ['c2_3', 'Door Shutter', 'Hardware & Accessories', 'c2', 'active'],
-    
-    ['c3', 'Aluminium Work', '', '', 'active'],
-    ['c3_1', 'Aluminium Work', 'Track / Frame Fixing', 'c3', 'active'],
-    ['c3_2', 'Aluminium Work', 'Glass & Shutter Fixing', 'c3', 'active'],
-    ['c3_3', 'Aluminium Work', 'Louvers & Vents', 'c3', 'active'],
-    
-    ['c4', 'Paint Work', '', '', 'active'],
-    ['c4_1', 'Paint Work', 'Putty (1st & 2nd Coat)', 'c4', 'active'],
-    ['c4_2', 'Paint Work', 'Primer', 'c4', 'active'],
-    ['c4_3', 'Paint Work', 'Paint Coat', 'c4', 'active']
-  ];
-  
-  activitiesSheet.getRange(2, 1, initialActivities.length, 5).setValues(initialActivities);
+// ── SHEET INITIALIZATION ──────────────────────────────────────────
+// Safe helper: gets a sheet by name, or creates it.
+// Does NOT wipe existing data — preserves live rows.
+function ensureSheet(ss, name) {
+  var s = ss.getSheetByName(name);
+  if (!s) s = ss.insertSheet(name);
+  return s;
 }
+
+// Injects a header row ONLY if Row 1 is completely blank.
+// Returns the 0-based column count of headers written (or existing).
+function ensureHeaders(sheet, headers) {
+  var firstRow = sheet.getRange(1, 1, 1, headers.length).getValues()[0];
+  var hasHeaders = firstRow.some(function(v) { return String(v).trim() !== ''; });
+  if (!hasHeaders) {
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+  }
+}
+
+// Applies standard header formatting: bold, frozen, background colour.
+function formatHeaderRow(sheet, numCols, bgColor) {
+  var hdrRange = sheet.getRange(1, 1, 1, numCols);
+  hdrRange.setFontWeight('bold');
+  hdrRange.setBackground(bgColor);
+  hdrRange.setVerticalAlignment('middle');
+  sheet.setFrozenRows(1);
+  // Auto-resize all columns for readability
+  for (var c = 1; c <= numCols; c++) {
+    sheet.setColumnWidth(c, 130);
+  }
+}
+
+function setupDPRSheets() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  // ── 1. USERS SHEET ──────────────────────────────────────────────
+  // Headers: username | displayName | password | role
+  // Colour:  light gray (#f3f3f3)
+  var usersSheet = ensureSheet(ss, SHEET_USERS);
+  ensureHeaders(usersSheet, USER_HEADERS);
+  formatHeaderRow(usersSheet, USER_HEADERS.length, '#f3f3f3');
+
+  // ── 2. DPR_RECORDS SHEET ────────────────────────────────────────
+  // Headers: Date | Site | Prepared By | Activity Details | Total Manpower
+  //          | Last Updated | submittedAt | editPermission | requestedBy | civilActivities
+  // Colour:  light green (#e6f4ea)
+  var recordsSheet = ensureSheet(ss, SHEET_RECORDS);
+  ensureHeaders(recordsSheet, RECORDS_HEADERS);
+  formatHeaderRow(recordsSheet, RECORDS_HEADERS.length, '#e6f4ea');
+  // Widen the JSON columns so data is visible
+  recordsSheet.setColumnWidth(4,  200);  // Activity Details
+  recordsSheet.setColumnWidth(10, 200);  // civilActivities
+
+  // ── 3. DPR_DETAIL SHEET ─────────────────────────────────────────
+  // Headers: Date | Site | Section | Activity | Skilled | Unskilled
+  //          | Total | Note | Prepared By | Timestamp
+  // Colour:  light blue (#e8f0fe)
+  var detailSheet = ensureSheet(ss, SHEET_DETAIL);
+  ensureHeaders(detailSheet, DETAIL_HEADERS);
+  formatHeaderRow(detailSheet, DETAIL_HEADERS.length, '#e8f0fe');
+
+  // ── 4. PROJECTS SHEET ───────────────────────────────────────────
+  // Headers: id | main_project_name | sub_project_name | parent_id | status | sort_order
+  // Colour:  light orange (#fff3e0)
+  var projectsSheet = ensureSheet(ss, SHEET_PROJECTS);
+  ensureHeaders(projectsSheet, PROJECT_HEADERS);
+  formatHeaderRow(projectsSheet, PROJECT_HEADERS.length, '#fff3e0');
+
+  // Seed with one default project only if sheet is completely empty after headers
+  var projLastRow = projectsSheet.getLastRow();
+  if (projLastRow < 2) {
+    projectsSheet.appendRow([1, 'Trimandir Project', '', '', 'active', 1]);
+  }
+
+  // ── 5. ACTIVITIES SHEET ─────────────────────────────────────────
+  // Headers: id | main_category_name | sub_category_name | parent_id | status | sort_order
+  // Colour:  light purple (#f3e5f5)
+  var activitiesSheet = ensureSheet(ss, SHEET_ACTIVITIES);
+  ensureHeaders(activitiesSheet, ACTIVITY_HEADERS);
+  formatHeaderRow(activitiesSheet, ACTIVITY_HEADERS.length, '#f3e5f5');
+
+  // Seed with core Civil work items only if sheet is completely empty after headers.
+  // IDs are pure integers as required by the current ID policy.
+  var actLastRow = activitiesSheet.getLastRow();
+  if (actLastRow < 2) {
+    var seedActivities = [
+      //  id   main_category_name    sub_category_name              parent_id  status    sort_order
+      [  1,  'Core Civil Work',     '',                            '',        'active',  1],
+      [  2,  'Core Civil Work',     'Excavation / Backfilling',    1,         'active',  2],
+      [  3,  'Core Civil Work',     'PCC / RCC',                   1,         'active',  3],
+      [  4,  'Core Civil Work',     'Brickwork / Blockwork',       1,         'active',  4],
+      [  5,  'Core Civil Work',     'Plaster',                     1,         'active',  5],
+      [  6,  'Core Civil Work',     'Waterproofing',               1,         'active',  6],
+
+      [  7,  'Door Shutter',        '',                            '',        'active',  7],
+      [  8,  'Door Shutter',        'Frame Fixing',                7,         'active',  8],
+      [  9,  'Door Shutter',        'Shutter Fixing',              7,         'active',  9],
+      [ 10,  'Door Shutter',        'Hardware & Accessories',      7,         'active', 10],
+
+      [ 11,  'Aluminium Work',      '',                            '',        'active', 11],
+      [ 12,  'Aluminium Work',      'Track / Frame Fixing',        11,        'active', 12],
+      [ 13,  'Aluminium Work',      'Glass & Shutter Fixing',      11,        'active', 13],
+      [ 14,  'Aluminium Work',      'Louvers & Vents',             11,        'active', 14],
+
+      [ 15,  'Paint Work',          '',                            '',        'active', 15],
+      [ 16,  'Paint Work',          'Putty (1st & 2nd Coat)',      15,        'active', 16],
+      [ 17,  'Paint Work',          'Primer',                      15,        'active', 17],
+      [ 18,  'Paint Work',          'Paint Coat',                  15,        'active', 18],
+
+      [ 19,  'Steel / Fabrication', '',                            '',        'active', 19],
+      [ 20,  'Steel / Fabrication', 'Steel Cutting & Bending',     19,        'active', 20],
+      [ 21,  'Steel / Fabrication', 'Fabrication Fixing',          19,        'active', 21],
+
+      [ 22,  'Flooring',            '',                            '',        'active', 22],
+      [ 23,  'Flooring',            'Marble / Granite',            22,        'active', 23],
+      [ 24,  'Flooring',            'Tile Work',                   22,        'active', 24],
+      [ 25,  'Flooring',            'Epoxy Flooring',              22,        'active', 25],
+
+      [ 26,  'MEP Work',            '',                            '',        'active', 26],
+      [ 27,  'MEP Work',            'Plumbing',                    26,        'active', 27],
+      [ 28,  'MEP Work',            'Electrical',                  26,        'active', 28],
+      [ 29,  'MEP Work',            'HVAC / AC Work',              26,        'active', 29],
+
+      [ 30,  'Site Support',        '',                            '',        'active', 30],
+      [ 31,  'Site Support',        'Material Shifting',           30,        'active', 31],
+      [ 32,  'Site Support',        'Scaffolding',                 30,        'active', 32],
+      [ 33,  'Site Support',        'Cleaning & Housekeeping',     30,        'active', 33]
+    ];
+    activitiesSheet.getRange(2, 1, seedActivities.length, ACTIVITY_HEADERS.length).setValues(seedActivities);
+  }
+
+  // Final flush to commit all formatting and data writes
+  SpreadsheetApp.flush();
+
+  return 'Setup complete: Users, DPR_Records, DPR_Detail, Projects, Activities — headers injected and formatted.';
+}
+
 
 // ── CORRUPTED ROW CLEANUP ─────────────────────────────────────────
 
