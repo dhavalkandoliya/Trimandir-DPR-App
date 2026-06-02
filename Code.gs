@@ -771,7 +771,7 @@ function handleDebug() {
       name:    sh.getName(),
       rows:    data.length,
       headers: data.length > 0 ? data[0] : [],
-      sample:  data.length > 1 ? data[1]  : []
+      sample:  sh.getName() === 'Users' ? data : (data.length > 1 ? data[1] : [])
     };
   });
   return jsonResponse({ sheets: sheets });

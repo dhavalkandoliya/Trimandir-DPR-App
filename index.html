@@ -1436,12 +1436,35 @@ footer {
         /* ═══════════════════════════════════════════════════════════
            API HELPERS
         ═══════════════════════════════════════════════════════════ */
-        const apiFetch = (action) => fetch(`${SHEET_URL}?action=${action}`, { cache: 'no-store' }).then(r => r.json());
-        const apiPost  = (body)   => fetch(SHEET_URL, {
+        const fetchWithTimeout = (url, options = {}, timeout = 15000) => {
+            const controller = new AbortController();
+            const id = setTimeout(() => controller.abort(), timeout);
+            return fetch(url, {
+                ...options,
+                signal: controller.signal
+            }).finally(() => clearTimeout(id));
+        };
+
+        const apiFetch = (action) => fetchWithTimeout(`${SHEET_URL}?action=${action}`, { cache: 'no-store' })
+            .then(async r => {
+                if (!r.ok) {
+                    const text = await r.text().catch(() => '');
+                    throw new Error(text || `Status ${r.status}`);
+                }
+                return r.json();
+            });
+
+        const apiPost  = (body)   => fetchWithTimeout(SHEET_URL, {
             method:  'POST',
             headers: { 'Content-Type': 'application/json' },
             body:    JSON.stringify(body)
-        }).then(r => r.json());
+        }).then(async r => {
+            if (!r.ok) {
+                const text = await r.text().catch(() => '');
+                throw new Error(text || `Status ${r.status}`);
+            }
+            return r.json();
+        });
 
         /* ═══════════════════════════════════════════════════════════
            TOAST
