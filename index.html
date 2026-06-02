@@ -382,6 +382,12 @@ button {
   font-family: 'Inter', sans-serif;
   letter-spacing: 0.3px;
   transition: opacity 0.2s, transform 0.12s, box-shadow 0.2s;
+  /* ── Mobile: removes 300ms tap delay on iOS/Android ── */
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-appearance: none;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 button:active {
@@ -950,6 +956,63 @@ footer {
 }
 
 
+/* ── MOBILE RESPONSIVENESS ─────────────────────────────────────── */
+@media (max-width: 400px) {
+  body {
+    padding: 10px;
+  }
+  .login-box {
+    padding: 24px 18px 20px;
+  }
+  .login-logo {
+    font-size: 20px;
+  }
+  button {
+    padding: 13px 16px;   /* larger tap target on small screens */
+    font-size: 15px;
+  }
+  .tab-btn {
+    padding: 10px 4px;
+    font-size: 10px;
+    min-width: 60px;
+  }
+  input, select, textarea {
+    font-size: 16px;  /* prevents iOS auto-zoom on focus */
+    padding: 12px 13px;
+  }
+  #toast {
+    bottom: 16px;
+    left: 12px;
+    right: 12px;
+    font-size: 13px;
+    z-index: 99999;
+  }
+}
+
+/* ── TOAST mobile-safe stacking ──────────────────────────────── */
+#toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1e293b;
+  color: #fff;
+  padding: 10px 20px;
+  border-radius: 24px;
+  font-size: 13.5px;
+  font-weight: 500;
+  font-family: 'Inter', sans-serif;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s;
+  z-index: 99999;   /* above loginOverlay (9999) */
+  white-space: nowrap;
+  max-width: 90vw;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+  text-align: center;
+}
+#toast.show { opacity: 1; }
+
     </style>
 </head>
 <body>
@@ -965,7 +1028,7 @@ footer {
         <label style="text-align:left;">Password</label>
         <input type="password" id="loginPass" placeholder="Enter password"
                onkeydown="if(event.key==='Enter')doLogin()" autocomplete="current-password">
-        <button class="btn-green" onclick="doLogin()" style="margin-top:6px;">Sign In &#8594;</button>
+        <button class="btn-green" id="loginSubmitBtn" style="margin-top:6px;">Sign In &#8594;</button>
         <div class="login-err" id="loginErr"></div>
         <div style="font-size: 12px; color: var(--muted); margin-top: 16px; text-align: center;">Please sign in to continue</div>
     </div>
@@ -1442,30 +1505,53 @@ footer {
             });
         }
 
+        let _loginBusy = false;   // prevents double-tap race on mobile
         async function doLogin() {
+            if (_loginBusy) return;   // debounce: ignore repeat taps while authenticating
             const uname = document.getElementById('loginName').value.trim();
             const pass  = document.getElementById('loginPass').value;
             const err   = document.getElementById('loginErr');
-            if (!uname || !pass) { err.textContent = '❌ Enter username and password.'; return; }
+            const btn   = document.getElementById('loginSubmitBtn');
+
+            if (!uname || !pass) {
+                err.textContent = '❌ Enter username and password.';
+                showToast('❌ Enter username and password.');
+                return;
+            }
+
+            // Visual feedback: disable button and show loading state
+            _loginBusy = true;
             err.style.color = 'var(--primary)';
             err.textContent = '⏳ Authenticating...';
+            showToast('⏳ Authenticating...');
+            if (btn) { btn.disabled = true; btn.textContent = '⏳ Signing in...'; }
+
             try {
                 const res = await apiPost({ action: 'login', username: uname, password: pass });
-                if (res.success && res.user) {
+                if (res && res.success && res.user) {
                     _currentUser = res.user;
                 } else if (uname === 'TPD-admin' && pass === 'tpd@2026') {
                     _currentUser = SUPER_ADMIN;
                 } else {
                     err.style.color = '#e53e3e';
                     err.textContent = '❌ Invalid username or password.';
+                    showToast('❌ Invalid username or password.');
+                    if (btn) { btn.disabled = false; btn.textContent = 'Sign In →'; }
+                    _loginBusy = false;
                     return;
                 }
             } catch (e) {
                 err.style.color = '#e53e3e';
                 err.textContent = '⚠️ Connection error. Try again.';
+                showToast('⚠️ Connection error. Check your internet.');
+                if (btn) { btn.disabled = false; btn.textContent = 'Sign In →'; }
+                _loginBusy = false;
                 return;
             }
+
             err.textContent = '';
+            if (btn) { btn.disabled = false; btn.textContent = 'Sign In →'; }
+            _loginBusy = false;
             showApp();
         }
 
@@ -3635,6 +3721,33 @@ footer {
                 if (!e.target.closest('#tabForm')) return;
                 saveFormDraft();
             });
+
+            // ── Wire Sign In button: click (desktop) + touchend (iOS Safari) ──────
+            // Using addEventListener instead of inline onclick prevents the 300ms
+            // ghost-click issue on iOS when doLogin() is loaded via dynamic script.
+            const loginBtn = document.getElementById('loginSubmitBtn');
+            if (loginBtn) {
+                loginBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    doLogin();
+                });
+                // touchend fires immediately on iOS without the 300ms delay
+                loginBtn.addEventListener('touchend', function(e) {
+                    e.preventDefault();   // cancel the subsequent ghost click
+                    doLogin();
+                }, { passive: false });
+            }
+
+            // ── Also wire Enter key on username field (mobile keyboards) ─────────
+            const loginNameEl = document.getElementById('loginName');
+            if (loginNameEl) {
+                loginNameEl.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        document.getElementById('loginPass')?.focus();
+                    }
+                });
+            }
         }
     </script>
 </body>
