@@ -208,9 +208,65 @@ function getOrCreateSheet(name, headers) {
   var sheet = ss.getSheetByName(name);
   if (!sheet) {
     sheet = ss.insertSheet(name);
-    if (headers && headers.length) sheet.appendRow(headers);
+  }
+  // Always guarantee headers exist — safe even if sheet existed with no headers
+  if (headers && headers.length) {
+    ensureHeaders(sheet, headers);
   }
   return sheet;
+}
+
+// ── ONE-SHOT HEADER REPAIR ────────────────────────────────────────
+// Run this ONCE from the Apps Script editor to fix any sheet that has
+// data written into Row 1 (missing headers). It inserts a blank Row 1
+// and writes the correct headers, pushing all data down safely.
+function repairAllSheetHeaders() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var repairs = [];
+
+  function repairSheet(sheetName, headers, bgColor) {
+    var sheet = ss.getSheetByName(sheetName);
+    if (!sheet) {
+      sheet = ss.insertSheet(sheetName);
+      sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+      repairs.push(sheetName + ': CREATED with headers');
+    } else {
+      var firstRow = sheet.getRange(1, 1, 1, Math.max(headers.length, sheet.getLastColumn())).getValues()[0];
+      // Check if Row 1 looks like a real header row (any cell matches a known header)
+      var hasHeaders = headers.some(function(h) {
+        return firstRow.some(function(cell) {
+          return String(cell).trim().toLowerCase() === String(h).trim().toLowerCase();
+        });
+      });
+      if (!hasHeaders) {
+        // Row 1 is data — insert a blank row above and write headers there
+        sheet.insertRowBefore(1);
+        sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+        repairs.push(sheetName + ': REPAIRED — header row inserted above existing data');
+      } else {
+        // Headers exist — just rewrite them to ensure correct casing
+        sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+        repairs.push(sheetName + ': OK — headers verified and normalised');
+      }
+    }
+    // Always apply formatting
+    var hdrRange = sheet.getRange(1, 1, 1, headers.length);
+    hdrRange.setFontWeight('bold');
+    hdrRange.setBackground(bgColor);
+    hdrRange.setVerticalAlignment('middle');
+    sheet.setFrozenRows(1);
+    for (var c = 1; c <= headers.length; c++) sheet.setColumnWidth(c, 130);
+  }
+
+  repairSheet(SHEET_USERS,      USER_HEADERS,     '#f3f3f3');
+  repairSheet(SHEET_RECORDS,    RECORDS_HEADERS,  '#e6f4ea');
+  repairSheet(SHEET_DETAIL,     DETAIL_HEADERS,   '#e8f0fe');
+  repairSheet(SHEET_PROJECTS,   PROJECT_HEADERS,  '#fff3e0');
+  repairSheet(SHEET_ACTIVITIES, ACTIVITY_HEADERS, '#f3e5f5');
+
+  SpreadsheetApp.flush();
+  Logger.log('repairAllSheetHeaders results:\n' + repairs.join('\n'));
+  return repairs;
 }
 
 function sheetToObjects(sheet) {
@@ -726,9 +782,34 @@ function handleDebug() {
 function handleGetUsers() {
   var sheet = getSheet(SHEET_USERS);
   if (!sheet) return jsonResponse([]);
-  return jsonResponse(sheetToObjects(sheet).map(function(u) {
-    return { username: u.username, displayName: u.displayName || u.username, role: u.role || 'user' };
-  }));
+
+  var data = sheet.getDataRange().getValues();
+  if (data.length < 1) return jsonResponse([]);
+
+  // Determine column layout from header row (if present) or fall back to positional
+  var hdrs = data[0].map(function(h) { return normalizeKey(h); });
+  var uIdx = hdrs.indexOf('username');
+  var dIdx = hdrs.indexOf('displayName');
+  var rIdx = hdrs.indexOf('role');
+
+  // Positional fallback: A=username B=displayName C=password D=role
+  var hasHeaders = (uIdx !== -1);
+  if (!hasHeaders) { uIdx = 0; dIdx = 1; rIdx = 3; }
+
+  // Start from row index 1 if headers exist, 0 if no headers detected
+  var startRow = hasHeaders ? 1 : 0;
+
+  var users = [];
+  for (var i = startRow; i < data.length; i++) {
+    var u = String(data[i][uIdx] || '').trim();
+    if (!u) continue;   // skip blank rows
+    users.push({
+      username:    u,
+      displayName: String(data[i][dIdx] || u).trim() || u,
+      role:        String(data[i][rIdx] || 'user').trim() || 'user'
+    });
+  }
+  return jsonResponse(users);
 }
 
 function handleLogin(body) {
@@ -736,16 +817,37 @@ function handleLogin(body) {
   if (!sheet) return jsonResponse({ success: false });
   var data = sheet.getDataRange().getValues();
   if (data.length < 2) return jsonResponse({ success: false });
+
+  // normalizeKey maps 'displayName' → 'displayname' in the lookup key,
+  // then returns 'displayName' as the canonical value — BUT indexOf needs
+  // to match exactly what normalizeKey outputs for each header string.
   var hdrs = data[0].map(function(h) { return normalizeKey(h); });
-  var uIdx = hdrs.indexOf('username'), pIdx = hdrs.indexOf('password');
-  var dIdx = hdrs.indexOf('displayName'), rIdx = hdrs.indexOf('role');
+
+  // normalizeKey('username')    → 'username'
+  // normalizeKey('displayName') → 'displayName'  (via map['displayname'])
+  // normalizeKey('password')    → 'password'
+  // normalizeKey('role')        → 'role'
+  var uIdx = hdrs.indexOf('username');
+  var pIdx = hdrs.indexOf('password');
+  var dIdx = hdrs.indexOf('displayName');   // normalizeKey output is camelCase from map
+  var rIdx = hdrs.indexOf('role');
+
+  // Fallback: if the sheet still has no headers, columns A-D are the raw data;
+  // assume fixed positional layout: A=username B=displayName C=password D=role
+  if (uIdx === -1) uIdx = 0;
+  if (dIdx === -1) dIdx = 1;
+  if (pIdx === -1) pIdx = 2;
+  if (rIdx === -1) rIdx = 3;
+
   for (var i = 1; i < data.length; i++) {
-    if (String(data[i][uIdx]).toLowerCase() === String(body.username || '').toLowerCase() &&
-        String(data[i][pIdx]) === String(body.password || '')) {
+    var rowUser = String(data[i][uIdx] || '').trim();
+    var rowPass = String(data[i][pIdx] || '').trim();
+    if (rowUser.toLowerCase() === String(body.username || '').toLowerCase().trim() &&
+        rowPass === String(body.password || '').trim()) {
       return jsonResponse({ success: true, user: {
-        username:    data[i][uIdx],
-        displayName: data[i][dIdx] || data[i][uIdx],
-        role:        data[i][rIdx] || 'user'
+        username:    rowUser,
+        displayName: String(data[i][dIdx] || rowUser).trim() || rowUser,
+        role:        String(data[i][rIdx] || 'user').trim() || 'user'
       }});
     }
   }
@@ -809,9 +911,9 @@ function handleGetProjects() {
 
 function handleAddProject(body) {
   var sheet = getOrCreateSheet(SHEET_PROJECTS, PROJECT_HEADERS);
-  var maxId = getMaxId(sheet, 0);
-  var newId = 'p' + (maxId + 1);
-  var isSub = !!body.parent_id;
+  var maxId = getMaxId(sheet, 0);         // pure integer max from col A
+  var newId = maxId + 1;                  // integer ID — never alphanumeric
+  var isSub = !!(body.parent_id && String(body.parent_id).trim() !== '');
   var mainName = isSub ? '' : (body.project_name || body.main_project_name || '');
   var subName  = isSub ? (body.project_name || body.sub_project_name || '') : '';
   var maxSortOrder = getMaxId(sheet, 5);
