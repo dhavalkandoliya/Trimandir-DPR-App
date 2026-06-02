@@ -314,14 +314,9 @@ function ensureSheet(ss, name) {
   return s;
 }
 
-// Injects a header row ONLY if Row 1 is completely blank.
-// Returns the 0-based column count of headers written (or existing).
+// Injects/overwrites a header row to guarantee correct column alignment.
 function ensureHeaders(sheet, headers) {
-  var firstRow = sheet.getRange(1, 1, 1, headers.length).getValues()[0];
-  var hasHeaders = firstRow.some(function(v) { return String(v).trim() !== ''; });
-  if (!hasHeaders) {
-    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-  }
+  sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
 }
 
 // Applies standard header formatting: bold, frozen, background colour.

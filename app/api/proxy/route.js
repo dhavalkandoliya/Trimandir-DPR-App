@@ -3,6 +3,13 @@ import { NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic'; // Prevent Next.js from caching GET requests to this route
 export const fetchCache = 'force-no-store';
 
+const CACHE_BYPASS_HEADERS = {
+  'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+  'Pragma': 'no-cache',
+  'Expires': '0',
+  'Surrogate-Control': 'no-store'
+};
+
 export async function POST(request) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
@@ -16,7 +23,10 @@ export async function POST(request) {
       clearTimeout(timeoutId);
       return NextResponse.json(
         { error: 'Server configuration error.' },
-        { status: 500 }
+        { 
+          status: 500,
+          headers: CACHE_BYPASS_HEADERS
+        }
       );
     }
 
@@ -40,17 +50,25 @@ export async function POST(request) {
       console.error('Apps Script returned non-JSON response (POST):', text);
       return NextResponse.json(
         { error: 'Invalid response from backend.', details: text.substring(0, 200) },
-        { status: 502 }
+        { 
+          status: 502,
+          headers: CACHE_BYPASS_HEADERS
+        }
       );
     }
 
-    return NextResponse.json(data);
+    return NextResponse.json(data, {
+      headers: CACHE_BYPASS_HEADERS
+    });
   } catch (error) {
     clearTimeout(timeoutId);
     console.error('Error forwarding to Google Script:', error);
     return NextResponse.json(
       { error: error.name === 'AbortError' ? 'Backend request timed out.' : 'Failed to process request backend.' },
-      { status: error.name === 'AbortError' ? 504 : 500 }
+      { 
+        status: error.name === 'AbortError' ? 504 : 500,
+        headers: CACHE_BYPASS_HEADERS
+      }
     );
   }
 }
@@ -67,7 +85,10 @@ export async function GET(request) {
       clearTimeout(timeoutId);
       return NextResponse.json(
         { error: 'Server configuration error.' },
-        { status: 500 }
+        { 
+          status: 500,
+          headers: CACHE_BYPASS_HEADERS
+        }
       );
     }
 
@@ -93,24 +114,26 @@ export async function GET(request) {
       console.error('Apps Script returned non-JSON response (GET):', text);
       return NextResponse.json(
         { error: 'Invalid response from backend.', details: text.substring(0, 200) },
-        { status: 502 }
+        { 
+          status: 502,
+          headers: CACHE_BYPASS_HEADERS
+        }
       );
     }
 
     // CRITICAL: Prevent browser or edge network caching of query data
     return NextResponse.json(data, {
-      headers: {
-        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0',
-      }
+      headers: CACHE_BYPASS_HEADERS
     });
   } catch (error) {
     clearTimeout(timeoutId);
     console.error('Error fetching from Google Script:', error);
     return NextResponse.json(
       { error: error.name === 'AbortError' ? 'Backend request timed out.' : 'Failed to fetch data from backend.' },
-      { status: error.name === 'AbortError' ? 504 : 500 }
+      { 
+        status: error.name === 'AbortError' ? 504 : 500,
+        headers: CACHE_BYPASS_HEADERS
+      }
     );
   }
 }

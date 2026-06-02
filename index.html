@@ -1445,18 +1445,28 @@ footer {
             }).finally(() => clearTimeout(id));
         };
 
-        const apiFetch = (action) => fetchWithTimeout(`${SHEET_URL}?action=${action}`, { cache: 'no-store' })
-            .then(async r => {
-                if (!r.ok) {
-                    const text = await r.text().catch(() => '');
-                    throw new Error(text || `Status ${r.status}`);
-                }
-                return r.json();
-            });
+        const apiFetch = (action) => fetchWithTimeout(`${SHEET_URL}?action=${action}&_t=${Date.now()}`, { 
+            cache: 'no-store',
+            headers: {
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache'
+            }
+        })
+        .then(async r => {
+            if (!r.ok) {
+                const text = await r.text().catch(() => '');
+                throw new Error(text || `Status ${r.status}`);
+            }
+            return r.json();
+        });
 
         const apiPost  = (body)   => fetchWithTimeout(SHEET_URL, {
             method:  'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache'
+            },
             body:    JSON.stringify(body)
         }).then(async r => {
             if (!r.ok) {
@@ -1537,6 +1547,7 @@ footer {
             const btn   = document.getElementById('loginSubmitBtn');
 
             if (!uname || !pass) {
+                err.style.color = '#e53e3e';
                 err.textContent = '❌ Enter username and password.';
                 showToast('❌ Enter username and password.');
                 return;
@@ -1549,33 +1560,40 @@ footer {
             showToast('⏳ Authenticating...');
             if (btn) { btn.disabled = true; btn.textContent = '⏳ Signing in...'; }
 
+            let loginSuccess = false;
+
             try {
                 const res = await apiPost({ action: 'login', username: uname, password: pass });
                 if (res && res.success && res.user) {
                     _currentUser = res.user;
+                    loginSuccess = true;
                 } else if (uname === 'TPD-admin' && pass === 'tpd@2026') {
                     _currentUser = SUPER_ADMIN;
+                    loginSuccess = true;
                 } else {
+                    const failMsg = (res && res.error) ? `❌ ${res.error}` : '❌ Invalid username or password.';
                     err.style.color = '#e53e3e';
-                    err.textContent = '❌ Invalid username or password.';
-                    showToast('❌ Invalid username or password.');
-                    if (btn) { btn.disabled = false; btn.textContent = 'Sign In →'; }
-                    _loginBusy = false;
-                    return;
+                    err.textContent = failMsg;
+                    showToast(failMsg);
                 }
             } catch (e) {
+                console.error('Login Exception:', e);
                 err.style.color = '#e53e3e';
                 err.textContent = '⚠️ Connection error. Try again.';
                 showToast('⚠️ Connection error. Check your internet.');
-                if (btn) { btn.disabled = false; btn.textContent = 'Sign In →'; }
+            } finally {
+                // FORCEFULLY turn off the loading spinner state under all circumstances
                 _loginBusy = false;
-                return;
+                if (btn) {
+                    btn.disabled = false;
+                    btn.textContent = 'Sign In →';
+                }
             }
 
-            err.textContent = '';
-            if (btn) { btn.disabled = false; btn.textContent = 'Sign In →'; }
-            _loginBusy = false;
-            showApp();
+            if (loginSuccess) {
+                err.textContent = '';
+                showApp();
+            }
         }
 
         function doLogout() {
