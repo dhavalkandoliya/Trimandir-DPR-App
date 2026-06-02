@@ -1373,8 +1373,12 @@ footer {
         /* ═══════════════════════════════════════════════════════════
            API HELPERS
         ═══════════════════════════════════════════════════════════ */
-        const apiFetch = (action) => fetch(`${SHEET_URL}?action=${action}`).then(r => r.json());
-        const apiPost  = (body)   => fetch(SHEET_URL, { method: 'POST', body: JSON.stringify(body) }).then(r => r.json());
+        const apiFetch = (action) => fetch(`${SHEET_URL}?action=${action}`, { cache: 'no-store' }).then(r => r.json());
+        const apiPost  = (body)   => fetch(SHEET_URL, {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify(body)
+        }).then(r => r.json());
 
         /* ═══════════════════════════════════════════════════════════
            TOAST
@@ -2732,15 +2736,21 @@ footer {
             const displayName = document.getElementById('newDisplayName').value.trim();
             const password    = document.getElementById('newPassword').value.trim();
             const role        = document.getElementById('newRole').value;
-            if (!username || !password) { showToast('Username and password required'); return; }
-            if (_users.find(u => u.username.toLowerCase() === username.toLowerCase())) { showToast('Username already exists'); return; }
-            showToast('⏳ Creating...');
-            await apiPost({ action: 'createUser', username, displayName: displayName || username, password, role });
-            const d = await apiFetch('getUsers').catch(() => []);
-            if (Array.isArray(d)) _users = [SUPER_ADMIN, ...d];
-            renderLoginChips(); renderAdminUsers();
-            ['newUsername','newDisplayName','newPassword'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
-            showToast('✅ User created!');
+            if (!username || !password) { showToast('⚠️ Username and password required'); return; }
+            if (_users.find(u => u.username.toLowerCase() === username.toLowerCase())) { showToast('⚠️ Username already exists'); return; }
+            showToast('⏳ Creating user...');
+            try {
+                const res = await apiPost({ action: 'createUser', username, displayName: displayName || username, password, role });
+                if (res && res.error) { showToast('❌ ' + res.error); return; }
+                // Refresh user list from server to pick up the new row
+                const d = await apiFetch('getUsers').catch(() => []);
+                if (Array.isArray(d)) _users = [SUPER_ADMIN, ...d];
+                renderLoginChips(); renderAdminUsers();
+                ['newUsername','newDisplayName','newPassword'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+                showToast('✅ User created successfully!');
+            } catch (e) {
+                showToast('❌ Network error: ' + e.message);
+            }
         }
 
         async function deleteUser(username) {
