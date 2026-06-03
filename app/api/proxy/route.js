@@ -3,12 +3,24 @@ import { NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic'; // Prevent Next.js from caching GET requests to this route
 export const fetchCache = 'force-no-store';
 
+const HARDCODED_URL = "https://script.google.com/macros/s/AKfycbwtlhu-5A49ECkRXijXfG0ZpVhfePHhJ6DV5N_yz2Dk-yBwhzll4N-F-k5kW99DMkqEYg/exec";
+
 const CACHE_BYPASS_HEADERS = {
   'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
   'Pragma': 'no-cache',
   'Expires': '0',
-  'Surrogate-Control': 'no-store'
+  'Surrogate-Control': 'no-store',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization'
 };
+
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 204,
+    headers: CACHE_BYPASS_HEADERS
+  });
+}
 
 export async function POST(request) {
   const controller = new AbortController();
@@ -16,19 +28,7 @@ export async function POST(request) {
 
   try {
     const body = await request.json();
-    const googleScriptUrl = process.env.GOOGLE_SCRIPT_URL;
-
-    if (!googleScriptUrl) {
-      console.error('Missing GOOGLE_SCRIPT_URL environment variable');
-      clearTimeout(timeoutId);
-      return NextResponse.json(
-        { error: 'Server configuration error.' },
-        { 
-          status: 500,
-          headers: CACHE_BYPASS_HEADERS
-        }
-      );
-    }
+    const googleScriptUrl = process.env.GOOGLE_SCRIPT_URL || HARDCODED_URL;
 
     // Forward the POST request to Google Apps Script
     const response = await fetch(googleScriptUrl, {
@@ -78,19 +78,7 @@ export async function GET(request) {
   const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
 
   try {
-    const googleScriptUrl = process.env.GOOGLE_SCRIPT_URL;
-
-    if (!googleScriptUrl) {
-      console.error('Missing GOOGLE_SCRIPT_URL environment variable');
-      clearTimeout(timeoutId);
-      return NextResponse.json(
-        { error: 'Server configuration error.' },
-        { 
-          status: 500,
-          headers: CACHE_BYPASS_HEADERS
-        }
-      );
-    }
+    const googleScriptUrl = process.env.GOOGLE_SCRIPT_URL || HARDCODED_URL;
 
     // Forward the GET request with any query parameters appended
     const url = new URL(request.url);

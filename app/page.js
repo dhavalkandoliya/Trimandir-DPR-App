@@ -17,7 +17,7 @@ export default function Page() {
 /* ═══════════════════════════════════════════════════════════
            CONSTANTS & STATE
         ═══════════════════════════════════════════════════════════ */
-        const SHEET_URL = "https://script.google.com/macros/s/AKfycbwtlhu-5A49ECkRXijXfG0ZpVhfePHhJ6DV5N_yz2Dk-yBwhzll4N-F-k5kW99DMkqEYg/exec";
+        const SHEET_URL = "/api/proxy";
         const SUPER_ADMIN = { username: 'TPD-admin', displayName: 'TPD Admin', role: 'admin' };
 
         let _users      = [SUPER_ADMIN];
@@ -1980,7 +1980,7 @@ export default function Page() {
         function saveActivityOrderDirect(orderedIds) {
             // Always send the flat ordered-id string array the backend expects.
             // orderedIds[0] → sort_order 1, orderedIds[1] → sort_order 2, etc.
-            const directUrl = 'https://script.google.com/macros/s/AKfycbzyjSPIlewC31HdvS0LQneOudT-gQ1h-qCs_1q_50U47nej9zGSFRyaW7QI91yvVk1PEw/exec';
+            const directUrl = '/api/proxy';
             const payload = {
                 action:     'updateSortOrder',
                 type:       'activities',
