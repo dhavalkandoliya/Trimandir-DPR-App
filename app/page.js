@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useEffect } from 'react';
 
@@ -1727,52 +1727,17 @@ export default function Page() {
                 <div draggable="true" data-id="${proj.id}" ondragstart="dragStart(event)" ondragover="dragOver(event)" ondrop="dropProject(event)" style="margin-bottom:12px;border:1.5px solid var(--border);border-radius:8px;overflow:hidden;cursor:move;">
                     <div style="background:#f8fafc;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:8px;">
                         <div>
-                            <span style="        function renderAdminActivities() {
-            const el = document.getElementById('adminActivityList');
-            if (!el) return;
-
-            // ── Dynamic parent-id section grouping ─────────────────────────
-            // Always derive mains/subs dynamically by parent_id string comparison
-            // so newly added items nest correctly regardless of array position.
-            const mains = _activities.filter(a => !a.parent_id || String(a.parent_id).trim() === '');
-
-            const parentSel = document.getElementById('subActivityParent');
-            if (parentSel) {
-                parentSel.innerHTML = '<option value="">— Select Main Activity —</option>' +
-                    mains.filter(m => m.status === 'active')
-                         .map(m => `<option value="${m.id}">${m.activity_name}</option>`).join('');
-            }
-
-            if (!mains.length) {
-                el.innerHTML = '<p style="color:var(--muted);font-size:13px;text-align:center;padding:12px;">No activities yet.</p>';
-                return;
-            }
-
-            el.innerHTML = mains.map(main => {
-                // String-safe comparison: handles both numeric ids (78) and string ids ("78") from sheet
-                const subs = _activities.filter(a => String(a.parent_id).trim() === String(main.id).trim());
-                const act  = main.status === 'active';
-                return `
-                <div draggable="true"
-                     data-id="${main.id}"
-                     ondragstart="dragStartActivity(event)"
-                     ondragover="dragOverActivity(event)"
-                     ondragend="dragEndActivity(event)"
-                     ondrop="dropActivity(event)"
-                     style="margin-bottom:12px;border:1.5px solid var(--border);border-radius:8px;overflow:hidden;cursor:move;transition:opacity 0.2s ease;">
-                    <div style="background:#f8fafc;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:8px;">
-                        <div>
-                            <span style="font-weight:700;font-size:14px;color:var(--primary);">🔨 ${main.activity_name}</span>
-                            <span style="font-size:11px;margin-left:8px;color:${act ? '#38a169' : '#e53e3e'};">${ act ? '🟢' : '🔴'}</span>
+                            <span style="font-weight:700;font-size:14px;color:var(--primary);">📍 ${proj.project_name}</span>
+                            <span style="font-size:11px;margin-left:8px;color:${act ? '#38a169' : '#e53e3e'};">${act ? '🟢' : '🔴'}</span>
                         </div>
                         <div style="display:flex;gap:6px;">
                             <button class="btn-blue btn-sm" style="width:auto;padding:4px 8px;font-size:11px;"
-                                    onclick="editActivityName('${main.id}','${esc(main.activity_name)}')">✏️</button>
+                                    onclick="editProjectName('${proj.id}','${esc(proj.project_name)}')">✏️</button>
                             <button class="btn-red btn-sm" style="width:auto;padding:4px 8px;font-size:11px;background:#e53e3e;border-color:#e53e3e;"
-                                    onclick="deleteActivity('${main.id}','${esc(main.activity_name)}')">🗑️</button>
+                                    onclick="deleteProject('${proj.id}','${esc(proj.project_name)}')">ðŸ—‘ï¸</button>
                             <button class="${act ? 'btn-red' : 'btn-green'} btn-sm"
                                     style="width:auto;padding:4px 10px;font-size:11px;"
-                                    onclick="toggleActivity('${main.id}','${main.status}')">
+                                    onclick="toggleProject('${proj.id}','${proj.status}')">
                                 ${act ? '🔴 Off' : '🟢 On'}
                             </button>
                         </div>
@@ -1781,24 +1746,30 @@ export default function Page() {
                         ${subs.length
                             ? subs.map(s => `
                             <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid #f1f5f9;">
-                                <span style="font-size:13px;${s.status !== 'active' ? 'color:var(--muted);text-decoration:line-through;' : ''}">↳ ${s.activity_name}</span>
+                                <span style="font-size:13px;${s.status !== 'active' ? 'color:var(--muted);text-decoration:line-through;' : ''}">↳ ${s.project_name}</span>
                                 <div style="display:flex;gap:5px;">
                                     <button class="btn-blue btn-sm" style="width:auto;padding:2px 7px;font-size:11px;"
-                                            onclick="editActivityName('${s.id}','${esc(s.activity_name)}')">✏️</button>
+                                            onclick="editProjectName('${s.id}','${esc(s.project_name)}')">✏️</button>
                                     <button class="btn-red btn-sm" style="width:auto;padding:2px 7px;font-size:11px;background:#e53e3e;border-color:#e53e3e;"
-                                            onclick="deleteActivity('${s.id}','${esc(s.activity_name)}')">🗑️</button>
+                                            onclick="deleteProject('${s.id}','${esc(s.project_name)}')">ðŸ—‘ï¸</button>
                                     <button class="${s.status === 'active' ? 'btn-red' : 'btn-green'} btn-sm"
                                             style="width:auto;padding:2px 8px;font-size:11px;"
-                                            onclick="toggleActivity('${s.id}','${s.status}')">
+                                            onclick="toggleProject('${s.id}','${s.status}')">
                                         ${s.status === 'active' ? '🔴' : '🟢'}
                                     </button>
                                 </div>
                             </div>`).join('')
-                            : '<div style="color:var(--muted);font-size:12px;padding:4px 0 6px;">No sub-activities yet.</div>'}
+                            : '<div style="color:var(--muted);font-size:12px;padding:4px 0 6px;">No sub-projects yet.</div>'}
                     </div>
                 </div>`;
             }).join('');
-        }          if (Array.isArray(d)) _activities = d;
+        }
+
+        async function toggleActivity(id, curStatus) {
+            const ns = curStatus === 'active' ? 'inactive' : 'active';
+            await apiPost({ action: 'updateActivity', id, status: ns });
+            const d = await apiFetch('getActivities').catch(() => _activities);
+            if (Array.isArray(d)) _activities = d;
             renderAdminActivities();
             showToast(`✅ ${ns === 'active' ? 'Activated' : 'Deactivated'}!`);
         }
@@ -2600,10 +2571,10 @@ export default function Page() {
 
   return (
     <>
-      {/* â”€â”€ LOGIN â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ── LOGIN ──────────────────────────────────────────────────â”€ */}
       <div id="loginOverlay">
         <div className="login-box">
-          <div className="login-logo">ðŸ“‹ DPR â€” Man Power Report</div>
+          <div className="login-logo">📋 DPR — Man Power Report</div>
           <div className="login-sub">Trimandir Construction Project</div>
           <label style={{ textAlign: 'left' }}>Username</label>
           <input
@@ -2632,7 +2603,7 @@ export default function Page() {
             style={{ marginTop: '6px' }}
             onClick={() => window.doLogin()}
           >
-            Sign In â†’
+            Sign In →
           </button>
           <div className="login-err" id="loginErr"></div>
           <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '16px', textAlign: 'center' }}>
@@ -2641,16 +2612,16 @@ export default function Page() {
         </div>
         <div style={{ textAlign: 'center' }}>
           <div style={{ color: 'rgba(255,255,255,.55)', fontSize: '11px', marginBottom: '8px' }}>
-            â€” Quick Select â€”
+            — Quick Select —
           </div>
           <div className="user-chips" id="userChips"></div>
         </div>
       </div>
 
-      {/* â”€â”€ HEADER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ── HEADER ──────────────────────────────────────────────────â”€ */}
       <div className="header-wrap">
         <div>
-          <div className="logo">ðŸ“‹ MAN POWER REPORT</div>
+          <div className="logo">📋 MAN POWER REPORT</div>
           <div className="sub">Trimandir Construction Project</div>
         </div>
         <div className="header-right">
@@ -2661,9 +2632,9 @@ export default function Page() {
         </div>
       </div>
 
-      <div id="offlineBadge">âš ï¸ Offline Mode â€” data will sync on reconnect</div>
+      <div id="offlineBadge">âš ï¸ Offline Mode — data will sync on reconnect</div>
 
-      {/* â”€â”€ TABS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ── TABS ──────────────────────────────────────────────────── */}
       <div className="tab-bar">
         <button
           className="tab-btn active"
@@ -2684,7 +2655,7 @@ export default function Page() {
           id="tabBtnDashboard"
           onClick={(e) => window.switchTab('Dashboard', e.currentTarget)}
         >
-          ðŸ“Š Dashboard
+          📊 Dashboard
         </button>
         <button
           className="tab-btn"
@@ -2692,13 +2663,13 @@ export default function Page() {
           onClick={(e) => window.switchTab('Admin', e.currentTarget)}
           style={{ display: 'none' }}
         >
-          âš™ï¸ Admin
+          ⚙️ Admin
         </button>
       </div>
 
-      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+      {/* ═══════════════════════════════════════════════════════════════
            NEW DPR FORM
-          â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+          ═══════════════════════════════════════════════════════════════ */}
       <div className="tab-page active" id="tabForm">
         <div className="card">
           <div className="section-title">ðŸ“… Date &amp; Site</div>
@@ -2706,12 +2677,12 @@ export default function Page() {
           <input type="date" id="date" />
           <label>Site / Project</label>
           <select id="site">
-            <option value="">âŒ› Loading projects...</option>
+            <option value="">⌛ Loading projects...</option>
           </select>
         </div>
 
         <div className="card">
-          <div className="section-title">ðŸ“‹ Work Activities</div>
+          <div className="section-title">📋 Work Activities</div>
           <div id="activityRowsContainer"></div>
           <button
             className="btn-add"
@@ -2723,7 +2694,7 @@ export default function Page() {
         </div>
 
         <button className="btn-green" onClick={() => window.generate()}>
-          âœ… Generate DPR
+          ✅ Generate DPR
         </button>
         <div className="btn-group">
           <button className="btn-blue" onClick={() => window.downloadImage()}>
@@ -2738,16 +2709,16 @@ export default function Page() {
         </button>
 
         <div id="report" style={{ display: 'none' }}>
-          <h3>DPR â€” MAN POWER REPORT</h3>
+          <h3>DPR — MAN POWER REPORT</h3>
           <div className="report-meta" id="rdate"></div>
           <div id="rcivil"></div>
           <div id="rmanpower"></div>
         </div>
       </div>
 
-      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+      {/* ═══════════════════════════════════════════════════════════════
            HISTORY TAB
-          â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+          ═══════════════════════════════════════════════════════════════ */}
       <div className="tab-page" id="tabHistory" style={{ display: 'none' }}>
         <div className="card">
           <div className="section-title">ðŸ“ DPR History</div>
@@ -2781,7 +2752,7 @@ export default function Page() {
                 onChange={() => window.resetHistoryPageAndRender()}
                 style={{ marginBottom: 0 }}
               >
-                <option value="">â€” Show All Sites â€”</option>
+                <option value="">— Show All Sites —</option>
               </select>
             </div>
             <div>
@@ -2791,7 +2762,7 @@ export default function Page() {
                 onChange={() => window.resetHistoryPageAndRender()}
                 style={{ marginBottom: 0 }}
               >
-                <option value="">â€” Show All Supervisors â€”</option>
+                <option value="">— Show All Supervisors —</option>
               </select>
             </div>
           </div>
@@ -2802,20 +2773,20 @@ export default function Page() {
               onClick={() => window.loadHistory()}
               style={{ flex: 1 }}
             >
-              ðŸ”„ Refresh
+              🔄 Refresh
             </button>
             <button
               className="btn-gray btn-sm"
               onClick={() => window.clearHistoryFilter()}
               style={{ flex: 1 }}
             >
-              âŒ Clear Filter
+              ❌ Clear Filter
             </button>
           </div>
 
           <div id="historyCount" style={{ fontSize: '12px', color: 'var(--muted)', textAlign: 'center', marginBottom: '8px' }}></div>
           <div id="historyList">
-            <p style={{ color: '#aaa', textAlign: 'center', padding: '16px' }}>â³ Loading...</p>
+            <p style={{ color: '#aaa', textAlign: 'center', padding: '16px' }}>⏳ Loading...</p>
           </div>
 
           <div
@@ -2835,7 +2806,7 @@ export default function Page() {
               style={{ width: 'auto', margin: 0 }}
               onClick={() => window.changeHistoryPage(-1)}
             >
-              â—€ Previous
+              ◀ Previous
             </button>
             <span id="historyPageIndicator" style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--text)' }}>
               Page 1 of 1
@@ -2846,18 +2817,18 @@ export default function Page() {
               style={{ width: 'auto', margin: 0 }}
               onClick={() => window.changeHistoryPage(1)}
             >
-              Next â–¶
+              Next ▶
             </button>
           </div>
         </div>
       </div>
 
-      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+      {/* ═══════════════════════════════════════════════════════════════
            DASHBOARD TAB
-          â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+          ═══════════════════════════════════════════════════════════════ */}
       <div className="tab-page" id="tabDashboard" style={{ display: 'none' }}>
         <div className="card">
-          <div className="section-title">ðŸ“Š Summary Dashboard</div>
+          <div className="section-title">📊 Summary Dashboard</div>
           <div className="period-tabs">
             <button className="period-tab active" onClick={(e) => window.setPeriod('week', e.currentTarget)}>
               This Week
@@ -2871,24 +2842,24 @@ export default function Page() {
           </div>
           <div className="dash-grid">
             <div className="dash-stat">
-              <div className="num" id="dTotalWorkers">â€”</div>
+              <div className="num" id="dTotalWorkers">—</div>
               <div className="lbl">Total Workers</div>
             </div>
             <div className="dash-stat">
-              <div className="num" id="dTotalDPR">â€”</div>
+              <div className="num" id="dTotalDPR">—</div>
               <div className="lbl">Total DPRs</div>
             </div>
             <div className="dash-stat">
-              <div className="num" id="dAvgWorkers">â€”</div>
+              <div className="num" id="dAvgWorkers">—</div>
               <div className="lbl">Avg / Day</div>
             </div>
             <div className="dash-stat">
-              <div className="num" id="dActiveSites">â€”</div>
+              <div className="num" id="dActiveSites">—</div>
               <div className="lbl">Active Sites</div>
             </div>
           </div>
           <div className="section-title" style={{ marginTop: '4px' }}>
-            ðŸ“ Site-wise Manpower
+            📍 Site-wise Manpower
           </div>
           <div id="siteBreakdown">
             <p style={{ color: '#aaa', fontSize: '13px' }}>Load history first</p>
@@ -2896,13 +2867,13 @@ export default function Page() {
         </div>
       </div>
 
-      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+      {/* ═══════════════════════════════════════════════════════════════
            ADMIN TAB
-          â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+          ═══════════════════════════════════════════════════════════════ */}
       <div className="tab-page" id="tabAdmin" style={{ display: 'none' }}>
         {/* Analytics Dashboard */}
         <div className="card" style={{ marginBottom: '12px' }}>
-          <div className="section-title">ðŸ“Š Admin Analytics Dashboard</div>
+          <div className="section-title">📊 Admin Analytics Dashboard</div>
           <div
             className="dash-grid"
             style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: '10px', marginBottom: '12px' }}
@@ -2927,7 +2898,7 @@ export default function Page() {
                   fontWeight: 700
                 }}
               >
-                â€”
+                —
               </div>
               <div className="lbl">Most Active Site</div>
             </div>
@@ -2951,16 +2922,16 @@ export default function Page() {
               padding: '10px 14px'
             }}
           >
-            ðŸ“¥ Export Master Log (CSV)
+            📥 Export Master Log (CSV)
           </button>
         </div>
 
         {/* Pending edit requests */}
         <div className="card" style={{ marginBottom: '12px' }}>
-          <div className="section-title">âœï¸ Pending Edit Requests</div>
+          <div className="section-title">✏️ Pending Edit Requests</div>
           <div id="pendingEditRequests">
             <p style={{ color: 'var(--muted)', fontSize: '13px', textAlign: 'center', padding: '10px' }}>
-              âœ… No pending requests.
+              ✅ No pending requests.
             </p>
           </div>
         </div>
@@ -2971,8 +2942,8 @@ export default function Page() {
             className="admin-acc-header"
             onClick={(e) => window.toggleAdminAccordion(e.currentTarget)}
           >
-            <span>ðŸ”§ Data Maintenance</span>
-            <span className="aci admin-acc-icon">â–¶</span>
+            <span>🔗 Data Maintenance</span>
+            <span className="aci admin-acc-icon">▶</span>
           </div>
           <div className="admin-acc-body">
             <p style={{ fontSize: '13px', color: 'var(--muted)', marginBottom: '14px' }}>
@@ -2984,7 +2955,7 @@ export default function Page() {
               onClick={() => window.runDataCleanup()}
               style={{ marginBottom: 0 }}
             >
-              ðŸ§¹ Clean Corrupted Rows
+              🧹 Clean Corrupted Rows
             </button>
           </div>
         </div>
@@ -2995,8 +2966,8 @@ export default function Page() {
             className="admin-acc-header"
             onClick={(e) => window.toggleAdminAccordion(e.currentTarget)}
           >
-            <span>âš™ï¸ Create / Manage Users</span>
-            <span className="aci admin-acc-icon">â–¼</span>
+            <span>⚙️ Create / Manage Users</span>
+            <span className="aci admin-acc-icon">▼</span>
           </div>
           <div className="admin-acc-body open">
             <div
@@ -3009,7 +2980,7 @@ export default function Page() {
               }}
             >
               <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--primary)', marginBottom: '10px' }}>
-                âž• Create New User
+                ➕ Create New User
               </div>
               <label>Username</label>
               <input type="text" id="newUsername" placeholder="e.g. site-manager-01" />
@@ -3019,15 +2990,15 @@ export default function Page() {
               <input type="text" id="newPassword" placeholder="Set a password" />
               <label>Role</label>
               <select id="newRole">
-                <option value="user">User â€” Can create &amp; view DPRs</option>
-                <option value="admin">Admin â€” Full access + Management</option>
+                <option value="user">User — Can create &amp; view DPRs</option>
+                <option value="admin">Admin — Full access + Management</option>
               </select>
               <button className="btn-green" onClick={() => window.createUser()}>
-                âœ… Create User
+                ✅ Create User
               </button>
             </div>
             <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--primary)', marginBottom: '4px' }}>
-              ðŸ‘¥ All Users
+              👥 All Users
             </div>
             <div className="admin-list-scroll" id="adminUserList"></div>
           </div>
@@ -3039,8 +3010,8 @@ export default function Page() {
             className="admin-acc-header"
             onClick={(e) => window.toggleAdminAccordion(e.currentTarget)}
           >
-            <span>ðŸ“ Manage Projects &amp; Sub-Projects</span>
-            <span className="aci admin-acc-icon">â–¶</span>
+            <span>📍 Manage Projects &amp; Sub-Projects</span>
+            <span className="aci admin-acc-icon">▶</span>
           </div>
           <div className="admin-acc-body">
             <p style={{ fontSize: '13px', color: 'var(--muted)', marginBottom: '14px' }}>
@@ -3056,20 +3027,20 @@ export default function Page() {
               }}
             >
               <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--primary)', marginBottom: '10px' }}>
-                âž• Add Project
+                ➕ Add Project
               </div>
               <label>Parent Project (blank = top-level)</label>
               <select id="newProjectParent">
-                <option value="">â€” None (Top-level) â€”</option>
+                <option value="">— None (Top-level) —</option>
               </select>
               <label>Project Name</label>
               <input type="text" id="newProjectName" placeholder="e.g. New Hospital Wing" />
               <button className="btn-green" onClick={() => window.adminAddProject()}>
-                âœ… Add Project
+                ✅ Add Project
               </button>
             </div>
             <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--primary)', marginBottom: '4px' }}>
-              ðŸ“‹ All Projects
+              📋 All Projects
             </div>
             <div className="admin-list-scroll" style={{ maxHeight: '360px' }} id="adminProjectList">
               <p style={{ color: 'var(--muted)', fontSize: '13px', textAlign: 'center', padding: '12px' }}>
@@ -3085,8 +3056,8 @@ export default function Page() {
             className="admin-acc-header"
             onClick={(e) => window.toggleAdminAccordion(e.currentTarget)}
           >
-            <span>ðŸ“‹ Manage Activities &amp; Sub-Activities</span>
-            <span className="aci admin-acc-icon">â–¶</span>
+            <span>📋 Manage Activities &amp; Sub-Activities</span>
+            <span className="aci admin-acc-icon">▶</span>
           </div>
           <div className="admin-acc-body">
             <p style={{ fontSize: '13px', color: 'var(--muted)', marginBottom: '14px' }}>
@@ -3103,12 +3074,12 @@ export default function Page() {
               }}
             >
               <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--primary)', marginBottom: '10px' }}>
-                âž• Add Main Activity
+                ➕ Add Main Activity
               </div>
               <label>Category Name</label>
               <input type="text" id="newMainActivityName" placeholder="e.g. MEP Work" />
               <button className="btn-green" onClick={() => window.adminAddMainActivity()}>
-                âœ… Add Category
+                ✅ Add Category
               </button>
             </div>
             <div
@@ -3121,20 +3092,20 @@ export default function Page() {
               }}
             >
               <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--primary)', marginBottom: '10px' }}>
-                âž• Add Sub-Activity
+                ➕ Add Sub-Activity
               </div>
               <label>Parent Main Activity</label>
               <select id="subActivityParent">
-                <option value="">â€” Select Main Activity â€”</option>
+                <option value="">— Select Main Activity —</option>
               </select>
               <label>Sub-Activity Name</label>
               <input type="text" id="newSubActivityName" placeholder="e.g. Panel Wiring" />
               <button className="btn-green" onClick={() => window.adminAddSubActivity()}>
-                âœ… Add Sub-Activity
+                ✅ Add Sub-Activity
               </button>
             </div>
             <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--primary)', marginBottom: '4px' }}>
-              ðŸ“Š All Activities
+              📊 All Activities
             </div>
             <div className="admin-list-scroll" style={{ maxHeight: '480px' }} id="adminActivityList">
               <p style={{ color: 'var(--muted)', fontSize: '13px', textAlign: 'center', padding: '12px' }}>
@@ -3145,15 +3116,15 @@ export default function Page() {
         </div>
       </div>
 
-      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+      {/* ═══════════════════════════════════════════════════════════════
            DPR VIEW MODAL
-          â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+          ═══════════════════════════════════════════════════════════════ */}
       <div id="dprModal" onClick={(e) => { if (e.target === e.currentTarget) window.closeDPRModal(); }}>
         <div className="modal-box">
           <div className="modal-header">
-            <h3>ðŸ“Š DPR â€” Man Power Report</h3>
+            <h3>📊 DPR — Man Power Report</h3>
             <button className="modal-close" onClick={() => window.closeDPRModal()}>
-              âœ•
+              ✕
             </button>
           </div>
           <div className="modal-body" id="dprModalBody"></div>
@@ -3161,7 +3132,7 @@ export default function Page() {
       </div>
 
       <div id="toast"></div>
-      <footer>Â© 2026 Trimandir Construction Project | Trimandir Site DPR</footer>
+      <footer>© 2026 Trimandir Construction Project | Trimandir Site DPR</footer>
     </>
   );
 }

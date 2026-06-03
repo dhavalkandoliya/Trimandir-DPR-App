@@ -3028,52 +3028,17 @@ footer {
                 <div draggable="true" data-id="${proj.id}" ondragstart="dragStart(event)" ondragover="dragOver(event)" ondrop="dropProject(event)" style="margin-bottom:12px;border:1.5px solid var(--border);border-radius:8px;overflow:hidden;cursor:move;">
                     <div style="background:#f8fafc;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:8px;">
                         <div>
-                            <span style="        function renderAdminActivities() {
-            const el = document.getElementById('adminActivityList');
-            if (!el) return;
-
-            // ── Dynamic parent-id section grouping ─────────────────────────
-            // Always derive mains/subs dynamically by parent_id string comparison
-            // so newly added items nest correctly regardless of array position.
-            const mains = _activities.filter(a => !a.parent_id || String(a.parent_id).trim() === '');
-
-            const parentSel = document.getElementById('subActivityParent');
-            if (parentSel) {
-                parentSel.innerHTML = '<option value="">— Select Main Activity —</option>' +
-                    mains.filter(m => m.status === 'active')
-                         .map(m => `<option value="${m.id}">${m.activity_name}</option>`).join('');
-            }
-
-            if (!mains.length) {
-                el.innerHTML = '<p style="color:var(--muted);font-size:13px;text-align:center;padding:12px;">No activities yet.</p>';
-                return;
-            }
-
-            el.innerHTML = mains.map(main => {
-                // String-safe comparison: handles both numeric ids (78) and string ids ("78") from sheet
-                const subs = _activities.filter(a => String(a.parent_id).trim() === String(main.id).trim());
-                const act  = main.status === 'active';
-                return `
-                <div draggable="true"
-                     data-id="${main.id}"
-                     ondragstart="dragStartActivity(event)"
-                     ondragover="dragOverActivity(event)"
-                     ondragend="dragEndActivity(event)"
-                     ondrop="dropActivity(event)"
-                     style="margin-bottom:12px;border:1.5px solid var(--border);border-radius:8px;overflow:hidden;cursor:move;transition:opacity 0.2s ease;">
-                    <div style="background:#f8fafc;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:8px;">
-                        <div>
-                            <span style="font-weight:700;font-size:14px;color:var(--primary);">🔨 ${main.activity_name}</span>
-                            <span style="font-size:11px;margin-left:8px;color:${act ? '#38a169' : '#e53e3e'};">${ act ? '🟢' : '🔴'}</span>
+                            <span style="font-weight:700;font-size:14px;color:var(--primary);">📍 ${proj.project_name}</span>
+                            <span style="font-size:11px;margin-left:8px;color:${act ? '#38a169' : '#e53e3e'};">${act ? '🟢' : '🔴'}</span>
                         </div>
                         <div style="display:flex;gap:6px;">
                             <button class="btn-blue btn-sm" style="width:auto;padding:4px 8px;font-size:11px;"
-                                    onclick="editActivityName('${main.id}','${esc(main.activity_name)}')">✏️</button>
+                                    onclick="editProjectName('${proj.id}','${esc(proj.project_name)}')">✏️</button>
                             <button class="btn-red btn-sm" style="width:auto;padding:4px 8px;font-size:11px;background:#e53e3e;border-color:#e53e3e;"
-                                    onclick="deleteActivity('${main.id}','${esc(main.activity_name)}')">🗑️</button>
+                                    onclick="deleteProject('${proj.id}','${esc(proj.project_name)}')">🗑️</button>
                             <button class="${act ? 'btn-red' : 'btn-green'} btn-sm"
                                     style="width:auto;padding:4px 10px;font-size:11px;"
-                                    onclick="toggleActivity('${main.id}','${main.status}')">
+                                    onclick="toggleProject('${proj.id}','${proj.status}')">
                                 ${act ? '🔴 Off' : '🟢 On'}
                             </button>
                         </div>
@@ -3082,24 +3047,30 @@ footer {
                         ${subs.length
                             ? subs.map(s => `
                             <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid #f1f5f9;">
-                                <span style="font-size:13px;${s.status !== 'active' ? 'color:var(--muted);text-decoration:line-through;' : ''}">↳ ${s.activity_name}</span>
+                                <span style="font-size:13px;${s.status !== 'active' ? 'color:var(--muted);text-decoration:line-through;' : ''}">↳ ${s.project_name}</span>
                                 <div style="display:flex;gap:5px;">
                                     <button class="btn-blue btn-sm" style="width:auto;padding:2px 7px;font-size:11px;"
-                                            onclick="editActivityName('${s.id}','${esc(s.activity_name)}')">✏️</button>
+                                            onclick="editProjectName('${s.id}','${esc(s.project_name)}')">✏️</button>
                                     <button class="btn-red btn-sm" style="width:auto;padding:2px 7px;font-size:11px;background:#e53e3e;border-color:#e53e3e;"
-                                            onclick="deleteActivity('${s.id}','${esc(s.activity_name)}')">🗑️</button>
+                                            onclick="deleteProject('${s.id}','${esc(s.project_name)}')">🗑️</button>
                                     <button class="${s.status === 'active' ? 'btn-red' : 'btn-green'} btn-sm"
                                             style="width:auto;padding:2px 8px;font-size:11px;"
-                                            onclick="toggleActivity('${s.id}','${s.status}')">
+                                            onclick="toggleProject('${s.id}','${s.status}')">
                                         ${s.status === 'active' ? '🔴' : '🟢'}
                                     </button>
                                 </div>
                             </div>`).join('')
-                            : '<div style="color:var(--muted);font-size:12px;padding:4px 0 6px;">No sub-activities yet.</div>'}
+                            : '<div style="color:var(--muted);font-size:12px;padding:4px 0 6px;">No sub-projects yet.</div>'}
                     </div>
                 </div>`;
             }).join('');
-        }          if (Array.isArray(d)) _activities = d;
+        }
+
+        async function toggleActivity(id, curStatus) {
+            const ns = curStatus === 'active' ? 'inactive' : 'active';
+            await apiPost({ action: 'updateActivity', id, status: ns });
+            const d = await apiFetch('getActivities').catch(() => _activities);
+            if (Array.isArray(d)) _activities = d;
             renderAdminActivities();
             showToast(`✅ ${ns === 'active' ? 'Activated' : 'Deactivated'}!`);
         }
