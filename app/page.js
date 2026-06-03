@@ -557,56 +557,6 @@ export default function Page() {
                 }
             });
 
-            function renderSection(title, acts) {
-                if (!acts.length) return '';
-                const grouped = {};
-                acts.forEach(a => {
-                    const mainName = a.main_activity || a.activity || 'General';
-                    if (!grouped[mainName]) grouped[mainName] = [];
-                    grouped[mainName].push(a);
-                });
-                return `<div class="report-section-title">🔨 ${title}</div>` +
-                    Object.entries(grouped).map(([main, rows]) => {
-                        const innerRowsHtml = rows.map((r, rIdx) => {
-                            let childName = (r.sub_activity || r.activity || '').trim();
-                            childName = childName.replace(/^[↳\s\-➔]+/, '').trim();
-                            const mainClean = String(main).trim().toLowerCase();
-                            if (childName.toLowerCase().indexOf(mainClean) === 0) {
-                                childName = childName.substring(mainClean.length).replace(/^[↳\s\-➔]+/, '').trim();
-                            }
-                            
-                            const isSub = childName !== '' && childName.toLowerCase() !== mainClean;
-                            const totalVal = (Number(r.skilled) || 0) + (Number(r.unskilled) || 0);
-                            const borderVal = rIdx === rows.length - 1 ? 'none' : '1.5px solid #cbd5e1';
-                            
-                            // Visual properties based on isSub
-                            const paddingLeft = isSub ? '16px' : '0px';
-                            const fontSize = '13.5px';
-                            const titleColor = isSub ? '#475569' : '#1e293b';
-                            const fontWeight = isSub ? '500' : '700';
-                            const prefix = isSub ? '<span style="color:var(--primary);margin-right:4px;">↳</span>' : '';
-                            
-                            return `
-                            <div style="padding: 10px 0; padding-left: ${paddingLeft}; border-bottom: ${borderVal}; line-height: 1.6;">
-                                <div style="font-weight: ${fontWeight}; color: ${titleColor}; font-size: ${fontSize};">${prefix}${childName || toTitleCase(main)}</div>
-                                <div style="font-size: 12px; color: #475569; margin-top: 4px;">
-                                    Skilled: <b>${r.skilled}</b> &nbsp;·&nbsp; Unskilled: <b>${r.unskilled}</b> &nbsp;·&nbsp; Total: <b>${totalVal}</b>
-                                </div>
-                                ${r.note ? `<div style="color: #475569; font-size: 11.5px; margin-top: 6px; font-style: italic; background: #f8fafc; padding: 6px 8px; border-radius: 4px; border-left: 2.5px solid #cbd5e1;">📌 ${r.note}</div>` : ''}
-                            </div>`;
-                        }).join('');
-
-                        return `
-                        <div class="report-activity" style="margin-bottom: 14px; padding: 16px; border-left: 5px solid var(--primary); background: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
-                            <div style="font-weight: 600; font-size: 14.5px; color: #1e293b; margin-bottom: 12px; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 6px; letter-spacing: 0.2px;">
-                                📦 ${toTitleCase(main)}
-                            </div>
-                            <div style="display: flex; flex-direction: column;">
-                                ${innerRowsHtml}
-                            </div>
-                        </div>`;
-                    }).join('');
-            }
 
             const sectionHtml = renderSection('Civil Work', civilActs) + renderSection('Interior Work', interiorActs);
 
@@ -621,6 +571,57 @@ export default function Page() {
 
             saveToCloud(dateVal, siteVal, total, activities, prepBy, editedBy);
             showToast('✅ DPR Generated!');
+        }
+
+        function renderSection(title, acts) {
+            if (!acts.length) return '';
+            const grouped = {};
+            acts.forEach(a => {
+                const mainName = a.main_activity || a.activity || 'General';
+                if (!grouped[mainName]) grouped[mainName] = [];
+                grouped[mainName].push(a);
+            });
+            return `<div class="report-section-title">🔨 ${title}</div>` +
+                Object.entries(grouped).map(([main, rows]) => {
+                    const innerRowsHtml = rows.map((r, rIdx) => {
+                        let childName = (r.sub_activity || r.activity || '').trim();
+                        childName = childName.replace(/^[↳\s\-➔]+/, '').trim();
+                        const mainClean = String(main).trim().toLowerCase();
+                        if (childName.toLowerCase().indexOf(mainClean) === 0) {
+                            childName = childName.substring(mainClean.length).replace(/^[↳\s\-➔]+/, '').trim();
+                        }
+                        
+                        const isSub = childName !== '' && childName.toLowerCase() !== mainClean;
+                        const totalVal = (Number(r.skilled) || 0) + (Number(r.unskilled) || 0);
+                        const borderVal = rIdx === rows.length - 1 ? 'none' : '1.5px solid #cbd5e1';
+                        
+                        // Visual properties based on isSub
+                        const paddingLeft = isSub ? '16px' : '0px';
+                        const fontSize = '13.5px';
+                        const titleColor = isSub ? '#475569' : '#1e293b';
+                        const fontWeight = isSub ? '500' : '700';
+                        const prefix = isSub ? '<span style="color:var(--primary);margin-right:4px;">↳</span>' : '';
+                        
+                        return `
+                        <div style="padding: 10px 0; padding-left: ${paddingLeft}; border-bottom: ${borderVal}; line-height: 1.6;">
+                            <div style="font-weight: ${fontWeight}; color: ${titleColor}; font-size: ${fontSize};">${prefix}${childName || toTitleCase(main)}</div>
+                            <div style="font-size: 12px; color: #475569; margin-top: 4px;">
+                                Skilled: <b>${r.skilled}</b> &nbsp;·&nbsp; Unskilled: <b>${r.unskilled}</b> &nbsp;·&nbsp; Total: <b>${totalVal}</b>
+                            </div>
+                            ${r.note ? `<div style="color: #475569; font-size: 11.5px; margin-top: 6px; font-style: italic; background: #f8fafc; padding: 6px 8px; border-radius: 4px; border-left: 2.5px solid #cbd5e1;">📌 ${r.note}</div>` : ''}
+                        </div>`;
+                    }).join('');
+
+                    return `
+                    <div class="report-activity" style="margin-bottom: 14px; padding: 16px; border-left: 5px solid var(--primary); background: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                        <div style="font-weight: 600; font-size: 14.5px; color: #1e293b; margin-bottom: 12px; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 6px; letter-spacing: 0.2px;">
+                            📦 ${toTitleCase(main)}
+                        </div>
+                        <div style="display: flex; flex-direction: column;">
+                            ${innerRowsHtml}
+                        </div>
+                    </div>`;
+                }).join('');
         }
 
         function saveToCloud(dateVal, siteVal, total, activities, prepBy, editedBy) {
@@ -2494,7 +2495,6 @@ export default function Page() {
     window.toggleHistoryDropdown = toggleHistoryDropdown;
     window.closeAllHistoryDropdowns = closeAllHistoryDropdowns;
     window.getReportHtmlForRecord = getReportHtmlForRecord;
-    window.renderActArr = renderActArr;
     window.downloadHistoryDPR = downloadHistoryDPR;
     window.getSkeletonLoader = getSkeletonLoader;
     window.updateFormTotals = updateFormTotals;
@@ -2508,7 +2508,6 @@ export default function Page() {
     window.renderHistory = renderHistory;
     window.clearHistoryFilter = clearHistoryFilter;
     window.openDPR = openDPR;
-    window.renderActArr = renderActArr;
     window.closeDPRModal = closeDPRModal;
     window.deleteDPR = deleteDPR;
     window.editDPR = editDPR;
