@@ -17,7 +17,7 @@ $scriptMatch = [regex]::Match($raw, '(?s)<script>(.*?)</script>')
 $scriptJs    = if ($scriptMatch.Success) { $scriptMatch.Groups[1].Value.Trim() } else { '' }
 
 # ─── PATCH SHEET_URL to proxy ────────────────────────────────────────────────
-$scriptJs = [regex]::Replace($scriptJs, 'const SHEET_URL = "[^"]+";', 'const SHEET_URL = "/api/proxy";')
+# $scriptJs = [regex]::Replace($scriptJs, 'const SHEET_URL = "[^"]+";', 'const SHEET_URL = "/api/proxy";')
 
 # ─── PATCH USER MANAGEMENT to cloud-backed versions ──────────────────────────
 $newUsersLogic = @'
