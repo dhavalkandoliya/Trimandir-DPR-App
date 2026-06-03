@@ -34,66 +34,66 @@ $newUsersLogic = @'
            if(adminBtn && adminBtn.style.display === 'block') {
                if(typeof renderAdminUsers === 'function') renderAdminUsers();
            }
-         }
+        }
 
-         function getUsers() {
-             return _usersCache;
-         }
+        function getUsers() {
+            return _usersCache;
+        }
 
-         function saveUsers(list) {
-             // Function no longer uses local storage, relies on cloud endpoints
-         }
+        function saveUsers(list) {
+            // Function no longer uses local storage, relies on cloud endpoints
+        }
 
-         async function createUser() {
-             const username    = document.getElementById('newUsername').value.trim();
-             const displayName = document.getElementById('newDisplayName').value.trim();
-             const password    = document.getElementById('newPassword').value.trim();
-             const role        = document.getElementById('newRole').value;
-             if (!username || !password) { showToast('Username and Password required'); return; }
-             if (_usersCache.find(u => u.username.toLowerCase() === username.toLowerCase())) { showToast('Username exists'); return; }
-             showToast('Creating User in Cloud...');
-             const payload = { action: 'createUser', username, displayName: displayName || username, password, role };
-             await fetch(SHEET_URL, { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
-             await fetchUsersFromCloud();
-             document.getElementById('newUsername').value = '';
-             document.getElementById('newDisplayName').value = '';
-             document.getElementById('newPassword').value = '';
-             showToast('User created on network!');
-         }
+        async function createUser() {
+            const username    = document.getElementById('newUsername').value.trim();
+            const displayName = document.getElementById('newDisplayName').value.trim();
+            const password    = document.getElementById('newPassword').value.trim();
+            const role        = document.getElementById('newRole').value;
+            if (!username || !password) { showToast('Username and Password required'); return; }
+            if (_usersCache.find(u => u.username.toLowerCase() === username.toLowerCase())) { showToast('Username exists'); return; }
+            showToast('Creating User in Cloud...');
+            const payload = { action: 'createUser', username, displayName: displayName || username, password, role };
+            await fetch(SHEET_URL, { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+            await fetchUsersFromCloud();
+            document.getElementById('newUsername').value = '';
+            document.getElementById('newDisplayName').value = '';
+            document.getElementById('newPassword').value = '';
+            showToast('User created on network!');
+        }
 
-         async function deleteUser(username) {
-             if (username === SUPER_ADMIN.username) return;
-             if (!confirm(`Delete user "${username}"?`)) return;
-             showToast('Deleting User...');
-             const payload = { action: 'deleteUser', username };
-             await fetch(SHEET_URL, { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
-             await fetchUsersFromCloud();
-             showToast('User deleted across network');
-         }
+        async function deleteUser(username) {
+            if (username === SUPER_ADMIN.username) return;
+            if (!confirm(`Delete user "${username}"?`)) return;
+            showToast('Deleting User...');
+            const payload = { action: 'deleteUser', username };
+            await fetch(SHEET_URL, { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+            await fetchUsersFromCloud();
+            showToast('User deleted across network');
+        }
 
-         async function resetPassword(username) {
-             const newPass = prompt(`Set new password for "${username}":`);
-             if (!newPass || !newPass.trim()) return;
-             showToast('Updating network password...');
-             const payload = { action: 'resetPassword', username, password: newPass.trim() };
-             await fetch(SHEET_URL, { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
-             await fetchUsersFromCloud();
-             showToast('Password changed instantly on network');
-         }
+        async function resetPassword(username) {
+            const newPass = prompt(`Set new password for "${username}":`);
+            if (!newPass || !newPass.trim()) return;
+            showToast('Updating network password...');
+            const payload = { action: 'resetPassword', username, password: newPass.trim() };
+            await fetch(SHEET_URL, { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+            await fetchUsersFromCloud();
+            showToast('Password changed instantly on network');
+        }
 
-         function renderAdminUsers() {
-             document.getElementById('adminUserList').innerHTML = getUsers().map(u => {
-                 const isSuper = u.username === SUPER_ADMIN.username;
-                 return `
-       <div class="admin-user-row">
-         <div><div class="admin-user-info">👤 ${u.username}</div><div class="admin-user-sub">${u.displayName || ''} &nbsp;·&nbsp; <b>${u.role === 'admin' ? 'Admin' : 'User'}</b></div></div>
-         <div style="display:flex;gap:6px;">
-           ${!isSuper ? `<button class="btn-gray btn-sm" style="width:auto;padding:5px 10px;" onclick="resetPassword('${u.username}')">🔑 Reset</button>` : ''}
-           ${!isSuper ? `<button class="btn-red btn-sm" style="width:auto;padding:5px 10px;" onclick="deleteUser('${u.username}')">🗑️</button>` : '<span style="font-size:11px;color:var(--muted);padding:5px 0;">Protected</span>'}
-         </div>
-       </div>`;
-             }).join('');
-         }
+        function renderAdminUsers() {
+            document.getElementById('adminUserList').innerHTML = getUsers().map(u => {
+                const isSuper = u.username === SUPER_ADMIN.username;
+                return `
+      <div class="admin-user-row">
+        <div><div class="admin-user-info">👤 ${u.username}</div><div class="admin-user-sub">${u.displayName || ''} &nbsp;·&nbsp; <b>${u.role === 'admin' ? 'Admin' : 'User'}</b></div></div>
+        <div style="display:flex;gap:6px;">
+          ${!isSuper ? `<button class="btn-gray btn-sm" style="width:auto;padding:5px 10px;" onclick="resetPassword('${u.username}')">🔑 Reset</button>` : ''}
+          ${!isSuper ? `<button class="btn-red btn-sm" style="width:auto;padding:5px 10px;" onclick="deleteUser('${u.username}')">🗑️</button>` : '<span style="font-size:11px;color:var(--muted);padding:5px 0;">Protected</span>'}
+        </div>
+      </div>`;
+            }).join('');
+        }
 '@
 $scriptJs = [regex]::Replace($scriptJs, '(?s)function getUsers\(\).*?function renderAdminUsers\(\) \{.*?\n\s*\}\n', "$newUsersLogic`n`n")
 
