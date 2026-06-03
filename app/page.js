@@ -191,7 +191,7 @@ export default function Page() {
            BOOT — parallel data fetch after login
         ═══════════════════════════════════════════════════════════ */
         async function bootApp() {
-            showToast('⏳ Loading data...');
+            showToast('\u23F3 Loading data...');
             const apList = document.getElementById('adminProjectList');
             if (apList) apList.innerHTML = getSkeletonLoader();
             const aaList = document.getElementById('adminActivityList');
@@ -206,7 +206,7 @@ export default function Page() {
                 if (Array.isArray(users))      _users      = [SUPER_ADMIN, ...users];
                 if (Array.isArray(projects))   _projects   = projects;
                 if (Array.isArray(activities)) _activities = activities;
-            } catch (e) { showToast('⚠️ Could not reach server'); }
+            } catch (e) { showToast('\u26A0\uFE0F Could not reach server'); }
             renderLoginChips();
             populateSiteDropdown();
 
@@ -247,17 +247,17 @@ export default function Page() {
 
             if (!uname || !pass) {
                 err.style.color = '#e53e3e';
-                err.textContent = '❌ Enter username and password.';
-                showToast('❌ Enter username and password.');
+                err.textContent = '\u274C Enter username and password.';
+                showToast('\u274C Enter username and password.');
                 return;
             }
 
             // Visual feedback: disable button and show loading state
             _loginBusy = true;
             err.style.color = 'var(--primary)';
-            err.textContent = '⏳ Authenticating...';
-            showToast('⏳ Authenticating...');
-            if (btn) { btn.disabled = true; btn.textContent = '⏳ Signing in...'; }
+            err.textContent = '\u23F3 Authenticating...';
+            showToast('\u23F3 Authenticating...');
+            if (btn) { btn.disabled = true; btn.textContent = '\u23F3 Signing in...'; }
 
             let loginSuccess = false;
 
@@ -270,7 +270,7 @@ export default function Page() {
                     _currentUser = SUPER_ADMIN;
                     loginSuccess = true;
                 } else {
-                    const failMsg = (res && res.error) ? `❌ ${res.error}` : '❌ Invalid username or password.';
+                    const failMsg = (res && res.error) ? `\u274C ${res.error}` : '\u274C Invalid username or password.';
                     err.style.color = '#e53e3e';
                     err.textContent = failMsg;
                     showToast(failMsg);
@@ -278,8 +278,8 @@ export default function Page() {
             } catch (e) {
                 console.error('Login Exception:', e);
                 err.style.color = '#e53e3e';
-                err.textContent = '⚠️ Connection error. Try again.';
-                showToast('⚠️ Connection error. Check your internet.');
+                err.textContent = '\u26A0\uFE0F Connection error. Try again.';
+                showToast('\u26A0\uFE0F Connection error. Check your internet.');
             } finally {
                 // FORCEFULLY turn off the loading spinner state under all circumstances
                 _loginBusy = false;
@@ -306,7 +306,7 @@ export default function Page() {
         function showApp() {
             document.getElementById('loginOverlay').style.display = 'none';
             document.getElementById('headerUser').textContent =
-                '👤 ' + _currentUser.username + (_currentUser.role === 'admin' ? ' · Admin' : '');
+                '\uD83D\uDC64 ' + _currentUser.username + (_currentUser.role === 'admin' ? ' · Admin' : '');
             document.getElementById('adminTabBtn').style.display =
                 _currentUser.role === 'admin' ? 'block' : 'none';
             document.getElementById('date').value = new Date().toISOString().split('T')[0];
@@ -433,7 +433,7 @@ export default function Page() {
                     <div style="display:flex; align-items:center; gap:8px;">
                         <span class="row-total-badge" style="font-size:11.5px; font-weight:700; color:var(--text); background:var(--primary-light); padding:3px 8px; border-radius:4px;">Total: <b class="row-total-val">0</b></span>
                         <button class="delete-btn" onclick="removeActivityRow('${rowId}')"
-                                style="width:auto;padding:4px 10px;margin-top:0;font-size:11px;">🗑️ Remove</button>
+                                style="width:auto;padding:4px 10px;margin-top:0;font-size:11px;">\uD83D\uDDD1\uFE0F️ Remove</button>
                     </div>
                 </div>
                 <label>Main Activity</label>
@@ -529,15 +529,15 @@ export default function Page() {
            GENERATE & SAVE
         ═══════════════════════════════════════════════════════════ */
         function generate() {
-            if (!_currentUser) { showToast('⚠️ Please sign in first'); return; }
+            if (!_currentUser) { showToast('\u26A0\uFE0F Please sign in first'); return; }
             const dateVal = document.getElementById('date').value;
             const siteVal = document.getElementById('site').value;
-            if (!dateVal) { showToast('⚠️ Select a date'); return; }
-            if (!siteVal) { showToast('⚠️ Select a site'); return; }
+            if (!dateVal) { showToast('\u26A0\uFE0F Select a date'); return; }
+            if (!siteVal) { showToast('\u26A0\uFE0F Select a site'); return; }
 
             const activities = collectActivityRows();
             if (!activities.some(a => a.skilled > 0 || a.unskilled > 0))
-                { showToast('⚠️ Enter at least one activity with workers'); return; }
+                { showToast('\u26A0\uFE0F Enter at least one activity with workers'); return; }
 
             const total    = activities.reduce((s, a) => s + a.skilled + a.unskilled, 0);
             const existing = _history.find(h => toYMD(h.date) === dateVal && String(h.site).trim() === siteVal.trim());
@@ -561,16 +561,16 @@ export default function Page() {
             const sectionHtml = renderSection('Civil Work', civilActs) + renderSection('Interior Work', interiorActs);
 
             document.getElementById('rdate').innerHTML =
-                `<b>📅 Date :</b> ${formatDate(dateVal)}<br>
-                 <b>📍 Site :</b> ${getSiteDisplayName(siteVal)}<br>
-                 <b>👤 Filled by :</b> ${prepBy}${editedBy ? ` (Edited by: ${editedBy})` : ''}`;
+                `<b>\uD83D\uDCC5 Date :</b> ${formatDate(dateVal)}<br>
+                 <b>\uD83D\uDCCD Site :</b> ${getSiteDisplayName(siteVal)}<br>
+                 <b>\uD83D\uDC64 Filled by :</b> ${prepBy}${editedBy ? ` (Edited by: ${editedBy})` : ''}`;
             document.getElementById('rcivil').innerHTML    = sectionHtml;
-            document.getElementById('rmanpower').innerHTML = `<div class="report-total">👷 Total Manpower : ${total}</div>`;
+            document.getElementById('rmanpower').innerHTML = `<div class="report-total">\uD83D\uDC77 Total Manpower : ${total}</div>`;
             document.getElementById('report').style.display = 'block';
             document.getElementById('report').scrollIntoView({ behavior: 'smooth' });
 
             saveToCloud(dateVal, siteVal, total, activities, prepBy, editedBy);
-            showToast('✅ DPR Generated!');
+            showToast('\u2705 DPR Generated!');
         }
 
         function renderSection(title, acts) {
@@ -581,7 +581,7 @@ export default function Page() {
                 if (!grouped[mainName]) grouped[mainName] = [];
                 grouped[mainName].push(a);
             });
-            return `<div class="report-section-title">🔨 ${title}</div>` +
+            return `<div class="report-section-title">\uD83D\uDD28 ${title}</div>` +
                 Object.entries(grouped).map(([main, rows]) => {
                     const innerRowsHtml = rows.map((r, rIdx) => {
                         let childName = (r.sub_activity || r.activity || '').trim();
@@ -608,14 +608,14 @@ export default function Page() {
                             <div style="font-size: 12px; color: #475569; margin-top: 4px;">
                                 Skilled: <b>${r.skilled}</b> &nbsp;·&nbsp; Unskilled: <b>${r.unskilled}</b> &nbsp;·&nbsp; Total: <b>${totalVal}</b>
                             </div>
-                            ${r.note ? `<div style="color: #475569; font-size: 11.5px; margin-top: 6px; font-style: italic; background: #f8fafc; padding: 6px 8px; border-radius: 4px; border-left: 2.5px solid #cbd5e1;">📌 ${r.note}</div>` : ''}
+                            ${r.note ? `<div style="color: #475569; font-size: 11.5px; margin-top: 6px; font-style: italic; background: #f8fafc; padding: 6px 8px; border-radius: 4px; border-left: 2.5px solid #cbd5e1;">\uD83D\uDCCC ${r.note}</div>` : ''}
                         </div>`;
                     }).join('');
 
                     return `
                     <div class="report-activity" style="margin-bottom: 14px; padding: 16px; border-left: 5px solid var(--primary); background: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
                         <div style="font-weight: 600; font-size: 14.5px; color: #1e293b; margin-bottom: 12px; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 6px; letter-spacing: 0.2px;">
-                            📦 ${toTitleCase(main)}
+                            \uD83D\uDCE6 ${toTitleCase(main)}
                         </div>
                         <div style="display: flex; flex-direction: column;">
                             ${innerRowsHtml}
@@ -640,13 +640,13 @@ export default function Page() {
                 const q = JSON.parse(localStorage.getItem('dprOfflineQ') || '[]');
                 q.push(payload);
                 localStorage.setItem('dprOfflineQ', JSON.stringify(q));
-                showToast('💾 Offline — will sync on reconnect');
+                showToast('\uD83D\uDCBE Offline — will sync on reconnect');
                 return;
             }
             showToast('☁️ Saving to cloud...');
             apiPost(payload)
                 .then(() => {
-                    showToast(isEdit ? '✅ DPR Updated!' : '✅ Saved!');
+                    showToast(isEdit ? '\u2705 DPR Updated!' : '\u2705 Saved!');
                     _editingKey = null;
                     localStorage.removeItem('dpr_form_draft');
                     document.getElementById('date').value = new Date().toISOString().split('T')[0];
@@ -654,16 +654,16 @@ export default function Page() {
                     resetForm();
                     loadHistory();
                 })
-                .catch(() => showToast('⚠️ Save failed — check connection'));
+                .catch(() => showToast('\u26A0\uFE0F Save failed \u2014 check connection'));
         }
 
         function syncOfflineQueue() {
             const q = JSON.parse(localStorage.getItem('dprOfflineQ') || '[]');
-            if (!q.length) { showToast('✅ Nothing to sync'); return; }
-            showToast(`🔄 Syncing ${q.length} queued DPR(s)...`);
+            if (!q.length) { showToast('\u2705 Nothing to sync'); return; }
+            showToast(`\uD83D\uDD04 Syncing ${q.length} queued DPR(s)...`);
             Promise.all(q.map(p => apiPost(p)))
-                .then(() => { localStorage.removeItem('dprOfflineQ'); showToast('✅ All synced!'); loadHistory(); })
-                .catch(() => showToast('⚠️ Sync failed'));
+                .then(() => { localStorage.removeItem('dprOfflineQ'); showToast('\u2705 All synced!'); loadHistory(); })
+                .catch(() => showToast('\u26A0\uFE0F Sync failed'));
         }
 
         /* ═══════════════════════════════════════════════════════════
@@ -682,13 +682,13 @@ export default function Page() {
                     renderDashboard();
                 })
                 .catch(() => {
-                    if (el) el.innerHTML = '<p style="color:#e57373;text-align:center;padding:10px;">⚠️ Failed to load records.</p>';
+                    if (el) el.innerHTML = '<p style="color:#e57373;text-align:center;padding:10px;">\u26A0\uFE0F Failed to load records.</p>';
                 });
         }
 
         function updateHistoryCount() {
             const el = document.getElementById('historyCount');
-            if (el) el.textContent = `📊 ${_history.length} total record${_history.length !== 1 ? 's' : ''} loaded`;
+            if (el) el.textContent = `\uD83D\uDCCA ${_history.length} total record${_history.length !== 1 ? 's' : ''} loaded`;
         }
 
         function toggleHistoryDropdown(event, idx) {
@@ -725,7 +725,7 @@ export default function Page() {
                     grouped[mainName].push(a);
                 });
 
-                return `<div class="report-section-title">🔨 ${title}</div>` +
+                return `<div class="report-section-title">\uD83D\uDD28 ${title}</div>` +
                     Object.entries(grouped).map(([main, rows]) => {
                         const innerRowsHtml = rows.map((r, rIdx) => {
                             let childName = (r.activity || r.sub_activity || '').trim();
@@ -754,14 +754,14 @@ export default function Page() {
                                 <div style="font-size: 12px; color: #475569; margin-top: 4px;">
                                     Skilled: <b>${sk}</b> &nbsp;·&nbsp; Unskilled: <b>${un}</b> &nbsp;·&nbsp; Total: <b>${totalVal}</b>
                                 </div>
-                                ${r.note ? `<div style="color: #475569; font-size: 11.5px; margin-top: 6px; font-style: italic; background: #f8fafc; padding: 6px 8px; border-radius: 4px; border-left: 2.5px solid #cbd5e1;">📌 ${r.note}</div>` : ''}
+                                ${r.note ? `<div style="color: #475569; font-size: 11.5px; margin-top: 6px; font-style: italic; background: #f8fafc; padding: 6px 8px; border-radius: 4px; border-left: 2.5px solid #cbd5e1;">\uD83D\uDCCC ${r.note}</div>` : ''}
                             </div>`;
                         }).join('');
 
                         return `
                         <div class="report-activity" style="margin-bottom: 14px; padding: 16px; border-left: 5px solid var(--primary); background: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
                             <div style="font-weight: 600; font-size: 14.5px; color: #1e293b; margin-bottom: 12px; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 6px; letter-spacing: 0.2px;">
-                                📦 ${toTitleCase(main)}
+                                \uD83D\uDCE6 ${toTitleCase(main)}
                             </div>
                             <div style="display: flex; flex-direction: column;">
                                 ${innerRowsHtml}
@@ -815,13 +815,13 @@ export default function Page() {
             return `
                 <h3>DPR &mdash; MAN POWER REPORT</h3>
                 <div class="report-meta">
-                    <b>📅 Date :</b> ${formatDate(d) || '—'}<br>
-                    <b>📍 Site :</b> ${getSiteDisplayName(item.site)}<br>
-                    <b>👤 Filled by :</b> ${byLine}<br>
-                    <b>👷 Total :</b> ${item.total || 0} workers
+                    <b>\uD83D\uDCC5 Date :</b> ${formatDate(d) || '—'}<br>
+                    <b>\uD83D\uDCCD Site :</b> ${getSiteDisplayName(item.site)}<br>
+                    <b>\uD83D\uDC64 Filled by :</b> ${byLine}<br>
+                    <b>\uD83D\uDC77 Total :</b> ${item.total || 0} workers
                 </div>
                 <div>${bodyHtml}</div>
-                <div class="report-total" style="margin-top:14px;">👷 Total Manpower : ${item.total || 0}</div>
+                <div class="report-total" style="margin-top:14px;">\uD83D\uDC77 Total Manpower : ${item.total || 0}</div>
             `;
         }
 
@@ -872,7 +872,7 @@ export default function Page() {
             const cleanDate = toYMD(item.date);
             const baseName = `DPR_History_${cleanSite}_${cleanDate}`;
 
-            showToast(`⏳ Generating ${type === 'pdf' ? 'PDF' : 'Image'}...`);
+            showToast(`\u23F3 Generating ${type === 'pdf' ? 'PDF' : 'Image'}...`);
 
             // Use 150ms timeout to guarantee dynamic mounting has fully laid out child elements
             setTimeout(() => {
@@ -899,7 +899,7 @@ export default function Page() {
 
                     const dataUrl = c.toDataURL('image/jpeg', 0.95);
                     if (!dataUrl || dataUrl === 'data:,' || dataUrl.length < 100) {
-                        showToast('⚠️ Generated image was empty. Try again.');
+                        showToast('\u26A0\uFE0F Generated image was empty. Try again.');
                         return;
                     }
 
@@ -915,19 +915,19 @@ export default function Page() {
 
                         pdf.addImage(dataUrl, 'JPEG', 0, 0, imgWidth, imgHeight);
                         pdf.save(`${baseName}.pdf`);
-                        showToast('📄 PDF Downloaded!');
+                        showToast('\uD83D\uDCC4 PDF Downloaded!');
                     } else {
                         const a = document.createElement('a');
                         a.download = `${baseName}.jpg`;
                         a.href = dataUrl;
                         a.click();
-                        showToast('📷 Image Downloaded!');
+                        showToast('\uD83D\uDCF7 Image Downloaded!');
                     }
                 }).catch(err => {
                     if (document.getElementById('report-temp-capture')) {
                         document.body.removeChild(tempContainer);
                     }
-                    showToast(`⚠️ ${type === 'pdf' ? 'PDF' : 'Image'} generation failed`);
+                    showToast(`\u26A0\uFE0F ${type === 'pdf' ? 'PDF' : 'Image'} generation failed`);
                 });
             }, 150);
         }
@@ -1010,7 +1010,7 @@ export default function Page() {
         }
 
         function exportMasterLogCSV() {
-            if (!_history.length) { showToast('⚠️ No history records to export'); return; }
+            if (!_history.length) { showToast('\u26A0\uFE0F No history records to export'); return; }
             const headers = [
                 'Date', 'Site', 'Supervisor (Created By)', 'Last Edited By', 'Submitted At',
                 'Total DPR Manpower', 'Activity Category (Main)', 'Sub-Activity', 'Section',
@@ -1072,7 +1072,7 @@ export default function Page() {
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
-            showToast('✅ CSV Exported!');
+            showToast('\u2705 CSV Exported!');
         }
 
         function populateSupervisorDropdown() {
@@ -1225,17 +1225,17 @@ export default function Page() {
                 const granted  = item.editPermission === 'granted';
                 const pending  = item.editPermission === 'pending';
 
-                let editActionLabel = '✏️ Edit';
+                let editActionLabel = '\u270F\uFE0F Edit';
                 let editActionOnClick = `editDPR(${realIdx})`;
                 if (!isAdmin && isOwn && !within15 && !granted && !pending) {
-                    editActionLabel = '🔑 Request Edit';
+                    editActionLabel = '\uD83D\uDD11 Request Edit';
                     editActionOnClick = `requestEditDPR(${realIdx})`;
                 } else if (!isAdmin && isOwn && pending) {
-                    editActionLabel = '⏳ Edit Pending';
-                    editActionOnClick = `showToast("⏳ Edit request is pending Admin approval")`;
+                    editActionLabel = '\u23F3 Edit Pending';
+                    editActionOnClick = `showToast("\u23F3 Edit request is pending Admin approval")`;
                 } else if (!isAdmin && !isOwn) {
-                    editActionLabel = '✏️ Edit (Disabled)';
-                    editActionOnClick = `showToast("❌ You can only edit your own DPRs")`;
+                    editActionLabel = '\u270F\uFE0F Edit (Disabled)';
+                    editActionOnClick = `showToast("\u274C You can only edit your own DPRs")`;
                 }
 
                 const civilArr    = Array.isArray(item.civilActivities)    ? item.civilActivities    : [];
@@ -1280,9 +1280,9 @@ export default function Page() {
                 <button class="history-options-btn" onclick="toggleHistoryDropdown(event, ${realIdx})">&#8942;</button>
                 <div class="history-dropdown" id="dropdown_${realIdx}">
                     <button class="history-dropdown-item" onclick="closeAllHistoryDropdowns(); ${editActionOnClick}">${editActionLabel}</button>
-                    <button class="history-dropdown-item delete-item" onclick="closeAllHistoryDropdowns(); deleteDPR(${realIdx})">❌ Delete</button>
-                    <button class="history-dropdown-item" onclick="closeAllHistoryDropdowns(); downloadHistoryDPR(${realIdx}, 'image')">📸 Download Image</button>
-                    <button class="history-dropdown-item" onclick="closeAllHistoryDropdowns(); downloadHistoryDPR(${realIdx}, 'pdf')">📄 Download PDF</button>
+                    <button class="history-dropdown-item delete-item" onclick="closeAllHistoryDropdowns(); deleteDPR(${realIdx})">&#10060; Delete</button>
+                    <button class="history-dropdown-item" onclick="closeAllHistoryDropdowns(); downloadHistoryDPR(${realIdx}, 'image')">\uD83D\uDCF8 Download Image</button>
+                    <button class="history-dropdown-item" onclick="closeAllHistoryDropdowns(); downloadHistoryDPR(${realIdx}, 'pdf')">\uD83D\uDCC4 Download PDF</button>
                 </div>
                 `;
 
@@ -1290,15 +1290,15 @@ export default function Page() {
                 <div class="history-item">
                     ${dropdownHtml}
                     <div style="font-size:14px;font-weight:700;padding-right:30px;">
-                        📅 ${formatDate(d) || '—'}
+                        \uD83D\uDCC5 ${formatDate(d) || '—'}
                         <span style="font-size:12px;font-weight:400;color:var(--muted);margin-left:6px;">${byLine}</span>
                     </div>
                     <div style="font-size:12px;color:var(--muted);margin-top:3px;padding-right:30px;">
-                        📍 ${getSiteDisplayName(item.site) || '—'} &nbsp;·&nbsp; 👷 <b>${item.total || 0}</b> workers
-                        ${actHint ? `&nbsp;·&nbsp; 📋 ${actHint}` : ''}
+                        \uD83D\uDCCD ${getSiteDisplayName(item.site) || '—'} &nbsp;·&nbsp; \uD83D\uDC77 <b>${item.total || 0}</b> workers
+                        ${actHint ? `&nbsp;·&nbsp; \uD83D\uDCCB ${actHint}` : ''}
                     </div>
                     <div class="hbtn-group">
-                        <button class="btn-blue btn-sm" onclick="openDPR(${realIdx})" style="width:auto;padding:6px 10px;">📂 View</button>
+                        <button class="btn-blue btn-sm" onclick="openDPR(${realIdx})" style="width:auto;padding:6px 10px;">\uD83D\uDCC2 View</button>
                     </div>
                 </div>`;
             }).join('');
@@ -1337,7 +1337,7 @@ export default function Page() {
                     grouped[mainName].push(a);
                 });
 
-                return `<div class="report-section-title">🔨 ${title}</div>` +
+                return `<div class="report-section-title">\uD83D\uDD28 ${title}</div>` +
                     Object.entries(grouped).map(([main, rows]) => {
                         const innerRowsHtml = rows.map((r, rIdx) => {
                             let childName = (r.activity || '').trim();
@@ -1366,14 +1366,14 @@ export default function Page() {
                                 <div style="font-size: 12px; color: #475569; margin-top: 4px;">
                                     Skilled: <b>${sk}</b> &nbsp;·&nbsp; Unskilled: <b>${un}</b> &nbsp;·&nbsp; Total: <b>${totalVal}</b>
                                 </div>
-                                ${r.note ? `<div style="color: #475569; font-size: 11.5px; margin-top: 6px; font-style: italic; background: #f8fafc; padding: 6px 8px; border-radius: 4px; border-left: 2.5px solid #cbd5e1;">📌 ${r.note}</div>` : ''}
+                                ${r.note ? `<div style="color: #475569; font-size: 11.5px; margin-top: 6px; font-style: italic; background: #f8fafc; padding: 6px 8px; border-radius: 4px; border-left: 2.5px solid #cbd5e1;">\uD83D\uDCCC ${r.note}</div>` : ''}
                             </div>`;
                         }).join('');
 
                         return `
                         <div class="report-activity" style="margin-bottom: 14px; padding: 16px; border-left: 5px solid var(--primary); background: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
                             <div style="font-weight: 600; font-size: 14.5px; color: #1e293b; margin-bottom: 12px; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 6px; letter-spacing: 0.2px;">
-                                📦 ${toTitleCase(main)}
+                                \uD83D\uDCE6 ${toTitleCase(main)}
                             </div>
                             <div style="display: flex; flex-direction: column;">
                                 ${innerRowsHtml}
@@ -1426,13 +1426,13 @@ export default function Page() {
 
             document.getElementById('dprModalBody').innerHTML = `
                 <div class="report-meta">
-                    <b>📅 Date :</b> ${formatDate(d) || '—'}<br>
-                    <b>📍 Site :</b> ${getSiteDisplayName(item.site)}<br>
-                    <b>👤 Filled by :</b> ${byLine}<br>
-                    <b>👷 Total :</b> ${item.total || 0} workers
+                    <b>\uD83D\uDCC5 Date :</b> ${formatDate(d) || '—'}<br>
+                    <b>\uD83D\uDCCD Site :</b> ${getSiteDisplayName(item.site)}<br>
+                    <b>\uD83D\uDC64 Filled by :</b> ${byLine}<br>
+                    <b>\uD83D\uDC77 Total :</b> ${item.total || 0} workers
                 </div>
                 ${bodyHtml}
-                <div class="report-total" style="margin-top:14px;">👷 Total Manpower : ${item.total || 0}</div>`;
+                <div class="report-total" style="margin-top:14px;">\uD83D\uDC77 Total Manpower : ${item.total || 0}</div>`;
             document.getElementById('dprModal').classList.add('open');
         }
 
@@ -1441,13 +1441,13 @@ export default function Page() {
         }
 
         function deleteDPR(i) {
-            if (!_currentUser || _currentUser.role !== 'admin') { showToast('❌ Only Admin can delete'); return; }
+            if (!_currentUser || _currentUser.role !== 'admin') { showToast('\u274C Only Admin can delete'); return; }
             if (!confirm('Delete this DPR record permanently?')) return;
             const item = _history[i];
             const key  = toYMD(item.date) + '||' + String(item.site).trim();
             apiPost({ action: 'delete', id: key })
-                .then(() => { showToast('🗑️ Deleted!'); loadHistory(); })
-                .catch(() => showToast('⚠️ Delete failed'));
+                .then(() => { showToast('\uD83D\uDDD1\uFE0F️ Deleted!'); loadHistory(); })
+                .catch(() => showToast('\u26A0\uFE0F Delete failed'));
         }
 
         /* ═══════════════════════════════════════════════════════════
@@ -1461,8 +1461,8 @@ export default function Page() {
             const sub      = Number(item.submittedAt) || (item.submittedAt ? new Date(item.submittedAt).getTime() : 0);
             const within15 = sub && (Date.now() - sub) < 15 * 60 * 1000;
             const granted  = item.editPermission === 'granted';
-            if (!isAdmin && !isOwn)               { showToast('❌ You can only edit your own DPRs'); return; }
-            if (!isAdmin && !within15 && !granted) { showToast('🔒 Edit window expired. Request Edit first.'); return; }
+            if (!isAdmin && !isOwn)               { showToast('\u274C You can only edit your own DPRs'); return; }
+            if (!isAdmin && !within15 && !granted) { showToast('\uD83D\uDD12 Edit window expired. Request Edit first.'); return; }
 
             _editingKey = toYMD(item.date) + '||' + String(item.site).trim();
 
@@ -1501,29 +1501,29 @@ export default function Page() {
 
             closeDPRModal();
             switchTab('Form', document.getElementById('tabBtnForm'));
-            showToast('✏️ Loaded for editing — click Generate DPR when done');
+            showToast('\u270F\uFE0F Loaded for editing — click Generate DPR when done');
         }
 
         async function requestEditDPR(i) {
             const item = _history[i];
             if (!item || !_currentUser) return;
             if (!confirm('Request edit permission from Admin for this DPR?')) return;
-            showToast('📤 Sending request...');
+            showToast('\uD83D\uDCE4 Sending request...');
             try {
                 await apiPost({ action: 'requestEditDPR', key: toYMD(item.date) + '||' + String(item.site).trim(), requestedBy: _currentUser.username });
-                showToast('✅ Request sent!');
+                showToast('\u2705 Request sent!');
                 loadHistory();
-            } catch (e) { showToast('⚠️ Request failed'); }
+            } catch (e) { showToast('\u26A0\uFE0F Request failed'); }
         }
 
         async function approveEditDPR(key) {
             if (!confirm('Approve edit access for this DPR?')) return;
-            showToast('⏳ Approving...');
+            showToast('\u23F3 Approving...');
             try {
                 await apiPost({ action: 'approveEditDPR', key });
-                showToast('✅ Edit access granted!');
+                showToast('\u2705 Edit access granted!');
                 loadHistory();
-            } catch (e) { showToast('⚠️ Approval failed'); }
+            } catch (e) { showToast('\u26A0\uFE0F Approval failed'); }
         }
 
         function renderPendingEditRequests() {
@@ -1531,17 +1531,17 @@ export default function Page() {
             if (!el) return;
             const pending = _history.filter(item => item.editPermission === 'pending');
             if (!pending.length) {
-                el.innerHTML = '<p style="color:var(--muted);font-size:13px;text-align:center;padding:10px;">✅ No pending requests.</p>';
+                el.innerHTML = '<p style="color:var(--muted);font-size:13px;text-align:center;padding:10px;">&#9989; No pending requests.</p>';
                 return;
             }
             el.innerHTML = pending.map(item => {
                 const key = toYMD(item.date) + '||' + String(item.site).trim();
                 return `<div class="admin-user-row">
                     <div>
-                        <div class="admin-user-info">📅 ${formatDate(toYMD(item.date))} &nbsp;·&nbsp; 📍 ${item.site || '—'}</div>
+                        <div class="admin-user-info">\uD83D\uDCC5 ${formatDate(toYMD(item.date))} &nbsp;·&nbsp; \uD83D\uDCCD ${item.site || '—'}</div>
                         <div class="admin-user-sub">Requested by: <b>${item.requestedBy || '—'}</b></div>
                     </div>
-                    <button class="btn-green btn-sm" style="width:auto;padding:6px 14px;" onclick="approveEditDPR('${key}')">✅ Approve</button>
+                    <button class="btn-green btn-sm" style="width:auto;padding:6px 14px;" onclick="approveEditDPR('${key}')">&#9989; Approve</button>
                 </div>`;
             }).join('');
         }
@@ -1563,20 +1563,20 @@ export default function Page() {
             const displayName = document.getElementById('newDisplayName').value.trim();
             const password    = document.getElementById('newPassword').value.trim();
             const role        = document.getElementById('newRole').value;
-            if (!username || !password) { showToast('⚠️ Username and password required'); return; }
-            if (_users.find(u => u.username.toLowerCase() === username.toLowerCase())) { showToast('⚠️ Username already exists'); return; }
-            showToast('⏳ Creating user...');
+            if (!username || !password) { showToast('\u26A0\uFE0F Username and password required'); return; }
+            if (_users.find(u => u.username.toLowerCase() === username.toLowerCase())) { showToast('\u26A0\uFE0F Username already exists'); return; }
+            showToast('\u23F3 Creating user...');
             try {
                 const res = await apiPost({ action: 'createUser', username, displayName: displayName || username, password, role });
-                if (res && res.error) { showToast('❌ ' + res.error); return; }
+                if (res && res.error) { showToast('\u274C ' + res.error); return; }
                 // Refresh user list from server to pick up the new row
                 const d = await apiFetch('getUsers').catch(() => []);
                 if (Array.isArray(d)) _users = [SUPER_ADMIN, ...d];
                 renderLoginChips(); renderAdminUsers();
                 ['newUsername','newDisplayName','newPassword'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
-                showToast('✅ User created successfully!');
+                showToast('\u2705 User created successfully!');
             } catch (e) {
-                showToast('❌ Network error: ' + e.message);
+                showToast('\u274C Network error: ' + e.message);
             }
         }
 
@@ -1587,14 +1587,14 @@ export default function Page() {
             const d = await apiFetch('getUsers').catch(() => []);
             if (Array.isArray(d)) _users = [SUPER_ADMIN, ...d];
             renderLoginChips(); renderAdminUsers();
-            showToast('✅ User deleted!');
+            showToast('\u2705 User deleted!');
         }
 
         async function resetPassword(username) {
             const p = prompt(`New password for "${username}":`);
             if (!p || !p.trim()) return;
             await apiPost({ action: 'resetPassword', username, password: p.trim() });
-            showToast('✅ Password updated!');
+            showToast('\u2705 Password updated!');
         }
 
         function renderAdminUsers() {
@@ -1633,18 +1633,18 @@ export default function Page() {
                 }
                 
                 const statusBadge = isInactive 
-                    ? `<span style="background:#fee2e2;color:#ef4444;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;margin-left:6px;display:inline-block;">⚠️ Inactive</span>`
-                    : `<span style="background:#dcfce7;color:#10b981;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;margin-left:6px;display:inline-block;">🟢 Active</span>`;
+                    ? `<span style="background:#fee2e2;color:#ef4444;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;margin-left:6px;display:inline-block;">\u26A0\uFE0F Inactive</span>`
+                    : `<span style="background:#dcfce7;color:#10b981;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;margin-left:6px;display:inline-block;">\uD83D\uDFE2 Active</span>`;
 
                 return `<div class="admin-user-row" style="flex-direction:column;align-items:stretch;gap:4px;padding:12px;">
                     <div style="display:flex;justify-content:space-between;align-items:center;">
                         <div>
-                            <span class="admin-user-info" style="font-size:14px;">👤 ${u.username}</span>
+                            <span class="admin-user-info" style="font-size:14px;">\uD83D\uDC64 ${u.username}</span>
                             ${statusBadge}
                         </div>
                         <div style="display:flex;gap:6px;">
-                            ${!sup ? `<button class="btn-gray btn-sm" style="width:auto;padding:4px 8px;margin:0;" onclick="resetPassword('${u.username}')" title="Reset Password">🔑</button>` : ''}
-                            ${!sup ? `<button class="btn-red btn-sm"  style="width:auto;padding:4px 8px;margin:0;" onclick="deleteUser('${u.username}')" title="Delete User">🗑️</button>`
+                            ${!sup ? `<button class="btn-gray btn-sm" style="width:auto;padding:4px 8px;margin:0;" onclick="resetPassword('${u.username}')" title="Reset Password">\uD83D\uDD11</button>` : ''}
+                            ${!sup ? `<button class="btn-red btn-sm"  style="width:auto;padding:4px 8px;margin:0;" onclick="deleteUser('${u.username}')" title="Delete User">\uD83D\uDDD1\uFE0F️</button>`
                                    : `<span style="font-size:11px;color:var(--muted);">Protected</span>`}
                         </div>
                     </div>
@@ -1662,14 +1662,14 @@ export default function Page() {
         async function adminAddProject() {
             const name     = document.getElementById('newProjectName').value.trim();
             const parentId = document.getElementById('newProjectParent').value;
-            if (!name) { showToast('⚠️ Enter a project name'); return; }
-            showToast('⏳ Adding...');
+            if (!name) { showToast('\u26A0\uFE0F Enter a project name'); return; }
+            showToast('\u23F3 Adding...');
             await apiPost({ action: 'addProject', project_name: name, parent_id: parentId || '' });
             const d = await apiFetch('getProjects').catch(() => _projects);
             if (Array.isArray(d)) _projects = d;
             populateSiteDropdown(); renderAdminProjects();
             document.getElementById('newProjectName').value = '';
-            showToast('✅ Project added!');
+            showToast('\u2705 Project added!');
         }
 
         async function toggleProject(id, curStatus) {
@@ -1678,7 +1678,7 @@ export default function Page() {
             const d = await apiFetch('getProjects').catch(() => _projects);
             if (Array.isArray(d)) _projects = d;
             populateSiteDropdown(); renderAdminProjects();
-            showToast(`✅ ${ns === 'active' ? 'Activated' : 'Deactivated'}!`);
+            showToast(`\u2705 ${ns === 'active' ? 'Activated' : 'Deactivated'}!`);
         }
 
         async function editProjectName(id, cur) {
@@ -1688,25 +1688,25 @@ export default function Page() {
             const d = await apiFetch('getProjects').catch(() => _projects);
             if (Array.isArray(d)) _projects = d;
             populateSiteDropdown(); renderAdminProjects();
-            showToast('✅ Project renamed!');
+            showToast('\u2705 Project renamed!');
         }
 
         async function deleteProject(id, name) {
             if (!confirm(`Are you sure you want to delete "${name}"?\nThis will permanently delete this project and all its sub-projects from the Google Sheet.`)) return;
-            showToast('⏳ Deleting...');
+            showToast('\u23F3 Deleting...');
             try {
                 const res = await apiPost({ action: 'deleteProject', id });
                 if (res.error) {
-                    showToast('⚠️ Error: ' + res.error);
+                    showToast('\u26A0\uFE0F Error: ' + res.error);
                 } else {
-                    showToast(`✅ Deleted project and child dependencies!`);
+                    showToast(`\u2705 Deleted project and child dependencies!`);
                     const d = await apiFetch('getProjects').catch(() => _projects);
                     if (Array.isArray(d)) _projects = d;
                     populateSiteDropdown();
                     renderAdminProjects();
                 }
             } catch (e) {
-                showToast('⚠️ Delete failed');
+                showToast('\u26A0\uFE0F Delete failed');
             }
         }
 
@@ -1728,18 +1728,18 @@ export default function Page() {
                 <div draggable="true" data-id="${proj.id}" ondragstart="dragStart(event)" ondragover="dragOver(event)" ondrop="dropProject(event)" style="margin-bottom:12px;border:1.5px solid var(--border);border-radius:8px;overflow:hidden;cursor:move;">
                     <div style="background:#f8fafc;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:8px;">
                         <div>
-                            <span style="font-weight:700;font-size:14px;color:var(--primary);">📍 ${proj.project_name}</span>
-                            <span style="font-size:11px;margin-left:8px;color:${act ? '#38a169' : '#e53e3e'};">${act ? '🟢' : '🔴'}</span>
+                            <span style="font-weight:700;font-size:14px;color:var(--primary);">\uD83D\uDCCD ${proj.project_name}</span>
+                            <span style="font-size:11px;margin-left:8px;color:${act ? '#38a169' : '#e53e3e'};">${act ? '\uD83D\uDFE2' : '\uD83D\uDD34'}</span>
                         </div>
                         <div style="display:flex;gap:6px;">
                             <button class="btn-blue btn-sm" style="width:auto;padding:4px 8px;font-size:11px;"
-                                    onclick="editProjectName('${proj.id}','${esc(proj.project_name)}')">✏️</button>
+                                    onclick="editProjectName('${proj.id}','${esc(proj.project_name)}')">\u270F\uFE0F</button>
                             <button class="btn-red btn-sm" style="width:auto;padding:4px 8px;font-size:11px;background:#e53e3e;border-color:#e53e3e;"
-                                    onclick="deleteProject('${proj.id}','${esc(proj.project_name)}')">ðŸ—‘ï¸</button>
+                                    onclick="deleteProject('${proj.id}','${esc(proj.project_name)}')">&#128465;&#65039;</button>
                             <button class="${act ? 'btn-red' : 'btn-green'} btn-sm"
                                     style="width:auto;padding:4px 10px;font-size:11px;"
                                     onclick="toggleProject('${proj.id}','${proj.status}')">
-                                ${act ? '🔴 Off' : '🟢 On'}
+                                ${act ? '\uD83D\uDD34 Off' : '\uD83D\uDFE2 On'}
                             </button>
                         </div>
                     </div>
@@ -1750,13 +1750,13 @@ export default function Page() {
                                 <span style="font-size:13px;${s.status !== 'active' ? 'color:var(--muted);text-decoration:line-through;' : ''}">↳ ${s.project_name}</span>
                                 <div style="display:flex;gap:5px;">
                                     <button class="btn-blue btn-sm" style="width:auto;padding:2px 7px;font-size:11px;"
-                                            onclick="editProjectName('${s.id}','${esc(s.project_name)}')">✏️</button>
+                                            onclick="editProjectName('${s.id}','${esc(s.project_name)}')">\u270F\uFE0F</button>
                                     <button class="btn-red btn-sm" style="width:auto;padding:2px 7px;font-size:11px;background:#e53e3e;border-color:#e53e3e;"
-                                            onclick="deleteProject('${s.id}','${esc(s.project_name)}')">ðŸ—‘ï¸</button>
+                                            onclick="deleteProject('${s.id}','${esc(s.project_name)}')">&#128465;&#65039;</button>
                                     <button class="${s.status === 'active' ? 'btn-red' : 'btn-green'} btn-sm"
                                             style="width:auto;padding:2px 8px;font-size:11px;"
                                             onclick="toggleProject('${s.id}','${s.status}')">
-                                        ${s.status === 'active' ? '🔴' : '🟢'}
+                                        ${s.status === 'active' ? '\uD83D\uDD34' : '\uD83D\uDFE2'}
                                     </button>
                                 </div>
                             </div>`).join('')
@@ -1772,7 +1772,7 @@ export default function Page() {
             const d = await apiFetch('getActivities').catch(() => _activities);
             if (Array.isArray(d)) _activities = d;
             renderAdminActivities();
-            showToast(`✅ ${ns === 'active' ? 'Activated' : 'Deactivated'}!`);
+            showToast(`\u2705 ${ns === 'active' ? 'Activated' : 'Deactivated'}!`);
         }
 
         async function editActivityName(id, cur) {
@@ -1782,24 +1782,24 @@ export default function Page() {
             const d = await apiFetch('getActivities').catch(() => _activities);
             if (Array.isArray(d)) _activities = d;
             renderAdminActivities();
-            showToast('✅ Activity renamed!');
+            showToast('\u2705 Activity renamed!');
         }
 
         async function deleteActivity(id, name) {
             if (!confirm(`Are you sure you want to delete "${name}"?\nThis will permanently delete this activity and all its sub-activities from the Google Sheet.`)) return;
-            showToast('⏳ Deleting...');
+            showToast('\u23F3 Deleting...');
             try {
                 const res = await apiPost({ action: 'deleteActivity', id });
                 if (res.error) {
-                    showToast('⚠️ Error: ' + res.error);
+                    showToast('\u26A0\uFE0F Error: ' + res.error);
                 } else {
-                    showToast(`✅ Deleted activity and child dependencies!`);
+                    showToast(`\u2705 Deleted activity and child dependencies!`);
                     const d = await apiFetch('getActivities').catch(() => _activities);
                     if (Array.isArray(d)) _activities = d;
                     renderAdminActivities();
                 }
             } catch (e) {
-                showToast('⚠️ Delete failed');
+                showToast('\u26A0\uFE0F Delete failed');
             }
         }
 
@@ -1830,18 +1830,18 @@ export default function Page() {
                      style="margin-bottom:12px;border:1.5px solid var(--border);border-radius:8px;overflow:hidden;cursor:move;transition:opacity 0.2s ease;">
                     <div style="background:#f8fafc;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:8px;">
                         <div>
-                            <span style="font-weight:700;font-size:14px;color:var(--primary);">🔨 ${main.activity_name}</span>
-                            <span style="font-size:11px;margin-left:8px;color:${act ? '#38a169' : '#e53e3e'};">${act ? '🟢' : '🔴'}</span>
+                            <span style="font-weight:700;font-size:14px;color:var(--primary);">\uD83D\uDD28 ${main.activity_name}</span>
+                            <span style="font-size:11px;margin-left:8px;color:${act ? '#38a169' : '#e53e3e'};">${act ? '\uD83D\uDFE2' : '\uD83D\uDD34'}</span>
                         </div>
                         <div style="display:flex;gap:6px;">
                             <button class="btn-blue btn-sm" style="width:auto;padding:4px 8px;font-size:11px;"
-                                    onclick="editActivityName('${main.id}','${esc(main.activity_name)}')">✏️</button>
+                                    onclick="editActivityName('${main.id}','${esc(main.activity_name)}')">\u270F\uFE0F</button>
                             <button class="btn-red btn-sm" style="width:auto;padding:4px 8px;font-size:11px;background:#e53e3e;border-color:#e53e3e;"
-                                    onclick="deleteActivity('${main.id}','${esc(main.activity_name)}')">🗑️</button>
+                                    onclick="deleteActivity('${main.id}','${esc(main.activity_name)}')">\uD83D\uDDD1\uFE0F️</button>
                             <button class="${act ? 'btn-red' : 'btn-green'} btn-sm"
                                     style="width:auto;padding:4px 10px;font-size:11px;"
                                     onclick="toggleActivity('${main.id}','${main.status}')">
-                                ${act ? '🔴 Off' : '🟢 On'}
+                                ${act ? '\uD83D\uDD34 Off' : '\uD83D\uDFE2 On'}
                             </button>
                         </div>
                     </div>
@@ -1852,13 +1852,13 @@ export default function Page() {
                                 <span style="font-size:13px;${s.status !== 'active' ? 'color:var(--muted);text-decoration:line-through;' : ''}">↳ ${s.activity_name}</span>
                                 <div style="display:flex;gap:5px;">
                                     <button class="btn-blue btn-sm" style="width:auto;padding:2px 7px;font-size:11px;"
-                                            onclick="editActivityName('${s.id}','${esc(s.activity_name)}')">✏️</button>
+                                            onclick="editActivityName('${s.id}','${esc(s.activity_name)}')">\u270F\uFE0F</button>
                                     <button class="btn-red btn-sm" style="width:auto;padding:2px 7px;font-size:11px;background:#e53e3e;border-color:#e53e3e;"
-                                            onclick="deleteActivity('${s.id}','${esc(s.activity_name)}')">🗑️</button>
+                                            onclick="deleteActivity('${s.id}','${esc(s.activity_name)}')">\uD83D\uDDD1\uFE0F️</button>
                                     <button class="${s.status === 'active' ? 'btn-red' : 'btn-green'} btn-sm"
                                             style="width:auto;padding:2px 8px;font-size:11px;"
                                             onclick="toggleActivity('${s.id}','${s.status}')">
-                                        ${s.status === 'active' ? '🔴' : '🟢'}
+                                        ${s.status === 'active' ? '\uD83D\uDD34' : '\uD83D\uDFE2'}
                                     </button>
                                 </div>
                             </div>`).join('')
@@ -2055,15 +2055,15 @@ export default function Page() {
         // ── Data Maintenance ────────────────────────────────────────
         async function runDataCleanup() {
             if (!confirm('This will delete rows with corrupted/shifted column data from DPR_Records and DPR_Detail. Proceed?')) return;
-            showToast('🧹 Running cleanup...');
+            showToast('\uD83E\uDDF9 Running cleanup...');
             try {
                 const res = await apiPost({ action: 'cleanCorrupted' });
                 const r   = res.cleaned || {};
                 const rDel = (r.records || []).length;
                 const dDel = (r.detail  || []).length;
-                showToast(`✅ Cleaned ${rDel} Records + ${dDel} Detail rows`);
+                showToast(`\u2705 Cleaned ${rDel} Records + ${dDel} Detail rows`);
                 loadHistory();
-            } catch (e) { showToast('⚠️ Cleanup failed'); }
+            } catch (e) { showToast('\u26A0\uFE0F Cleanup failed'); }
         }
 
         /* ═══════════════════════════════════════════════════════════
@@ -2221,7 +2221,7 @@ export default function Page() {
                                  onclick="toggleDashboardAccordion('${mainId}')"
                                  onmouseover="this.parentElement.style.borderColor='var(--primary)'"
                                  onmouseout="this.parentElement.style.borderColor='var(--border)'">
-                                <div style="font-size:14px;font-weight:700;flex:0 0 auto;max-width:55%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">📍 ${mainName}</div>
+                                <div style="font-size:14px;font-weight:700;flex:0 0 auto;max-width:55%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">\uD83D\uDCCD ${mainName}</div>
                                 <div class="bar-wrap"><div class="bar-fill" style="width:${Math.round(w / maxW * 100)}%"></div></div>
                                 <div class="site-total" style="font-weight:700;">${w}</div>
                             </div>
@@ -2240,7 +2240,7 @@ export default function Page() {
         ═══════════════════════════════════════════════════════════ */
         function downloadImage() {
             const rep = document.getElementById('report');
-            if (rep.style.display === 'none') { showToast('⚠️ Generate DPR first'); return; }
+            if (rep.style.display === 'none') { showToast('\u26A0\uFE0F Generate DPR first'); return; }
             
             const oldWidth = rep.style.width;
             const oldColor = rep.style.color;
@@ -2258,7 +2258,7 @@ export default function Page() {
                 el.style.breakInside = 'avoid';
             });
             
-            showToast('⏳ Generating Image...');
+            showToast('\u23F3 Generating Image...');
             html2canvas(rep, {
                 scale: 3.5,
                 devicePixelRatio: 3.5,
@@ -2288,19 +2288,19 @@ export default function Page() {
                 a.download = `DPR_${document.getElementById('date').value}.jpg`;
                 a.href = dataUrl;
                 a.click();
-                showToast('📷 Image Downloaded!');
+                showToast('\uD83D\uDCF7 Image Downloaded!');
             }).catch(err => {
                 rep.style.width = oldWidth;
                 rep.style.maxWidth = oldMaxW;
                 rep.style.color = oldColor;
                 rep.style.boxShadow = oldShadow;
-                showToast('⚠️ Image generation failed');
+                showToast('\u26A0\uFE0F Image generation failed');
             });
         }
 
         function downloadPDF() {
             const rep = document.getElementById('report');
-            if (rep.style.display === 'none') { showToast('⚠️ Generate DPR first'); return; }
+            if (rep.style.display === 'none') { showToast('\u26A0\uFE0F Generate DPR first'); return; }
             
             const oldWidth = rep.style.width;
             const oldColor = rep.style.color;
@@ -2318,7 +2318,7 @@ export default function Page() {
                 el.style.breakInside = 'avoid';
             });
             
-            showToast('⏳ Generating PDF...');
+            showToast('\u23F3 Generating PDF...');
             html2canvas(rep, {
                 scale: 3.5,
                 devicePixelRatio: 3.5,
@@ -2355,28 +2355,28 @@ export default function Page() {
                 
                 pdf.addImage(dataUrl, 'JPEG', 0, 0, imgWidth, imgHeight);
                 pdf.save(`DPR_${document.getElementById('date').value}.pdf`);
-                showToast('📄 PDF Downloaded!');
+                showToast('\uD83D\uDCC4 PDF Downloaded!');
             }).catch(err => {
                 rep.style.width = oldWidth;
                 rep.style.maxWidth = oldMaxW;
                 rep.style.color = oldColor;
                 rep.style.boxShadow = oldShadow;
-                showToast('⚠️ PDF generation failed');
+                showToast('\u26A0\uFE0F PDF generation failed');
             });
         }
 
         function copyWhats() {
             const rep = document.getElementById('report');
-            if (rep.style.display === 'none') { showToast('⚠️ Generate DPR first'); return; }
+            if (rep.style.display === 'none') { showToast('\u26A0\uFE0F Generate DPR first'); return; }
             const text = rep.innerText.replace(/\n{3,}/g, '\n\n');
             navigator.clipboard.writeText(text)
-                .then(() => showToast('💬 Copied for WhatsApp!'))
+                .then(() => showToast('\uD83D\uDCAC Copied for WhatsApp!'))
                 .catch(() => {
                     const ta = document.createElement('textarea');
                     ta.value = text; document.body.appendChild(ta);
                     ta.select(); document.execCommand('copy');
                     document.body.removeChild(ta);
-                    showToast('💬 Copied!');
+                    showToast('\uD83D\uDCAC Copied!');
                 });
         }
 
@@ -2561,7 +2561,7 @@ export default function Page() {
       body.classList.toggle('open');
       const icon = el.querySelector('.aci');
       if (icon) {
-        icon.textContent = body.classList.contains('open') ? '▼' : '▶';
+        icon.textContent = body.classList.contains('open') ? '\u25BC' : '\u25B6';
       }
     }
     window.toggleAdminAccordion = toggleAdminAccordion;
@@ -2570,10 +2570,10 @@ export default function Page() {
 
   return (
     <>
-      {/* ── LOGIN ──────────────────────────────────────────────────â”€ */}
+      {/* ── LOGIN ─────────────────────────────────────────────────── */}
       <div id="loginOverlay">
         <div className="login-box">
-          <div className="login-logo">📋 DPR — Man Power Report</div>
+          <div className="login-logo">&#128203; DPR &mdash; Man Power Report</div>
           <div className="login-sub">Trimandir Construction Project</div>
           <label style={{ textAlign: 'left' }}>Username</label>
           <input
@@ -2617,10 +2617,10 @@ export default function Page() {
         </div>
       </div>
 
-      {/* ── HEADER ──────────────────────────────────────────────────â”€ */}
+      {/* ── HEADER ─────────────────────────────────────────────────── */}
       <div className="header-wrap">
         <div>
-          <div className="logo">📋 MAN POWER REPORT</div>
+          <div className="logo">&#128203; MAN POWER REPORT</div>
           <div className="sub">Trimandir Construction Project</div>
         </div>
         <div className="header-right">
@@ -2631,7 +2631,7 @@ export default function Page() {
         </div>
       </div>
 
-      <div id="offlineBadge">âš ï¸ Offline Mode — data will sync on reconnect</div>
+      <div id="offlineBadge">&#9888;&#65039; Offline Mode — data will sync on reconnect</div>
 
       {/* ── TABS ──────────────────────────────────────────────────── */}
       <div className="tab-bar">
@@ -2640,21 +2640,21 @@ export default function Page() {
           id="tabBtnForm"
           onClick={(e) => window.resetAndSwitchToForm(e.currentTarget)}
         >
-          ðŸ“ New DPR
+          &#128221; New DPR
         </button>
         <button
           className="tab-btn"
           id="tabBtnHistory"
           onClick={(e) => window.switchTab('History', e.currentTarget)}
         >
-          ðŸ“ History
+          &#128194; History
         </button>
         <button
           className="tab-btn"
           id="tabBtnDashboard"
           onClick={(e) => window.switchTab('Dashboard', e.currentTarget)}
         >
-          📊 Dashboard
+          &#128202; Dashboard
         </button>
         <button
           className="tab-btn"
@@ -2662,7 +2662,7 @@ export default function Page() {
           onClick={(e) => window.switchTab('Admin', e.currentTarget)}
           style={{ display: 'none' }}
         >
-          ⚙️ Admin
+          &#9881;&#65039; Admin
         </button>
       </div>
 
@@ -2671,7 +2671,7 @@ export default function Page() {
           ═══════════════════════════════════════════════════════════════ */}
       <div className="tab-page active" id="tabForm">
         <div className="card">
-          <div className="section-title">ðŸ“… Date &amp; Site</div>
+          <div className="section-title">&#128197; Date &amp; Site</div>
           <label>Date</label>
           <input type="date" id="date" />
           <label>Site / Project</label>
@@ -2681,7 +2681,7 @@ export default function Page() {
         </div>
 
         <div className="card">
-          <div className="section-title">📋 Work Activities</div>
+          <div className="section-title">&#128203; Work Activities</div>
           <div id="activityRowsContainer"></div>
           <button
             className="btn-add"
@@ -2693,18 +2693,18 @@ export default function Page() {
         </div>
 
         <button className="btn-green" onClick={() => window.generate()}>
-          ✅ Generate DPR
+          &#9989; Generate DPR
         </button>
         <div className="btn-group">
           <button className="btn-blue" onClick={() => window.downloadImage()}>
-            ðŸ“· Download Image
+            &#128247; Download Image
           </button>
           <button className="btn-blue" onClick={() => window.downloadPDF()}>
-            ðŸ“„ Download PDF
+            &#128196; Download PDF
           </button>
         </div>
         <button className="btn-wa" onClick={() => window.copyWhats()}>
-          ðŸ’¬ Copy for WhatsApp
+          &#128172; Copy for WhatsApp
         </button>
 
         <div id="report" style={{ display: 'none' }}>
@@ -2720,7 +2720,7 @@ export default function Page() {
           ═══════════════════════════════════════════════════════════════ */}
       <div className="tab-page" id="tabHistory" style={{ display: 'none' }}>
         <div className="card">
-          <div className="section-title">ðŸ“ DPR History</div>
+          <div className="section-title">&#128194; DPR History</div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
             <div>
@@ -2772,20 +2772,20 @@ export default function Page() {
               onClick={() => window.loadHistory()}
               style={{ flex: 1 }}
             >
-              🔄 Refresh
+              \uD83D\uDD04 Refresh
             </button>
             <button
               className="btn-gray btn-sm"
               onClick={() => window.clearHistoryFilter()}
               style={{ flex: 1 }}
             >
-              ❌ Clear Filter
+              \u274C Clear Filter
             </button>
           </div>
 
           <div id="historyCount" style={{ fontSize: '12px', color: 'var(--muted)', textAlign: 'center', marginBottom: '8px' }}></div>
           <div id="historyList">
-            <p style={{ color: '#aaa', textAlign: 'center', padding: '16px' }}>⏳ Loading...</p>
+            <p style={{ color: '#aaa', textAlign: 'center', padding: '16px' }}>\u23F3 Loading...</p>
           </div>
 
           <div
@@ -2805,7 +2805,7 @@ export default function Page() {
               style={{ width: 'auto', margin: 0 }}
               onClick={() => window.changeHistoryPage(-1)}
             >
-              ◀ Previous
+              &#9664; Previous
             </button>
             <span id="historyPageIndicator" style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--text)' }}>
               Page 1 of 1
@@ -2816,7 +2816,7 @@ export default function Page() {
               style={{ width: 'auto', margin: 0 }}
               onClick={() => window.changeHistoryPage(1)}
             >
-              Next ▶
+              Next &#9654;
             </button>
           </div>
         </div>
@@ -2827,7 +2827,7 @@ export default function Page() {
           ═══════════════════════════════════════════════════════════════ */}
       <div className="tab-page" id="tabDashboard" style={{ display: 'none' }}>
         <div className="card">
-          <div className="section-title">📊 Summary Dashboard</div>
+          <div className="section-title">&#128202; Summary Dashboard</div>
           <div className="period-tabs">
             <button className="period-tab active" onClick={(e) => window.setPeriod('week', e.currentTarget)}>
               This Week
@@ -2858,7 +2858,7 @@ export default function Page() {
             </div>
           </div>
           <div className="section-title" style={{ marginTop: '4px' }}>
-            📍 Site-wise Manpower
+            &#128205; Site-wise Manpower
           </div>
           <div id="siteBreakdown">
             <p style={{ color: '#aaa', fontSize: '13px' }}>Load history first</p>
@@ -2872,7 +2872,7 @@ export default function Page() {
       <div className="tab-page" id="tabAdmin" style={{ display: 'none' }}>
         {/* Analytics Dashboard */}
         <div className="card" style={{ marginBottom: '12px' }}>
-          <div className="section-title">📊 Admin Analytics Dashboard</div>
+          <div className="section-title">&#128202; Admin Analytics Dashboard</div>
           <div
             className="dash-grid"
             style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: '10px', marginBottom: '12px' }}
@@ -2921,16 +2921,16 @@ export default function Page() {
               padding: '10px 14px'
             }}
           >
-            📥 Export Master Log (CSV)
+            &#128317; Export Master Log (CSV)
           </button>
         </div>
 
         {/* Pending edit requests */}
         <div className="card" style={{ marginBottom: '12px' }}>
-          <div className="section-title">✏️ Pending Edit Requests</div>
+          <div className="section-title">&#9999;&#65039; Pending Edit Requests</div>
           <div id="pendingEditRequests">
             <p style={{ color: 'var(--muted)', fontSize: '13px', textAlign: 'center', padding: '10px' }}>
-              ✅ No pending requests.
+              &#9989; No pending requests.
             </p>
           </div>
         </div>
@@ -2941,8 +2941,8 @@ export default function Page() {
             className="admin-acc-header"
             onClick={(e) => window.toggleAdminAccordion(e.currentTarget)}
           >
-            <span>🔗 Data Maintenance</span>
-            <span className="aci admin-acc-icon">▶</span>
+            <span>&#128279; Data Maintenance</span>
+            <span className="aci admin-acc-icon">&#9654;</span>
           </div>
           <div className="admin-acc-body">
             <p style={{ fontSize: '13px', color: 'var(--muted)', marginBottom: '14px' }}>
@@ -2954,7 +2954,7 @@ export default function Page() {
               onClick={() => window.runDataCleanup()}
               style={{ marginBottom: 0 }}
             >
-              🧹 Clean Corrupted Rows
+              &#129529; Clean Corrupted Rows
             </button>
           </div>
         </div>
@@ -2965,8 +2965,8 @@ export default function Page() {
             className="admin-acc-header"
             onClick={(e) => window.toggleAdminAccordion(e.currentTarget)}
           >
-            <span>⚙️ Create / Manage Users</span>
-            <span className="aci admin-acc-icon">▼</span>
+            <span>&#9881;&#65039; Create / Manage Users</span>
+            <span className="aci admin-acc-icon">&#9660;</span>
           </div>
           <div className="admin-acc-body open">
             <div
@@ -2979,7 +2979,7 @@ export default function Page() {
               }}
             >
               <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--primary)', marginBottom: '10px' }}>
-                ➕ Create New User
+                &#10133; Create New User
               </div>
               <label>Username</label>
               <input type="text" id="newUsername" placeholder="e.g. site-manager-01" />
@@ -2993,11 +2993,11 @@ export default function Page() {
                 <option value="admin">Admin — Full access + Management</option>
               </select>
               <button className="btn-green" onClick={() => window.createUser()}>
-                ✅ Create User
+                &#9989; Create User
               </button>
             </div>
             <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--primary)', marginBottom: '4px' }}>
-              👥 All Users
+              &#128101; All Users
             </div>
             <div className="admin-list-scroll" id="adminUserList"></div>
           </div>
@@ -3009,8 +3009,8 @@ export default function Page() {
             className="admin-acc-header"
             onClick={(e) => window.toggleAdminAccordion(e.currentTarget)}
           >
-            <span>📍 Manage Projects &amp; Sub-Projects</span>
-            <span className="aci admin-acc-icon">▶</span>
+            <span>&#128205; Manage Projects &amp; Sub-Projects</span>
+            <span className="aci admin-acc-icon">&#9654;</span>
           </div>
           <div className="admin-acc-body">
             <p style={{ fontSize: '13px', color: 'var(--muted)', marginBottom: '14px' }}>
@@ -3026,7 +3026,7 @@ export default function Page() {
               }}
             >
               <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--primary)', marginBottom: '10px' }}>
-                ➕ Add Project
+                &#10133; Add Project
               </div>
               <label>Parent Project (blank = top-level)</label>
               <select id="newProjectParent">
@@ -3035,11 +3035,11 @@ export default function Page() {
               <label>Project Name</label>
               <input type="text" id="newProjectName" placeholder="e.g. New Hospital Wing" />
               <button className="btn-green" onClick={() => window.adminAddProject()}>
-                ✅ Add Project
+                &#9989; Add Project
               </button>
             </div>
             <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--primary)', marginBottom: '4px' }}>
-              📋 All Projects
+              &#128203; All Projects
             </div>
             <div className="admin-list-scroll" style={{ maxHeight: '360px' }} id="adminProjectList">
               <p style={{ color: 'var(--muted)', fontSize: '13px', textAlign: 'center', padding: '12px' }}>
@@ -3055,8 +3055,8 @@ export default function Page() {
             className="admin-acc-header"
             onClick={(e) => window.toggleAdminAccordion(e.currentTarget)}
           >
-            <span>📋 Manage Activities &amp; Sub-Activities</span>
-            <span className="aci admin-acc-icon">▶</span>
+            <span>&#128203; Manage Activities &amp; Sub-Activities</span>
+            <span className="aci admin-acc-icon">&#9654;</span>
           </div>
           <div className="admin-acc-body">
             <p style={{ fontSize: '13px', color: 'var(--muted)', marginBottom: '14px' }}>
@@ -3073,12 +3073,12 @@ export default function Page() {
               }}
             >
               <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--primary)', marginBottom: '10px' }}>
-                ➕ Add Main Activity
+                &#10133; Add Main Activity
               </div>
               <label>Category Name</label>
               <input type="text" id="newMainActivityName" placeholder="e.g. MEP Work" />
               <button className="btn-green" onClick={() => window.adminAddMainActivity()}>
-                ✅ Add Category
+                &#9989; Add Category
               </button>
             </div>
             <div
@@ -3091,7 +3091,7 @@ export default function Page() {
               }}
             >
               <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--primary)', marginBottom: '10px' }}>
-                ➕ Add Sub-Activity
+                &#10133; Add Sub-Activity
               </div>
               <label>Parent Main Activity</label>
               <select id="subActivityParent">
@@ -3100,11 +3100,11 @@ export default function Page() {
               <label>Sub-Activity Name</label>
               <input type="text" id="newSubActivityName" placeholder="e.g. Panel Wiring" />
               <button className="btn-green" onClick={() => window.adminAddSubActivity()}>
-                ✅ Add Sub-Activity
+                &#9989; Add Sub-Activity
               </button>
             </div>
             <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--primary)', marginBottom: '4px' }}>
-              📊 All Activities
+              &#128202; All Activities
             </div>
             <div className="admin-list-scroll" style={{ maxHeight: '480px' }} id="adminActivityList">
               <p style={{ color: 'var(--muted)', fontSize: '13px', textAlign: 'center', padding: '12px' }}>
@@ -3121,7 +3121,7 @@ export default function Page() {
       <div id="dprModal" onClick={(e) => { if (e.target === e.currentTarget) window.closeDPRModal(); }}>
         <div className="modal-box">
           <div className="modal-header">
-            <h3>📊 DPR — Man Power Report</h3>
+            <h3>&#128202; DPR &mdash; Man Power Report</h3>
             <button className="modal-close" onClick={() => window.closeDPRModal()}>
               ✕
             </button>
