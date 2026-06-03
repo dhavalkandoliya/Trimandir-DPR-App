@@ -4,6 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Site DPR — Man Power Report</title>
+    <!-- Favicon and App Icons Branding Placeholders -->
+    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="icon" href="/icon.png" type="image/png" sizes="192x192">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180">
+    <link rel="manifest" href="/manifest.json">
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Noto+Sans:wght@400;500;600&display=swap" rel="stylesheet">
     <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -1024,11 +1029,11 @@ footer {
         <div class="login-logo">📋 DPR — Man Power Report</div>
         <div class="login-sub">Trimandir Construction Project</div>
         <label style="text-align:left;">Username</label>
-        <input type="text"     id="loginName" placeholder="Enter username" autocapitalize="none" autocorrect="off" autocomplete="username">
+        <input type="text" id="loginName" placeholder="Enter username" autocapitalize="none" autocorrect="off" autocomplete="username">
         <label style="text-align:left;">Password</label>
         <input type="password" id="loginPass" placeholder="Enter password" autocapitalize="none" autocorrect="off"
                onkeydown="if(event.key==='Enter')doLogin()" autocomplete="current-password">
-        <button class="btn-green" id="loginSubmitBtn" style="margin-top:6px;">Sign In &#8594;</button>
+        <button class="btn-green" onclick="doLogin()" style="margin-top:6px;">Sign In &#8594;</button>
         <div class="login-err" id="loginErr"></div>
         <div style="font-size: 12px; color: var(--muted); margin-top: 16px; text-align: center;">Please sign in to continue</div>
     </div>
@@ -1436,45 +1441,8 @@ footer {
         /* ═══════════════════════════════════════════════════════════
            API HELPERS
         ═══════════════════════════════════════════════════════════ */
-        const fetchWithTimeout = (url, options = {}, timeout = 15000) => {
-            const controller = new AbortController();
-            const id = setTimeout(() => controller.abort(), timeout);
-            return fetch(url, {
-                ...options,
-                signal: controller.signal
-            }).finally(() => clearTimeout(id));
-        };
-
-        const apiFetch = (action) => fetchWithTimeout(`${SHEET_URL}?action=${action}&_t=${Date.now()}`, { 
-            cache: 'no-store',
-            headers: {
-                'Cache-Control': 'no-cache, no-store, must-revalidate',
-                'Pragma': 'no-cache'
-            }
-        })
-        .then(async r => {
-            if (!r.ok) {
-                const text = await r.text().catch(() => '');
-                throw new Error(text || `Status ${r.status}`);
-            }
-            return r.json();
-        });
-
-        const apiPost  = (body)   => fetchWithTimeout(SHEET_URL, {
-            method:  'POST',
-            headers: { 
-                'Content-Type': 'application/json',
-                'Cache-Control': 'no-cache, no-store, must-revalidate',
-                'Pragma': 'no-cache'
-            },
-            body:    JSON.stringify(body)
-        }).then(async r => {
-            if (!r.ok) {
-                const text = await r.text().catch(() => '');
-                throw new Error(text || `Status ${r.status}`);
-            }
-            return r.json();
-        });
+        const apiFetch = (action) => fetch(`${SHEET_URL}?action=${action}`).then(r => r.json());
+        const apiPost  = (body)   => fetch(SHEET_URL, { method: 'POST', body: JSON.stringify(body) }).then(r => r.json());
 
         /* ═══════════════════════════════════════════════════════════
            TOAST
@@ -1538,62 +1506,31 @@ footer {
             });
         }
 
-        let _loginBusy = false;   // prevents double-tap race on mobile
         async function doLogin() {
-            if (_loginBusy) return;   // debounce: ignore repeat taps while authenticating
-            const uname = document.getElementById('loginName').value.trim();
-            const pass  = document.getElementById('loginPass').value;
+            const uname = document.getElementById('loginName').value.trim().toLowerCase();
+            const pass  = document.getElementById('loginPass').value.trim();
             const err   = document.getElementById('loginErr');
-            const btn   = document.getElementById('loginSubmitBtn');
-
-            if (!uname || !pass) {
-                err.style.color = '#e53e3e';
-                err.textContent = '❌ Enter username and password.';
-                showToast('❌ Enter username and password.');
-                return;
-            }
-
-            // Visual feedback: disable button and show loading state
-            _loginBusy = true;
+            if (!uname || !pass) { err.textContent = '❌ Enter username and password.'; return; }
             err.style.color = 'var(--primary)';
             err.textContent = '⏳ Authenticating...';
-            showToast('⏳ Authenticating...');
-            if (btn) { btn.disabled = true; btn.textContent = '⏳ Signing in...'; }
-
-            let loginSuccess = false;
-
             try {
                 const res = await apiPost({ action: 'login', username: uname, password: pass });
-                if (res && res.success && res.user) {
+                if (res.success && res.user) {
                     _currentUser = res.user;
-                    loginSuccess = true;
                 } else if (uname === 'TPD-admin' && pass === 'tpd@2026') {
                     _currentUser = SUPER_ADMIN;
-                    loginSuccess = true;
                 } else {
-                    const failMsg = (res && res.error) ? `❌ ${res.error}` : '❌ Invalid username or password.';
                     err.style.color = '#e53e3e';
-                    err.textContent = failMsg;
-                    showToast(failMsg);
+                    err.textContent = '❌ Invalid username or password.';
+                    return;
                 }
             } catch (e) {
-                console.error('Login Exception:', e);
                 err.style.color = '#e53e3e';
                 err.textContent = '⚠️ Connection error. Try again.';
-                showToast('⚠️ Connection error. Check your internet.');
-            } finally {
-                // FORCEFULLY turn off the loading spinner state under all circumstances
-                _loginBusy = false;
-                if (btn) {
-                    btn.disabled = false;
-                    btn.textContent = 'Sign In →';
-                }
+                return;
             }
-
-            if (loginSuccess) {
-                err.textContent = '';
-                showApp();
-            }
+            err.textContent = '';
+            showApp();
         }
 
         function doLogout() {
@@ -3028,17 +2965,52 @@ footer {
                 <div draggable="true" data-id="${proj.id}" ondragstart="dragStart(event)" ondragover="dragOver(event)" ondrop="dropProject(event)" style="margin-bottom:12px;border:1.5px solid var(--border);border-radius:8px;overflow:hidden;cursor:move;">
                     <div style="background:#f8fafc;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:8px;">
                         <div>
-                            <span style="font-weight:700;font-size:14px;color:var(--primary);">📍 ${proj.project_name}</span>
-                            <span style="font-size:11px;margin-left:8px;color:${act ? '#38a169' : '#e53e3e'};">${act ? '🟢' : '🔴'}</span>
+                            <span style="        function renderAdminActivities() {
+            const el = document.getElementById('adminActivityList');
+            if (!el) return;
+
+            // ── Dynamic parent-id section grouping ─────────────────────────
+            // Always derive mains/subs dynamically by parent_id string comparison
+            // so newly added items nest correctly regardless of array position.
+            const mains = _activities.filter(a => !a.parent_id || String(a.parent_id).trim() === '');
+
+            const parentSel = document.getElementById('subActivityParent');
+            if (parentSel) {
+                parentSel.innerHTML = '<option value="">— Select Main Activity —</option>' +
+                    mains.filter(m => m.status === 'active')
+                         .map(m => `<option value="${m.id}">${m.activity_name}</option>`).join('');
+            }
+
+            if (!mains.length) {
+                el.innerHTML = '<p style="color:var(--muted);font-size:13px;text-align:center;padding:12px;">No activities yet.</p>';
+                return;
+            }
+
+            el.innerHTML = mains.map(main => {
+                // String-safe comparison: handles both numeric ids (78) and string ids ("78") from sheet
+                const subs = _activities.filter(a => String(a.parent_id).trim() === String(main.id).trim());
+                const act  = main.status === 'active';
+                return `
+                <div draggable="true"
+                     data-id="${main.id}"
+                     ondragstart="dragStartActivity(event)"
+                     ondragover="dragOverActivity(event)"
+                     ondragend="dragEndActivity(event)"
+                     ondrop="dropActivity(event)"
+                     style="margin-bottom:12px;border:1.5px solid var(--border);border-radius:8px;overflow:hidden;cursor:move;transition:opacity 0.2s ease;">
+                    <div style="background:#f8fafc;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                        <div>
+                            <span style="font-weight:700;font-size:14px;color:var(--primary);">🔨 ${main.activity_name}</span>
+                            <span style="font-size:11px;margin-left:8px;color:${act ? '#38a169' : '#e53e3e'};">${ act ? '🟢' : '🔴'}</span>
                         </div>
                         <div style="display:flex;gap:6px;">
                             <button class="btn-blue btn-sm" style="width:auto;padding:4px 8px;font-size:11px;"
-                                    onclick="editProjectName('${proj.id}','${esc(proj.project_name)}')">✏️</button>
+                                    onclick="editActivityName('${main.id}','${esc(main.activity_name)}')">✏️</button>
                             <button class="btn-red btn-sm" style="width:auto;padding:4px 8px;font-size:11px;background:#e53e3e;border-color:#e53e3e;"
-                                    onclick="deleteProject('${proj.id}','${esc(proj.project_name)}')">🗑️</button>
+                                    onclick="deleteActivity('${main.id}','${esc(main.activity_name)}')">🗑️</button>
                             <button class="${act ? 'btn-red' : 'btn-green'} btn-sm"
                                     style="width:auto;padding:4px 10px;font-size:11px;"
-                                    onclick="toggleProject('${proj.id}','${proj.status}')">
+                                    onclick="toggleActivity('${main.id}','${main.status}')">
                                 ${act ? '🔴 Off' : '🟢 On'}
                             </button>
                         </div>
@@ -3047,30 +3019,24 @@ footer {
                         ${subs.length
                             ? subs.map(s => `
                             <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid #f1f5f9;">
-                                <span style="font-size:13px;${s.status !== 'active' ? 'color:var(--muted);text-decoration:line-through;' : ''}">↳ ${s.project_name}</span>
+                                <span style="font-size:13px;${s.status !== 'active' ? 'color:var(--muted);text-decoration:line-through;' : ''}">↳ ${s.activity_name}</span>
                                 <div style="display:flex;gap:5px;">
                                     <button class="btn-blue btn-sm" style="width:auto;padding:2px 7px;font-size:11px;"
-                                            onclick="editProjectName('${s.id}','${esc(s.project_name)}')">✏️</button>
+                                            onclick="editActivityName('${s.id}','${esc(s.activity_name)}')">✏️</button>
                                     <button class="btn-red btn-sm" style="width:auto;padding:2px 7px;font-size:11px;background:#e53e3e;border-color:#e53e3e;"
-                                            onclick="deleteProject('${s.id}','${esc(s.project_name)}')">🗑️</button>
+                                            onclick="deleteActivity('${s.id}','${esc(s.activity_name)}')">🗑️</button>
                                     <button class="${s.status === 'active' ? 'btn-red' : 'btn-green'} btn-sm"
                                             style="width:auto;padding:2px 8px;font-size:11px;"
-                                            onclick="toggleProject('${s.id}','${s.status}')">
+                                            onclick="toggleActivity('${s.id}','${s.status}')">
                                         ${s.status === 'active' ? '🔴' : '🟢'}
                                     </button>
                                 </div>
                             </div>`).join('')
-                            : '<div style="color:var(--muted);font-size:12px;padding:4px 0 6px;">No sub-projects yet.</div>'}
+                            : '<div style="color:var(--muted);font-size:12px;padding:4px 0 6px;">No sub-activities yet.</div>'}
                     </div>
                 </div>`;
             }).join('');
-        }
-
-        async function toggleActivity(id, curStatus) {
-            const ns = curStatus === 'active' ? 'inactive' : 'active';
-            await apiPost({ action: 'updateActivity', id, status: ns });
-            const d = await apiFetch('getActivities').catch(() => _activities);
-            if (Array.isArray(d)) _activities = d;
+        }          if (Array.isArray(d)) _activities = d;
             renderAdminActivities();
             showToast(`✅ ${ns === 'active' ? 'Activated' : 'Deactivated'}!`);
         }
@@ -3734,32 +3700,7 @@ footer {
                 saveFormDraft();
             });
 
-            // ── Wire Sign In button: click (desktop) + touchend (iOS Safari) ──────
-            // Using addEventListener instead of inline onclick prevents the 300ms
-            // ghost-click issue on iOS when doLogin() is loaded via dynamic script.
-            const loginBtn = document.getElementById('loginSubmitBtn');
-            if (loginBtn) {
-                loginBtn.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    doLogin();
-                });
-                // touchend fires immediately on iOS without the 300ms delay
-                loginBtn.addEventListener('touchend', function(e) {
-                    e.preventDefault();   // cancel the subsequent ghost click
-                    doLogin();
-                }, { passive: false });
-            }
 
-            // ── Also wire Enter key on username field (mobile keyboards) ─────────
-            const loginNameEl = document.getElementById('loginName');
-            if (loginNameEl) {
-                loginNameEl.addEventListener('keydown', function(e) {
-                    if (e.key === 'Enter') {
-                        e.preventDefault();
-                        document.getElementById('loginPass')?.focus();
-                    }
-                });
-            }
         }
     </script>
 </body>

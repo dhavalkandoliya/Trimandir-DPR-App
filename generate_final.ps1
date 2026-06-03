@@ -16,6 +16,9 @@ $bodyHtml  = if ($bodyMatch.Success) { $bodyMatch.Groups[1].Value.Trim() } else 
 $scriptMatch = [regex]::Match($raw, '(?s)<script>(.*?)</script>')
 $scriptJs    = if ($scriptMatch.Success) { $scriptMatch.Groups[1].Value.Trim() } else { '' }
 
+# ─── PATCH SHEET_URL to proxy ────────────────────────────────────────────────
+$scriptJs = [regex]::Replace($scriptJs, 'const SHEET_URL = "[^"]+";', 'const SHEET_URL = "/api/proxy";')
+
 # ─── PATCH USER MANAGEMENT to cloud-backed versions ──────────────────────────
 $newUsersLogic = @'
         let _usersCache = [SUPER_ADMIN];
@@ -92,22 +95,21 @@ $newUsersLogic = @'
              }).join('');
          }
 '@
-$scriptJs = [regex]::Replace($scriptJs, '(?s)function getUsers\(\).*?function renderAdminUsers\(\) \{.*?\n\s*\}\n', $newUsersLogic)
+$scriptJs = [regex]::Replace($scriptJs, '(?s)function getUsers\(\).*?function renderAdminUsers\(\) \{.*?\n\s*\}\n', "$newUsersLogic`n`n")
 
-# ─── EXTRACT FUNCTION NAMES TO BIND TO WINDOW ───────────────────────────────
-$funcs = [regex]::Matches($scriptJs, '(?m)^[ \t]*(?:async\s+)?function\s+([a-zA-Z0-9_]+)')
-$windowAttachments = ""
-foreach ($f in $funcs) {
-    $fn = $f.Groups[1].Value
-    if ($fn) {
-        $windowAttachments += "`n    window.$fn = $fn;"
-    }
-}
+# ─── ESCAPE FOR JSON-SAFE STRING EMBEDDING ───────────────────────────────────
+# Escape backslashes first, then double-quotes, then newlines and tabs.
+# Result is a valid JS string literal content (no surrounding quotes yet).
+$escapedJs   = $scriptJs   -replace '\\', '\\' -replace '"', '\"' -replace "`r`n", '\n' -replace "`n", '\n' -replace "`t", '\t'
+$escapedHtml = $bodyHtml   -replace '\\', '\\' -replace '"', '\"' -replace "`r`n", '\n' -replace "`n", '\n' -replace "`t", '\t'
 
-# ─── ESCAPE HTML FOR BACKTICK EMBEDDING ──────────────────────────────────────
-$escapedHtml = $bodyHtml.Replace('`', '\`').Replace('$', '\$')
+# ─── BUILD app/page.js BY CONCATENATION (NOT here-string interpolation) ──────
+# CRITICAL: We must NOT put $escapedHtml / $escapedJs inside a @"..."@ block
+# because PowerShell's here-string interpolation passes them through the system
+# ANSI code-page, garbling multi-byte UTF-8 characters (emoji, en-dash, etc.).
+# String concatenation stays in .NET Unicode (UTF-16) memory until WriteAllText
+# converts to UTF-8 bytes — so all characters survive intact.
 
-# ─── BUILD app/page.js BY CONCATENATION ──────────────────────────────────────
 $part1 = "'use client';" + "`n" +
           "" + "`n" +
           "import { useEffect } from 'react';" + "`n" +
@@ -123,11 +125,22 @@ $part1 = "'use client';" + "`n" +
           "" + "`n" +
           "    const s2 = document.createElement('script');" + "`n" +
           "    s2.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';" + "`n" +
-          "    document.head.appendChild(s2);" + "`n"
+          "    document.head.appendChild(s2);" + "`n" +
+          "" + "`n" +
+          "    // -- Render HTML into container --" + "`n" +
+          "    const container = document.getElementById('__dpr_root__');" + "`n" +
+          "    if (container) {" + "`n" +
+          '      container.innerHTML = "'
 
-$part2 = "" + "`n" +
-          "    // -- Attach functions to window --" + "`n" +
-          $windowAttachments + "`n" +
+$part2 = '";' + "`n" +
+          "    }" + "`n" +
+          "" + "`n" +
+          "    // -- Inject all app logic as a live script element --" + "`n" +
+          "    const appScript = document.createElement('script');" + "`n" +
+          '    appScript.textContent = "'
+
+$part3 = '";' + "`n" +
+          "    document.body.appendChild(appScript);" + "`n" +
           "" + "`n" +
           "    // -- Bootstrap: restore session and fetch users --" + "`n" +
           "    setTimeout(() => {" + "`n" +
@@ -143,14 +156,12 @@ $part2 = "" + "`n" +
           "" + "`n" +
           "  }, []);" + "`n" +
           "" + "`n" +
-          "  return <div dangerouslySetInnerHTML={{ __html: " + [char]96
-
-$part3 = [char]96 + " }} />;" + "`n" +
+          "  return <div id=""__dpr_root__"" />;" + "`n" +
           "}" + "`n"
 
-# Concatenate everything
-$pageJs = $part1 + $scriptJs + $part2 + $escapedHtml + $part3
+# Concatenate — all parts remain .NET Unicode strings, no code-page conversion
+$pageJs = $part1 + $escapedHtml + $part2 + $escapedJs + $part3
 
-# ─── WRITE as strict UTF-8 (no BOM) ──────────────────────────────────────────
+# ─── WRITE as strict UTF-8 (no BOM) — byte-level, no code-page involvement ───
 [System.IO.File]::WriteAllText("$(Get-Location)\app\page.js", $pageJs, $utf8)
-Write-Output "Successfully generated final page.js via dangerouslySetInnerHTML"
+Write-Output "Successfully generated final page.js (UTF-8 NoBOM, concatenation pattern)"

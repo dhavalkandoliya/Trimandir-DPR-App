@@ -1,0 +1,6 @@
+Placeholder for corporate favicon and logo assets.
+User should drop the following files into this folder:
+1. favicon.ico (Standard favicon)
+2. icon.png (192x192 PNG launcher icon)
+3. icon-512.png (512x512 PNG launcher icon)
+4. apple-touch-icon.png (180x180 PNG iOS icon)
