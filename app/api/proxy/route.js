@@ -3,18 +3,18 @@ import { NextResponse } from 'next/server';
 export async function POST(request) {
   try {
     let body = {};
+    const reqText = await request.text();
+    console.log('Proxy received raw request text:', reqText);
     try {
-      body = await request.json();
-    } catch (parseReqErr) {
-      // Fallback to text parsing if json parsing fails (e.g. invalid content-type)
-      try {
-        const textData = await request.text();
-        if (textData) {
-          body = JSON.parse(textData);
-        }
-      } catch (textErr) {
-        console.error('Failed to parse request body as JSON or text:', textErr);
+      if (reqText) {
+        body = JSON.parse(reqText);
       }
+    } catch (parseReqErr) {
+      console.error('Failed to parse incoming request body as JSON:', parseReqErr, 'Raw body was:', reqText);
+      return NextResponse.json(
+        { error: 'Invalid JSON request payload.', raw: reqText },
+        { status: 400 }
+      );
     }
 
     const googleScriptUrl = process.env.GOOGLE_SCRIPT_URL;
@@ -27,11 +27,14 @@ export async function POST(request) {
       );
     }
 
+    console.log('Forwarding POST payload to Google Script:', JSON.stringify(body));
+
     // Forward the POST request to Google Apps Script
     const response = await fetch(googleScriptUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Accept': 'application/json'
       },
       body: JSON.stringify(body),
       redirect: 'follow',
@@ -39,6 +42,8 @@ export async function POST(request) {
     });
 
     const resText = await response.text();
+    console.log('Proxy received response status:', response.status, 'Raw response text:', resText);
+
     try {
       const data = JSON.parse(resText);
       return NextResponse.json(data);
@@ -52,7 +57,7 @@ export async function POST(request) {
   } catch (error) {
     console.error('Error forwarding to Google Script:', error);
     return NextResponse.json(
-      { error: 'Failed to process request backend.' },
+      { error: 'Failed to process request backend.', details: error.message || String(error) },
       { status: 500 }
     );
   }
