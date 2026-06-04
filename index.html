@@ -1442,7 +1442,11 @@ footer {
            API HELPERS
         ═══════════════════════════════════════════════════════════ */
         const apiFetch = (action) => fetch(`${SHEET_URL}?action=${action}`).then(r => r.json());
-        const apiPost  = (body)   => fetch(SHEET_URL, { method: 'POST', body: JSON.stringify(body) }).then(r => r.json());
+        const apiPost  = (body)   => fetch(SHEET_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        }).then(r => r.json());
 
         /* ═══════════════════════════════════════════════════════════
            TOAST
@@ -1515,7 +1519,12 @@ footer {
             err.textContent = '⏳ Authenticating...';
             try {
                 const res = await apiPost({ action: 'login', username: uname, password: pass });
-                if (res.success && res.user) {
+                if (res && res.error) {
+                    err.style.color = '#e53e3e';
+                    err.textContent = '❌ Server Error: ' + res.error;
+                    return;
+                }
+                if (res && res.success && res.user) {
                     _currentUser = res.user;
                 } else if (uname === 'TPD-admin' && pass === 'tpd@2026') {
                     _currentUser = SUPER_ADMIN;
@@ -1524,6 +1533,7 @@ footer {
                     err.textContent = '❌ Invalid username or password.';
                     return;
                 }
+                sessionStorage.setItem('dprUser', JSON.stringify(_currentUser));
             } catch (e) {
                 err.style.color = '#e53e3e';
                 err.textContent = '⚠️ Connection error. Try again.';
@@ -1535,6 +1545,7 @@ footer {
 
         function doLogout() {
             _currentUser = null;
+            sessionStorage.removeItem('dprUser');
             document.getElementById('loginOverlay').style.display = 'flex';
             document.getElementById('loginPass').value = '';
             document.getElementById('loginErr').textContent = '';
