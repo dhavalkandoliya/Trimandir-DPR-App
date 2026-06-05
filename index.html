@@ -1511,8 +1511,13 @@ footer {
         }
 
         async function doLogin() {
-            const uname = document.getElementById('loginName').value.trim().toLowerCase();
-            const pass  = document.getElementById('loginPass').value.trim();
+            const rawUname = document.getElementById('loginName').value;
+            const rawPass  = document.getElementById('loginPass').value;
+            
+            // Explicit sanitisation of credentials before transmitting
+            const uname = (rawUname || '').trim().toLowerCase();
+            const pass  = (rawPass || '').trim();
+            
             const err   = document.getElementById('loginErr');
             if (!uname || !pass) { err.textContent = '❌ Enter username and password.'; return; }
             err.style.color = 'var(--primary)';
@@ -1526,7 +1531,7 @@ footer {
                 }
                 if (res && res.success && res.user) {
                     _currentUser = res.user;
-                } else if (uname === 'TPD-admin' && pass === 'tpd@2026') {
+                } else if (uname === 'tpd-admin' && pass === 'tpd@2026') {
                     _currentUser = SUPER_ADMIN;
                 } else {
                     err.style.color = '#e53e3e';
