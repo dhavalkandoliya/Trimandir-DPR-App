@@ -17,20 +17,12 @@ export async function POST(request) {
       );
     }
 
-    const googleScriptUrl = process.env.GOOGLE_SCRIPT_URL;
-
-    if (!googleScriptUrl) {
-      console.error('Missing GOOGLE_SCRIPT_URL environment variable');
-      return NextResponse.json(
-        { error: 'Server configuration error.' },
-        { status: 500 }
-      );
-    }
+    const targetUrl = 'https://script.google.com/macros/s/AKfycbwtlhu-5A49ECkRXijXfG0ZpVhfePHhJ6DV5N_yz2Dk-yBwhzll4N-F-k5kW99DMkqEYg/exec';
 
     console.log('Forwarding POST payload to Google Script:', JSON.stringify(body));
 
     // Forward the POST request to Google Apps Script
-    const response = await fetch(googleScriptUrl, {
+    const response = await fetch(targetUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -65,15 +57,7 @@ export async function POST(request) {
 
 export async function GET(request) {
   try {
-    const googleScriptUrl = process.env.GOOGLE_SCRIPT_URL;
-
-    if (!googleScriptUrl) {
-      console.error('Missing GOOGLE_SCRIPT_URL environment variable');
-      return NextResponse.json(
-        { error: 'Server configuration error.' },
-        { status: 500 }
-      );
-    }
+    const googleScriptUrl = 'https://script.google.com/macros/s/AKfycbwtlhu-5A49ECkRXijXfG0ZpVhfePHhJ6DV5N_yz2Dk-yBwhzll4N-F-k5kW99DMkqEYg/exec';
 
     // Forward the GET request with any query parameters appended
     const url = new URL(request.url);
@@ -87,7 +71,7 @@ export async function GET(request) {
   } catch (error) {
     console.error('Error fetching from Google Script:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch data from backend.' },
+      { error: 'Failed to fetch data from backend.', details: error.message || String(error) },
       { status: 500 }
     );
   }
