@@ -2478,44 +2478,6 @@ footer {
                     editActionOnClick = `showToast("❌ You can only edit your own DPRs")`;
                 }
 
-                const civilArr    = Array.isArray(item.civilActivities)    ? item.civilActivities    : [];
-                const interiorArr = Array.isArray(item.interiorActivities) ? item.interiorActivities : [];
-                const detailRows  = Array.isArray(item.details) ? item.details : [];
-
-                let allActs = [];
-                if (civilArr.length || interiorArr.length) {
-                    civilArr.forEach(a => { allActs.push({ ...a, section: a.section || 'Civil' }); });
-                    interiorArr.forEach(a => { allActs.push({ ...a, section: a.section || 'Interior' }); });
-                } else if (detailRows.length) {
-                    detailRows.forEach(r => {
-                        allActs.push({
-                            main_activity: r.main_activity || r.activity,
-                            activity: r.activity || r.main_activity,
-                            sub_activity: r.sub_activity || '',
-                            skilled: r.skilled,
-                            unskilled: r.unskilled,
-                            note: r.note,
-                            section: r.section
-                        });
-                    });
-                }
-
-                let civCount = 0;
-                let intCount = 0;
-                allActs.forEach(a => {
-                    if (Number(a.skilled) > 0 || Number(a.unskilled) > 0) {
-                        if (isCivilActivity(a)) {
-                            civCount++;
-                        } else {
-                            intCount++;
-                        }
-                    }
-                });
-
-                const actHint  = (civCount + intCount) > 0
-                    ? `${civCount} civil · ${intCount} interior`
-                    : (allActs.length > 0 ? `${allActs.length} activit${allActs.length > 1 ? 'ies' : 'y'}` : '');
-
                 const dropdownHtml = `
                 <button class="history-options-btn" onclick="toggleHistoryDropdown(event, ${realIdx})">&#8942;</button>
                 <div class="history-dropdown" id="dropdown_${realIdx}">
@@ -2535,7 +2497,6 @@ footer {
                     </div>
                     <div style="font-size:12px;color:var(--muted);margin-top:3px;padding-right:30px;">
                         📍 ${getSiteDisplayName(item.site) || '—'} &nbsp;·&nbsp; 👷 <b>${item.total || 0}</b> workers
-                        ${actHint ? `&nbsp;·&nbsp; 📋 ${actHint}` : ''}
                     </div>
                     <div class="hbtn-group">
                         <button class="btn-blue btn-sm" onclick="openDPR(${realIdx})" style="width:auto;padding:6px 10px;">📂 View</button>
