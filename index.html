@@ -1798,20 +1798,15 @@ footer {
             const prepBy   = existing ? (existing.by || _currentUser.username) : _currentUser.username;
             const editedBy = (existing && existing.by !== _currentUser.username) ? _currentUser.username : null;
 
-            // Build section-grouped report HTML
-            const civilActs = [];
-            const interiorActs = [];
+            // Build report HTML
+            const activeActs = [];
             activities.forEach(a => {
                 if (a.skilled > 0 || a.unskilled > 0) {
-                    if (isCivilActivity(a)) {
-                        civilActs.push(a);
-                    } else {
-                        interiorActs.push(a);
-                    }
+                    activeActs.push(a);
                 }
             });
 
-            function renderSection(title, acts) {
+            function renderActs(acts) {
                 if (!acts.length) return '';
                 const grouped = {};
                 acts.forEach(a => {
@@ -1819,50 +1814,49 @@ footer {
                     if (!grouped[mainName]) grouped[mainName] = [];
                     grouped[mainName].push(a);
                 });
-                return `<div class="report-section-title">🔨 ${title}</div>` +
-                    Object.entries(grouped).map(([main, rows]) => {
-                        const innerRowsHtml = rows.map((r, rIdx) => {
-                            let childName = (r.sub_activity || r.activity || '').trim();
-                            childName = childName.replace(/^[↳\s\-➔]+/, '').trim();
-                            const mainClean = String(main).trim().toLowerCase();
-                            if (childName.toLowerCase().indexOf(mainClean) === 0) {
-                                childName = childName.substring(mainClean.length).replace(/^[↳\s\-➔]+/, '').trim();
-                            }
-                            
-                            const isSub = childName !== '' && childName.toLowerCase() !== mainClean;
-                            const totalVal = (Number(r.skilled) || 0) + (Number(r.unskilled) || 0);
-                            const borderVal = rIdx === rows.length - 1 ? 'none' : '1.5px solid #cbd5e1';
-                            
-                            // Visual properties based on isSub
-                            const paddingLeft = isSub ? '16px' : '0px';
-                            const fontSize = '13.5px';
-                            const titleColor = isSub ? '#475569' : '#1e293b';
-                            const fontWeight = isSub ? '500' : '700';
-                            const prefix = isSub ? '<span style="color:var(--primary);margin-right:4px;">↳</span>' : '';
-                            
-                            return `
-                            <div style="padding: 10px 0; padding-left: ${paddingLeft}; border-bottom: ${borderVal}; line-height: 1.6;">
-                                <div style="font-weight: ${fontWeight}; color: ${titleColor}; font-size: ${fontSize};">${prefix}${childName || toTitleCase(main)}</div>
-                                <div style="font-size: 12px; color: #475569; margin-top: 4px;">
-                                    Skilled: <b>${r.skilled}</b> &nbsp;·&nbsp; Unskilled: <b>${r.unskilled}</b> &nbsp;·&nbsp; Total: <b>${totalVal}</b>
-                                </div>
-                                ${r.note ? `<div style="color: #475569; font-size: 11.5px; margin-top: 6px; font-style: italic; background: #f8fafc; padding: 6px 8px; border-radius: 4px; border-left: 2.5px solid #cbd5e1;">📌 ${r.note}</div>` : ''}
-                            </div>`;
-                        }).join('');
-
+                return Object.entries(grouped).map(([main, rows]) => {
+                    const innerRowsHtml = rows.map((r, rIdx) => {
+                        let childName = (r.sub_activity || r.activity || '').trim();
+                        childName = childName.replace(/^[↳\s\-➔]+/, '').trim();
+                        const mainClean = String(main).trim().toLowerCase();
+                        if (childName.toLowerCase().indexOf(mainClean) === 0) {
+                            childName = childName.substring(mainClean.length).replace(/^[↳\s\-➔]+/, '').trim();
+                        }
+                        
+                        const isSub = childName !== '' && childName.toLowerCase() !== mainClean;
+                        const totalVal = (Number(r.skilled) || 0) + (Number(r.unskilled) || 0);
+                        const borderVal = rIdx === rows.length - 1 ? 'none' : '1.5px solid #cbd5e1';
+                        
+                        // Visual properties based on isSub
+                        const paddingLeft = isSub ? '16px' : '0px';
+                        const fontSize = '13.5px';
+                        const titleColor = isSub ? '#475569' : '#1e293b';
+                        const fontWeight = isSub ? '500' : '700';
+                        const prefix = isSub ? '<span style="color:var(--primary);margin-right:4px;">↳</span>' : '';
+                        
                         return `
-                        <div class="report-activity" style="margin-bottom: 14px; padding: 16px; border-left: 5px solid var(--primary); background: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
-                            <div style="font-weight: 600; font-size: 14.5px; color: #1e293b; margin-bottom: 12px; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 6px; letter-spacing: 0.2px;">
-                                📦 ${toTitleCase(main)}
+                        <div style="padding: 10px 0; padding-left: ${paddingLeft}; border-bottom: ${borderVal}; line-height: 1.6;">
+                            <div style="font-weight: ${fontWeight}; color: ${titleColor}; font-size: ${fontSize};">${prefix}${childName || toTitleCase(main)}</div>
+                            <div style="font-size: 12px; color: #475569; margin-top: 4px;">
+                                Skilled: <b>${r.skilled}</b> &nbsp;·&nbsp; Unskilled: <b>${r.unskilled}</b> &nbsp;·&nbsp; Total: <b>${totalVal}</b>
                             </div>
-                            <div style="display: flex; flex-direction: column;">
-                                ${innerRowsHtml}
-                            </div>
+                            ${r.note ? `<div style="color: #475569; font-size: 11.5px; margin-top: 6px; font-style: italic; background: #f8fafc; padding: 6px 8px; border-radius: 4px; border-left: 2.5px solid #cbd5e1;">📌 ${r.note}</div>` : ''}
                         </div>`;
                     }).join('');
+
+                    return `
+                    <div class="report-activity" style="margin-bottom: 14px; padding: 16px; border-left: 5px solid var(--primary); background: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                        <div style="font-weight: 600; font-size: 14.5px; color: #1e293b; margin-bottom: 12px; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 6px; letter-spacing: 0.2px;">
+                            📦 ${toTitleCase(main)}
+                        </div>
+                        <div style="display: flex; flex-direction: column;">
+                            ${innerRowsHtml}
+                        </div>
+                    </div>`;
+                }).join('');
             }
 
-            const sectionHtml = renderSection('Civil Work', civilActs) + renderSection('Interior Work', interiorActs);
+            const sectionHtml = renderActs(activeActs);
 
             document.getElementById('rdate').innerHTML =
                 `<b>📅 Date :</b> ${formatDate(dateVal)}<br>
@@ -1969,7 +1963,7 @@ footer {
 
             let bodyHtml = '';
 
-            function renderActArr(title, arr) {
+            function renderActArr(arr) {
                 if (!arr.length) return '';
                 const grouped = {};
                 arr.forEach(a => {
@@ -1978,56 +1972,55 @@ footer {
                     grouped[mainName].push(a);
                 });
 
-                return `<div class="report-section-title">🔨 ${title}</div>` +
-                    Object.entries(grouped).map(([main, rows]) => {
-                        const innerRowsHtml = rows.map((r, rIdx) => {
-                            let childName = (r.activity || r.sub_activity || '').trim();
-                            childName = childName.replace(/^[↳\s\-➔]+/, '').trim();
-                            const mainClean = String(main).trim().toLowerCase();
-                            if (childName.toLowerCase().indexOf(mainClean) === 0) {
-                                childName = childName.substring(mainClean.length).replace(/^[↳\s\-➔]+/, '').trim();
-                            }
-                            
-                            const isSub = childName !== '' && childName.toLowerCase() !== mainClean;
-                            const sk = Number(r.skilled) || 0;
-                            const un = Number(r.unskilled) || 0;
-                            const totalVal = sk + un;
-                            const borderVal = rIdx === rows.length - 1 ? 'none' : '1.5px solid #cbd5e1';
+                return Object.entries(grouped).map(([main, rows]) => {
+                    const innerRowsHtml = rows.map((r, rIdx) => {
+                        let childName = (r.activity || r.sub_activity || '').trim();
+                        childName = childName.replace(/^[↳\s\-➔]+/, '').trim();
+                        const mainClean = String(main).trim().toLowerCase();
+                        if (childName.toLowerCase().indexOf(mainClean) === 0) {
+                            childName = childName.substring(mainClean.length).replace(/^[↳\s\-➔]+/, '').trim();
+                        }
+                        
+                        const isSub = childName !== '' && childName.toLowerCase() !== mainClean;
+                        const sk = Number(r.skilled) || 0;
+                        const un = Number(r.unskilled) || 0;
+                        const totalVal = sk + un;
+                        const borderVal = rIdx === rows.length - 1 ? 'none' : '1.5px solid #cbd5e1';
 
-                            // Visual properties based on isSub
-                            const paddingLeft = isSub ? '16px' : '0px';
-                            const fontSize = '13.5px';
-                            const titleColor = isSub ? '#475569' : '#1e293b';
-                            const fontWeight = isSub ? '500' : '700';
-                            const prefix = isSub ? '<span style="color:var(--primary);margin-right:4px;">↳</span>' : '';
-
-                            return `
-                            <div style="padding: 10px 0; padding-left: ${paddingLeft}; border-bottom: ${borderVal}; line-height: 1.6;">
-                                <div style="font-weight: ${fontWeight}; color: ${titleColor}; font-size: ${fontSize};">${prefix}${childName || toTitleCase(main)}</div>
-                                <div style="font-size: 12px; color: #475569; margin-top: 4px;">
-                                    Skilled: <b>${sk}</b> &nbsp;·&nbsp; Unskilled: <b>${un}</b> &nbsp;·&nbsp; Total: <b>${totalVal}</b>
-                                </div>
-                                ${r.note ? `<div style="color: #475569; font-size: 11.5px; margin-top: 6px; font-style: italic; background: #f8fafc; padding: 6px 8px; border-radius: 4px; border-left: 2.5px solid #cbd5e1;">📌 ${r.note}</div>` : ''}
-                            </div>`;
-                        }).join('');
+                        // Visual properties based on isSub
+                        const paddingLeft = isSub ? '16px' : '0px';
+                        const fontSize = '13.5px';
+                        const titleColor = isSub ? '#475569' : '#1e293b';
+                        const fontWeight = isSub ? '500' : '700';
+                        const prefix = isSub ? '<span style="color:var(--primary);margin-right:4px;">↳</span>' : '';
 
                         return `
-                        <div class="report-activity" style="margin-bottom: 14px; padding: 16px; border-left: 5px solid var(--primary); background: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
-                            <div style="font-weight: 600; font-size: 14.5px; color: #1e293b; margin-bottom: 12px; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 6px; letter-spacing: 0.2px;">
-                                📦 ${toTitleCase(main)}
+                        <div style="padding: 10px 0; padding-left: ${paddingLeft}; border-bottom: ${borderVal}; line-height: 1.6;">
+                            <div style="font-weight: ${fontWeight}; color: ${titleColor}; font-size: ${fontSize};">${prefix}${childName || toTitleCase(main)}</div>
+                            <div style="font-size: 12px; color: #475569; margin-top: 4px;">
+                                Skilled: <b>${sk}</b> &nbsp;·&nbsp; Unskilled: <b>${un}</b> &nbsp;·&nbsp; Total: <b>${totalVal}</b>
                             </div>
-                            <div style="display: flex; flex-direction: column;">
-                                ${innerRowsHtml}
-                            </div>
+                            ${r.note ? `<div style="color: #475569; font-size: 11.5px; margin-top: 6px; font-style: italic; background: #f8fafc; padding: 6px 8px; border-radius: 4px; border-left: 2.5px solid #cbd5e1;">📌 ${r.note}</div>` : ''}
                         </div>`;
                     }).join('');
+
+                    return `
+                    <div class="report-activity" style="margin-bottom: 14px; padding: 16px; border-left: 5px solid var(--primary); background: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                        <div style="font-weight: 600; font-size: 14.5px; color: #1e293b; margin-bottom: 12px; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 6px; letter-spacing: 0.2px;">
+                            📦 ${toTitleCase(main)}
+                        </div>
+                        <div style="display: flex; flex-direction: column;">
+                            ${innerRowsHtml}
+                        </div>
+                    </div>`;
+                }).join('');
             }
 
-            // Pool and classify all activities dynamically based on type
+            // Pool all activities dynamically
             let allActs = [];
             if (civilArr.length || interiorArr.length) {
-                civilArr.forEach(a => { allActs.push({ ...a, section: a.section || 'Civil' }); });
-                interiorArr.forEach(a => { allActs.push({ ...a, section: a.section || 'Interior' }); });
+                civilArr.forEach(a => { allActs.push({ ...a }); });
+                interiorArr.forEach(a => { allActs.push({ ...a }); });
             } else if (detailRows.length) {
                 detailRows.forEach(r => {
                     allActs.push({
@@ -2036,26 +2029,20 @@ footer {
                         sub_activity: r.sub_activity || '',
                         skilled: r.skilled,
                         unskilled: r.unskilled,
-                        note: r.note,
-                        section: r.section
+                        note: r.note
                     });
                 });
             }
 
-            const civilActs = [];
-            const interiorActs = [];
+            const activeActs = [];
             allActs.forEach(a => {
                 if (Number(a.skilled) > 0 || Number(a.unskilled) > 0) {
-                    if (isCivilActivity(a)) {
-                        civilActs.push(a);
-                    } else {
-                        interiorActs.push(a);
-                    }
+                    activeActs.push(a);
                 }
             });
 
-            if (civilActs.length || interiorActs.length) {
-                bodyHtml = renderActArr('Civil Work', civilActs) + renderActArr('Interior Work', interiorActs);
+            if (activeActs.length) {
+                bodyHtml = renderActArr(activeActs);
             } else {
                 bodyHtml = '<p style="color:var(--muted);text-align:center;padding:20px;">No activity detail available for this record.</p>';
             }
@@ -2581,7 +2568,7 @@ footer {
 
             let bodyHtml = '';
 
-            function renderActArr(title, arr) {
+            function renderActArr(arr) {
                 if (!arr.length) return '';
                 const grouped = {};
                 arr.forEach(a => {
@@ -2590,56 +2577,55 @@ footer {
                     grouped[mainName].push(a);
                 });
 
-                return `<div class="report-section-title">🔨 ${title}</div>` +
-                    Object.entries(grouped).map(([main, rows]) => {
-                        const innerRowsHtml = rows.map((r, rIdx) => {
-                            let childName = (r.activity || '').trim();
-                            childName = childName.replace(/^[↳\s\-➔]+/, '').trim();
-                            const mainClean = String(main).trim().toLowerCase();
-                            if (childName.toLowerCase().indexOf(mainClean) === 0) {
-                                childName = childName.substring(mainClean.length).replace(/^[↳\s\-➔]+/, '').trim();
-                            }
-                            
-                            const isSub = childName !== '' && childName.toLowerCase() !== mainClean;
-                            const sk = Number(r.skilled) || 0;
-                            const un = Number(r.unskilled) || 0;
-                            const totalVal = sk + un;
-                            const borderVal = rIdx === rows.length - 1 ? 'none' : '1.5px solid #cbd5e1';
+                return Object.entries(grouped).map(([main, rows]) => {
+                    const innerRowsHtml = rows.map((r, rIdx) => {
+                        let childName = (r.activity || '').trim();
+                        childName = childName.replace(/^[↳\s\-➔]+/, '').trim();
+                        const mainClean = String(main).trim().toLowerCase();
+                        if (childName.toLowerCase().indexOf(mainClean) === 0) {
+                            childName = childName.substring(mainClean.length).replace(/^[↳\s\-➔]+/, '').trim();
+                        }
+                        
+                        const isSub = childName !== '' && childName.toLowerCase() !== mainClean;
+                        const sk = Number(r.skilled) || 0;
+                        const un = Number(r.unskilled) || 0;
+                        const totalVal = sk + un;
+                        const borderVal = rIdx === rows.length - 1 ? 'none' : '1.5px solid #cbd5e1';
 
-                            // Visual properties based on isSub
-                            const paddingLeft = isSub ? '16px' : '0px';
-                            const fontSize = '13.5px';
-                            const titleColor = isSub ? '#475569' : '#1e293b';
-                            const fontWeight = isSub ? '500' : '700';
-                            const prefix = isSub ? '<span style="color:var(--primary);margin-right:4px;">↳</span>' : '';
-
-                            return `
-                            <div style="padding: 10px 0; padding-left: ${paddingLeft}; border-bottom: ${borderVal}; line-height: 1.6;">
-                                <div style="font-weight: ${fontWeight}; color: ${titleColor}; font-size: ${fontSize};">${prefix}${childName || toTitleCase(main)}</div>
-                                <div style="font-size: 12px; color: #475569; margin-top: 4px;">
-                                    Skilled: <b>${sk}</b> &nbsp;·&nbsp; Unskilled: <b>${un}</b> &nbsp;·&nbsp; Total: <b>${totalVal}</b>
-                                </div>
-                                ${r.note ? `<div style="color: #475569; font-size: 11.5px; margin-top: 6px; font-style: italic; background: #f8fafc; padding: 6px 8px; border-radius: 4px; border-left: 2.5px solid #cbd5e1;">📌 ${r.note}</div>` : ''}
-                            </div>`;
-                        }).join('');
+                        // Visual properties based on isSub
+                        const paddingLeft = isSub ? '16px' : '0px';
+                        const fontSize = '13.5px';
+                        const titleColor = isSub ? '#475569' : '#1e293b';
+                        const fontWeight = isSub ? '500' : '700';
+                        const prefix = isSub ? '<span style="color:var(--primary);margin-right:4px;">↳</span>' : '';
 
                         return `
-                        <div class="report-activity" style="margin-bottom: 14px; padding: 16px; border-left: 5px solid var(--primary); background: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
-                            <div style="font-weight: 600; font-size: 14.5px; color: #1e293b; margin-bottom: 12px; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 6px; letter-spacing: 0.2px;">
-                                📦 ${toTitleCase(main)}
+                        <div style="padding: 10px 0; padding-left: ${paddingLeft}; border-bottom: ${borderVal}; line-height: 1.6;">
+                            <div style="font-weight: ${fontWeight}; color: ${titleColor}; font-size: ${fontSize};">${prefix}${childName || toTitleCase(main)}</div>
+                            <div style="font-size: 12px; color: #475569; margin-top: 4px;">
+                                Skilled: <b>${sk}</b> &nbsp;·&nbsp; Unskilled: <b>${un}</b> &nbsp;·&nbsp; Total: <b>${totalVal}</b>
                             </div>
-                            <div style="display: flex; flex-direction: column;">
-                                ${innerRowsHtml}
-                            </div>
+                            ${r.note ? `<div style="color: #475569; font-size: 11.5px; margin-top: 6px; font-style: italic; background: #f8fafc; padding: 6px 8px; border-radius: 4px; border-left: 2.5px solid #cbd5e1;">📌 ${r.note}</div>` : ''}
                         </div>`;
                     }).join('');
+
+                    return `
+                    <div class="report-activity" style="margin-bottom: 14px; padding: 16px; border-left: 5px solid var(--primary); background: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                        <div style="font-weight: 600; font-size: 14.5px; color: #1e293b; margin-bottom: 12px; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 6px; letter-spacing: 0.2px;">
+                            📦 ${toTitleCase(main)}
+                        </div>
+                        <div style="display: flex; flex-direction: column;">
+                            ${innerRowsHtml}
+                        </div>
+                    </div>`;
+                }).join('');
             }
 
-            // Pool and classify all activities dynamically based on type
+            // Pool all activities dynamically
             let allActs = [];
             if (civilArr.length || interiorArr.length) {
-                civilArr.forEach(a => { allActs.push({ ...a, section: a.section || 'Civil' }); });
-                interiorArr.forEach(a => { allActs.push({ ...a, section: a.section || 'Interior' }); });
+                civilArr.forEach(a => { allActs.push({ ...a }); });
+                interiorArr.forEach(a => { allActs.push({ ...a }); });
             } else if (detailRows.length) {
                 detailRows.forEach(r => {
                     allActs.push({
@@ -2648,26 +2634,20 @@ footer {
                         sub_activity: r.sub_activity || '',
                         skilled: r.skilled,
                         unskilled: r.unskilled,
-                        note: r.note,
-                        section: r.section
+                        note: r.note
                     });
                 });
             }
 
-            const civilActs = [];
-            const interiorActs = [];
+            const activeActs = [];
             allActs.forEach(a => {
                 if (Number(a.skilled) > 0 || Number(a.unskilled) > 0) {
-                    if (isCivilActivity(a)) {
-                        civilActs.push(a);
-                    } else {
-                        interiorActs.push(a);
-                    }
+                    activeActs.push(a);
                 }
             });
 
-            if (civilActs.length || interiorActs.length) {
-                bodyHtml = renderActArr('Civil Work', civilActs) + renderActArr('Interior Work', interiorActs);
+            if (activeActs.length) {
+                bodyHtml = renderActArr(activeActs);
             } else {
                 bodyHtml = '<p style="color:var(--muted);text-align:center;padding:20px;">No activity detail available for this record.</p>';
             }
