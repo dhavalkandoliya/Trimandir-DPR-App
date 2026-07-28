@@ -1368,11 +1368,11 @@ footer {
 <!-- ═══════════════════════════════════════════════════════════════
      DPR VIEW MODAL
 ═══════════════════════════════════════════════════════════════ -->
-<div id="dprModal" onclick="if(event.target===this)closeDPRModal()">
-    <div class="modal-box">
+<div id="dprModal" role="presentation" onclick="if(event.target===this)closeDPRModal()">
+    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="dprModalTitle">
         <div class="modal-header">
-            <h3>&#128202; DPR &#8212; Man Power Report</h3>
-            <button class="modal-close" onclick="closeDPRModal()">&#10005;</button>
+            <h3 id="dprModalTitle">&#128202; DPR &#8212; Man Power Report</h3>
+            <button class="modal-close" aria-label="Close" onclick="closeDPRModal()">&#10005;</button>
         </div>
         <div class="modal-body" id="dprModalBody"></div>
     </div>
@@ -1448,6 +1448,21 @@ footer {
 
         function esc(s) { return String(s || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
 
+        // escHtml(): text-node-safe HTML escaping. esc() above stays untouched —
+        // its call sites are all value="..."/onclick-string-arg contexts.
+        function escHtml(s) {
+            return String(s == null ? '' : s)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function toNum(v) { return Number(v) || 0; }
+
+        function sumWorkers(skilled, unskilled) { return toNum(skilled) + toNum(unskilled); }
+
         /* ═══════════════════════════════════════════════════════════
            INTERIOR SECTION DETECTION & HELPERS
         ═══════════════════════════════════════════════════════════ */
@@ -1477,6 +1492,7 @@ footer {
 
         function toTitleCase(str) {
             if (!str) return '';
+            str = String(str).replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
             let val = str.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
             val = val.replace(/\bRcc\b/g, 'RCC')
                      .replace(/\bHvac\b/g, 'HVAC')
@@ -1496,10 +1512,88 @@ footer {
             if (currentProj && currentProj.parent_id && String(currentProj.parent_id).trim() !== '') {
                 const parentProj = _projects.find(p => String(p.id).trim() === String(currentProj.parent_id).trim());
                 if (parentProj) {
-                    return `${parentProj.project_name} ➔ ${currentProj.project_name}`;
+                    return `${escHtml(parentProj.project_name)} ➔ ${escHtml(currentProj.project_name)}`;
                 }
             }
-            return siteName;
+            return escHtml(siteName);
+        }
+
+        /* ═══════════════════════════════════════════════════════════
+           SHARED ACTIVITY REPORT BUILDER
+           Used by generate() (live submission preview), getReportHtmlForRecord()
+           (History download image/PDF) and openDPR() (View modal). Each caller
+           passes its own childNameOrder to preserve its verified current
+           child/sub-activity name resolution behavior exactly.
+        ═══════════════════════════════════════════════════════════ */
+        function poolRecordActivities(item) {
+            const civilArr    = Array.isArray(item.civilActivities)    ? item.civilActivities    : [];
+            const interiorArr = Array.isArray(item.interiorActivities) ? item.interiorActivities : [];
+            const detailRows  = Array.isArray(item.details) ? item.details : [];
+            let allActs = [];
+            if (civilArr.length || interiorArr.length) {
+                civilArr.forEach(a => allActs.push({ ...a }));
+                interiorArr.forEach(a => allActs.push({ ...a }));
+            } else if (detailRows.length) {
+                detailRows.forEach(r => allActs.push({
+                    main_activity: r.main_activity || r.activity,
+                    activity: r.activity || r.main_activity,
+                    sub_activity: r.sub_activity || '',
+                    skilled: r.skilled, unskilled: r.unskilled, note: r.note
+                }));
+            }
+            return allActs.filter(a => toNum(a.skilled) > 0 || toNum(a.unskilled) > 0);
+        }
+
+        function buildActivityReportHtml(acts, opts) {
+            opts = opts || {};
+            const childNameOrder = opts.childNameOrder || ['sub_activity', 'activity'];
+            if (!acts.length) return '';
+            const grouped = {};
+            acts.forEach(a => {
+                const mainName = a.main_activity || a.activity || 'General';
+                if (!grouped[mainName]) grouped[mainName] = [];
+                grouped[mainName].push(a);
+            });
+            return Object.entries(grouped).map(([main, rows]) => {
+                const innerRowsHtml = rows.map((r, rIdx) => {
+                    let childName = '';
+                    for (const f of childNameOrder) { if (r[f]) { childName = String(r[f]).trim(); break; } }
+                    childName = childName.replace(/^[↳\s\-➔]+/, '').trim();
+                    const mainClean = String(main).trim().toLowerCase();
+                    if (childName.toLowerCase().indexOf(mainClean) === 0) {
+                        childName = childName.substring(mainClean.length).replace(/^[↳\s\-➔]+/, '').trim();
+                    }
+
+                    const isSub = childName !== '' && childName.toLowerCase() !== mainClean;
+                    const sk = toNum(r.skilled), un = toNum(r.unskilled), totalVal = sk + un;
+                    const borderVal = rIdx === rows.length - 1 ? 'none' : '1.5px solid #cbd5e1';
+
+                    const paddingLeft = isSub ? '16px' : '0px';
+                    const fontSize = '13.5px';
+                    const titleColor = isSub ? '#475569' : '#1e293b';
+                    const fontWeight = isSub ? '500' : '700';
+                    const prefix = isSub ? '<span style="color:var(--primary);margin-right:4px;">↳</span>' : '';
+
+                    return `
+                    <div style="padding: 10px 0; padding-left: ${paddingLeft}; border-bottom: ${borderVal}; line-height: 1.6;">
+                        <div style="font-weight: ${fontWeight}; color: ${titleColor}; font-size: ${fontSize};">${prefix}${escHtml(childName || toTitleCase(main))}</div>
+                        <div style="font-size: 12px; color: #475569; margin-top: 4px;">
+                            Skilled: <b>${sk}</b> &nbsp;·&nbsp; Unskilled: <b>${un}</b> &nbsp;·&nbsp; Total: <b>${totalVal}</b>
+                        </div>
+                        ${r.note ? `<div style="color: #475569; font-size: 11.5px; margin-top: 6px; font-style: italic; background: #f8fafc; padding: 6px 8px; border-radius: 4px; border-left: 2.5px solid #cbd5e1;">📌 ${escHtml(r.note)}</div>` : ''}
+                    </div>`;
+                }).join('');
+
+                return `
+                <div class="report-activity" style="margin-bottom: 14px; padding: 16px; border-left: 5px solid var(--primary); background: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                    <div style="font-weight: 600; font-size: 14.5px; color: #1e293b; margin-bottom: 12px; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 6px; letter-spacing: 0.2px;">
+                        📦 ${escHtml(toTitleCase(main))}
+                    </div>
+                    <div style="display: flex; flex-direction: column;">
+                        ${innerRowsHtml}
+                    </div>
+                </div>`;
+            }).join('');
         }
 
         /* ═══════════════════════════════════════════════════════════
@@ -1686,11 +1780,11 @@ footer {
                 html += tops.map(proj => {
                     const subs = _projects.filter(p => String(p.parent_id) === String(proj.id));
                     const suffix = proj.status === 'inactive' ? ' (Inactive)' : '';
-                    let inner = `<option value="${esc(proj.project_name)}">${proj.project_name}${suffix}</option>`;
+                    let inner = `<option value="${esc(proj.project_name)}">${escHtml(proj.project_name)}${suffix}</option>`;
                     if (subs.length) {
                         inner += subs.map(s => {
                             const sSuffix = s.status === 'inactive' ? ' (Inactive)' : '';
-                            return `<option value="${esc(s.project_name)}">\u00a0\u00a0↳ ${s.project_name}${sSuffix}</option>`;
+                            return `<option value="${esc(s.project_name)}">\u00a0\u00a0↳ ${escHtml(s.project_name)}${sSuffix}</option>`;
                         }).join('');
                     }
                     return inner;
@@ -1708,8 +1802,8 @@ footer {
             let html   = tops.length
                 ? tops.map(proj => {
                     const subs = _projects.filter(p => String(p.parent_id).trim() === String(proj.id).trim() && p.status === 'active');
-                    return `<option value="${esc(proj.project_name)}">${proj.project_name}</option>` +
-                        subs.map(s => `<option value="${esc(s.project_name)}">\u00a0\u00a0↳ ${s.project_name}</option>`).join('');
+                    return `<option value="${esc(proj.project_name)}">${escHtml(proj.project_name)}</option>` +
+                        subs.map(s => `<option value="${esc(s.project_name)}">\u00a0\u00a0↳ ${escHtml(s.project_name)}</option>`).join('');
                   }).join('')
                 : '<option value="">No active projects</option>';
             sel.innerHTML = html;
@@ -1757,7 +1851,7 @@ footer {
                 <label>Main Activity</label>
                 <select class="main-act-sel" onchange="onMainActChange(this,'${subId}')">
                     <option value="">— Select Main Activity —</option>
-                    ${mains.map(m => `<option value="${esc(m.activity_name)}" data-id="${m.id}">${m.activity_name}</option>`).join('')}
+                    ${mains.map(m => `<option value="${esc(m.activity_name)}" data-id="${m.id}">${escHtml(m.activity_name)}</option>`).join('')}
                 </select>
                 <label id="lbl_${subId}" style="display:none;">Sub-Activity</label>
                 <select class="sub-act-sel" id="${subId}" style="display:none;opacity:0.45;" disabled>
@@ -1830,7 +1924,7 @@ footer {
                 if (subSel) {
                     subSel.disabled = false; subSel.style.opacity = '1'; subSel.style.display = '';
                     subSel.innerHTML = '<option value="">— Select Sub-Activity —</option>' +
-                        subs.map(s => `<option value="${esc(s.activity_name)}">${s.activity_name}</option>`).join('');
+                        subs.map(s => `<option value="${esc(s.activity_name)}">${escHtml(s.activity_name)}</option>`).join('');
                     if (preselectSub) subSel.value = preselectSub;
                 }
                 if (label) label.style.display = '';
@@ -1882,57 +1976,7 @@ footer {
                 }
             });
 
-            function renderActs(acts) {
-                if (!acts.length) return '';
-                const grouped = {};
-                acts.forEach(a => {
-                    const mainName = a.main_activity || a.activity || 'General';
-                    if (!grouped[mainName]) grouped[mainName] = [];
-                    grouped[mainName].push(a);
-                });
-                return Object.entries(grouped).map(([main, rows]) => {
-                    const innerRowsHtml = rows.map((r, rIdx) => {
-                        let childName = (r.sub_activity || r.activity || '').trim();
-                        childName = childName.replace(/^[↳\s\-➔]+/, '').trim();
-                        const mainClean = String(main).trim().toLowerCase();
-                        if (childName.toLowerCase().indexOf(mainClean) === 0) {
-                            childName = childName.substring(mainClean.length).replace(/^[↳\s\-➔]+/, '').trim();
-                        }
-                        
-                        const isSub = childName !== '' && childName.toLowerCase() !== mainClean;
-                        const totalVal = (Number(r.skilled) || 0) + (Number(r.unskilled) || 0);
-                        const borderVal = rIdx === rows.length - 1 ? 'none' : '1.5px solid #cbd5e1';
-                        
-                        // Visual properties based on isSub
-                        const paddingLeft = isSub ? '16px' : '0px';
-                        const fontSize = '13.5px';
-                        const titleColor = isSub ? '#475569' : '#1e293b';
-                        const fontWeight = isSub ? '500' : '700';
-                        const prefix = isSub ? '<span style="color:var(--primary);margin-right:4px;">↳</span>' : '';
-                        
-                        return `
-                        <div style="padding: 10px 0; padding-left: ${paddingLeft}; border-bottom: ${borderVal}; line-height: 1.6;">
-                            <div style="font-weight: ${fontWeight}; color: ${titleColor}; font-size: ${fontSize};">${prefix}${childName || toTitleCase(main)}</div>
-                            <div style="font-size: 12px; color: #475569; margin-top: 4px;">
-                                Skilled: <b>${r.skilled}</b> &nbsp;·&nbsp; Unskilled: <b>${r.unskilled}</b> &nbsp;·&nbsp; Total: <b>${totalVal}</b>
-                            </div>
-                            ${r.note ? `<div style="color: #475569; font-size: 11.5px; margin-top: 6px; font-style: italic; background: #f8fafc; padding: 6px 8px; border-radius: 4px; border-left: 2.5px solid #cbd5e1;">📌 ${r.note}</div>` : ''}
-                        </div>`;
-                    }).join('');
-
-                    return `
-                    <div class="report-activity" style="margin-bottom: 14px; padding: 16px; border-left: 5px solid var(--primary); background: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
-                        <div style="font-weight: 600; font-size: 14.5px; color: #1e293b; margin-bottom: 12px; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 6px; letter-spacing: 0.2px;">
-                            📦 ${toTitleCase(main)}
-                        </div>
-                        <div style="display: flex; flex-direction: column;">
-                            ${innerRowsHtml}
-                        </div>
-                    </div>`;
-                }).join('');
-            }
-
-            const sectionHtml = renderActs(activeActs);
+            const sectionHtml = buildActivityReportHtml(activeActs, { childNameOrder: ['sub_activity', 'activity'] });
 
             document.getElementById('rdate').innerHTML =
                 `<b>📅 Date :</b> ${formatDate(dateVal)}<br>
@@ -2033,95 +2077,10 @@ footer {
         }
 
         function getReportHtmlForRecord(item) {
-            const civilArr    = Array.isArray(item.civilActivities)    ? item.civilActivities    : [];
-            const interiorArr = Array.isArray(item.interiorActivities) ? item.interiorActivities : [];
-            const detailRows  = Array.isArray(item.details) ? item.details : [];
-
-            let bodyHtml = '';
-
-            function renderActArr(arr) {
-                if (!arr.length) return '';
-                const grouped = {};
-                arr.forEach(a => {
-                    const mainName = a.main_activity || a.activity || 'General';
-                    if (!grouped[mainName]) grouped[mainName] = [];
-                    grouped[mainName].push(a);
-                });
-
-                return Object.entries(grouped).map(([main, rows]) => {
-                    const innerRowsHtml = rows.map((r, rIdx) => {
-                        let childName = (r.activity || r.sub_activity || '').trim();
-                        childName = childName.replace(/^[↳\s\-➔]+/, '').trim();
-                        const mainClean = String(main).trim().toLowerCase();
-                        if (childName.toLowerCase().indexOf(mainClean) === 0) {
-                            childName = childName.substring(mainClean.length).replace(/^[↳\s\-➔]+/, '').trim();
-                        }
-                        
-                        const isSub = childName !== '' && childName.toLowerCase() !== mainClean;
-                        const sk = Number(r.skilled) || 0;
-                        const un = Number(r.unskilled) || 0;
-                        const totalVal = sk + un;
-                        const borderVal = rIdx === rows.length - 1 ? 'none' : '1.5px solid #cbd5e1';
-
-                        // Visual properties based on isSub
-                        const paddingLeft = isSub ? '16px' : '0px';
-                        const fontSize = '13.5px';
-                        const titleColor = isSub ? '#475569' : '#1e293b';
-                        const fontWeight = isSub ? '500' : '700';
-                        const prefix = isSub ? '<span style="color:var(--primary);margin-right:4px;">↳</span>' : '';
-
-                        return `
-                        <div style="padding: 10px 0; padding-left: ${paddingLeft}; border-bottom: ${borderVal}; line-height: 1.6;">
-                            <div style="font-weight: ${fontWeight}; color: ${titleColor}; font-size: ${fontSize};">${prefix}${childName || toTitleCase(main)}</div>
-                            <div style="font-size: 12px; color: #475569; margin-top: 4px;">
-                                Skilled: <b>${sk}</b> &nbsp;·&nbsp; Unskilled: <b>${un}</b> &nbsp;·&nbsp; Total: <b>${totalVal}</b>
-                            </div>
-                            ${r.note ? `<div style="color: #475569; font-size: 11.5px; margin-top: 6px; font-style: italic; background: #f8fafc; padding: 6px 8px; border-radius: 4px; border-left: 2.5px solid #cbd5e1;">📌 ${r.note}</div>` : ''}
-                        </div>`;
-                    }).join('');
-
-                    return `
-                    <div class="report-activity" style="margin-bottom: 14px; padding: 16px; border-left: 5px solid var(--primary); background: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
-                        <div style="font-weight: 600; font-size: 14.5px; color: #1e293b; margin-bottom: 12px; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 6px; letter-spacing: 0.2px;">
-                            📦 ${toTitleCase(main)}
-                        </div>
-                        <div style="display: flex; flex-direction: column;">
-                            ${innerRowsHtml}
-                        </div>
-                    </div>`;
-                }).join('');
-            }
-
-            // Pool all activities dynamically
-            let allActs = [];
-            if (civilArr.length || interiorArr.length) {
-                civilArr.forEach(a => { allActs.push({ ...a }); });
-                interiorArr.forEach(a => { allActs.push({ ...a }); });
-            } else if (detailRows.length) {
-                detailRows.forEach(r => {
-                    allActs.push({
-                        main_activity: r.main_activity || r.activity,
-                        activity: r.activity || r.main_activity,
-                        sub_activity: r.sub_activity || '',
-                        skilled: r.skilled,
-                        unskilled: r.unskilled,
-                        note: r.note
-                    });
-                });
-            }
-
-            const activeActs = [];
-            allActs.forEach(a => {
-                if (Number(a.skilled) > 0 || Number(a.unskilled) > 0) {
-                    activeActs.push(a);
-                }
-            });
-
-            if (activeActs.length) {
-                bodyHtml = renderActArr(activeActs);
-            } else {
-                bodyHtml = '<p style="color:var(--muted);text-align:center;padding:20px;">No activity detail available for this record.</p>';
-            }
+            const activeActs = poolRecordActivities(item);
+            const bodyHtml = activeActs.length
+                ? buildActivityReportHtml(activeActs, { childNameOrder: ['activity', 'sub_activity'] })
+                : '<p style="color:var(--muted);text-align:center;padding:20px;">No activity detail available for this record.</p>';
 
             const d      = toYMD(item.date);
             const byLine = item.editedBy && item.editedBy !== item.by
@@ -2408,7 +2367,7 @@ footer {
             _history.forEach(h => { if (h.by) supervisors.add(h.by); });
             let html = '<option value="">— Show All —</option>';
             Array.from(supervisors).sort().forEach(sup => {
-                html += `<option value="${esc(sup)}">${sup}</option>`;
+                html += `<option value="${esc(sup)}">${escHtml(sup)}</option>`;
             });
             sel.innerHTML = html;
             if (prev && Array.from(sel.options).find(o => o.value === prev)) sel.value = prev;
@@ -2605,97 +2564,10 @@ footer {
             const item = _history[i];
             if (!item) return;
 
-            // Prefer the JSON arrays from DPR_Records (cols J & K)
-            const civilArr    = Array.isArray(item.civilActivities)    ? item.civilActivities    : [];
-            const interiorArr = Array.isArray(item.interiorActivities) ? item.interiorActivities : [];
-            // Fall back to DPR_Detail rows if JSON columns are empty
-            const detailRows  = Array.isArray(item.details) ? item.details : [];
-
-            let bodyHtml = '';
-
-            function renderActArr(arr) {
-                if (!arr.length) return '';
-                const grouped = {};
-                arr.forEach(a => {
-                    const mainName = a.main_activity || a.activity || 'General';
-                    if (!grouped[mainName]) grouped[mainName] = [];
-                    grouped[mainName].push(a);
-                });
-
-                return Object.entries(grouped).map(([main, rows]) => {
-                    const innerRowsHtml = rows.map((r, rIdx) => {
-                        let childName = (r.activity || '').trim();
-                        childName = childName.replace(/^[↳\s\-➔]+/, '').trim();
-                        const mainClean = String(main).trim().toLowerCase();
-                        if (childName.toLowerCase().indexOf(mainClean) === 0) {
-                            childName = childName.substring(mainClean.length).replace(/^[↳\s\-➔]+/, '').trim();
-                        }
-                        
-                        const isSub = childName !== '' && childName.toLowerCase() !== mainClean;
-                        const sk = Number(r.skilled) || 0;
-                        const un = Number(r.unskilled) || 0;
-                        const totalVal = sk + un;
-                        const borderVal = rIdx === rows.length - 1 ? 'none' : '1.5px solid #cbd5e1';
-
-                        // Visual properties based on isSub
-                        const paddingLeft = isSub ? '16px' : '0px';
-                        const fontSize = '13.5px';
-                        const titleColor = isSub ? '#475569' : '#1e293b';
-                        const fontWeight = isSub ? '500' : '700';
-                        const prefix = isSub ? '<span style="color:var(--primary);margin-right:4px;">↳</span>' : '';
-
-                        return `
-                        <div style="padding: 10px 0; padding-left: ${paddingLeft}; border-bottom: ${borderVal}; line-height: 1.6;">
-                            <div style="font-weight: ${fontWeight}; color: ${titleColor}; font-size: ${fontSize};">${prefix}${childName || toTitleCase(main)}</div>
-                            <div style="font-size: 12px; color: #475569; margin-top: 4px;">
-                                Skilled: <b>${sk}</b> &nbsp;·&nbsp; Unskilled: <b>${un}</b> &nbsp;·&nbsp; Total: <b>${totalVal}</b>
-                            </div>
-                            ${r.note ? `<div style="color: #475569; font-size: 11.5px; margin-top: 6px; font-style: italic; background: #f8fafc; padding: 6px 8px; border-radius: 4px; border-left: 2.5px solid #cbd5e1;">📌 ${r.note}</div>` : ''}
-                        </div>`;
-                    }).join('');
-
-                    return `
-                    <div class="report-activity" style="margin-bottom: 14px; padding: 16px; border-left: 5px solid var(--primary); background: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
-                        <div style="font-weight: 600; font-size: 14.5px; color: #1e293b; margin-bottom: 12px; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 6px; letter-spacing: 0.2px;">
-                            📦 ${toTitleCase(main)}
-                        </div>
-                        <div style="display: flex; flex-direction: column;">
-                            ${innerRowsHtml}
-                        </div>
-                    </div>`;
-                }).join('');
-            }
-
-            // Pool all activities dynamically
-            let allActs = [];
-            if (civilArr.length || interiorArr.length) {
-                civilArr.forEach(a => { allActs.push({ ...a }); });
-                interiorArr.forEach(a => { allActs.push({ ...a }); });
-            } else if (detailRows.length) {
-                detailRows.forEach(r => {
-                    allActs.push({
-                        main_activity: r.main_activity || r.activity,
-                        activity: r.activity || r.main_activity,
-                        sub_activity: r.sub_activity || '',
-                        skilled: r.skilled,
-                        unskilled: r.unskilled,
-                        note: r.note
-                    });
-                });
-            }
-
-            const activeActs = [];
-            allActs.forEach(a => {
-                if (Number(a.skilled) > 0 || Number(a.unskilled) > 0) {
-                    activeActs.push(a);
-                }
-            });
-
-            if (activeActs.length) {
-                bodyHtml = renderActArr(activeActs);
-            } else {
-                bodyHtml = '<p style="color:var(--muted);text-align:center;padding:20px;">No activity detail available for this record.</p>';
-            }
+            const activeActs = poolRecordActivities(item);
+            const bodyHtml = activeActs.length
+                ? buildActivityReportHtml(activeActs, { childNameOrder: ['activity'] })
+                : '<p style="color:var(--muted);text-align:center;padding:20px;">No activity detail available for this record.</p>';
 
             const d      = toYMD(item.date);
             const byLine = item.editedBy && item.editedBy !== item.by
@@ -2711,11 +2583,15 @@ footer {
                 </div>
                 ${bodyHtml}
                 <div class="report-total" style="margin-top:14px;">👷 Total Manpower : ${item.total || 0}</div>`;
+            window._dprModalTriggerEl = document.activeElement;
             document.getElementById('dprModal').classList.add('open');
+            document.querySelector('#dprModal .modal-close')?.focus();
         }
 
         function closeDPRModal() {
             document.getElementById('dprModal').classList.remove('open');
+            if (window._dprModalTriggerEl && document.body.contains(window._dprModalTriggerEl)) window._dprModalTriggerEl.focus();
+            window._dprModalTriggerEl = null;
         }
 
         function deleteDPR(i) {
@@ -2917,7 +2793,7 @@ footer {
                 return `<div class="admin-user-row" style="flex-direction:column;align-items:stretch;gap:4px;padding:12px;">
                     <div style="display:flex;justify-content:space-between;align-items:center;">
                         <div>
-                            <span class="admin-user-info" style="font-size:14px;">👤 ${u.username}</span>
+                            <span class="admin-user-info" style="font-size:14px;">👤 ${escHtml(u.username)}</span>
                             ${statusBadge}
                         </div>
                         <div style="display:flex;gap:6px;">
@@ -2927,7 +2803,7 @@ footer {
                         </div>
                     </div>
                     <div class="admin-user-sub" style="margin-top:4px;font-size:12px;display:grid;grid-template-columns:1fr 1fr;gap:4px;border-top:1px solid #f1f5f9;padding-top:6px;">
-                        <div>Display: <b>${u.displayName || u.username}</b></div>
+                        <div>Display: <b>${u.displayName ? escHtml(toTitleCase(u.displayName)) : escHtml(u.username)}</b></div>
                         <div>Role: <b>${u.role === 'admin' ? 'Admin' : 'Supervisor'}</b></div>
                         <div>Total DPRs: <b>${totalSubmitted}</b></div>
                         <div>Last Upload: <b>${lastSubDate}</b></div>
@@ -2996,7 +2872,7 @@ footer {
             if (parentSel) {
                 parentSel.innerHTML = '<option value="">— None (Top-level) —</option>' +
                     tops.filter(p => p.status === 'active')
-                        .map(p => `<option value="${p.id}">${p.project_name}</option>`).join('');
+                        .map(p => `<option value="${p.id}">${escHtml(p.project_name)}</option>`).join('');
             }
             if (!_projects.length) { el.innerHTML = '<p style="color:var(--muted);font-size:13px;text-align:center;padding:12px;">No projects yet.</p>'; return; }
             el.innerHTML = tops.map(proj => {
@@ -3006,7 +2882,7 @@ footer {
                 <div draggable="true" data-id="${proj.id}" ondragstart="dragStart(event)" ondragover="dragOver(event)" ondrop="dropProject(event)" style="margin-bottom:12px;border:1.5px solid var(--border);border-radius:8px;overflow:hidden;cursor:move;">
                     <div style="background:#f8fafc;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:8px;">
                         <div>
-                            <span style="font-weight:700;font-size:14px;color:var(--primary);">📍 ${proj.project_name}</span>
+                            <span style="font-weight:700;font-size:14px;color:var(--primary);">📍 ${escHtml(proj.project_name)}</span>
                             <span style="font-size:11px;margin-left:8px;color:${act ? '#38a169' : '#e53e3e'};">${act ? '🟢' : '🔴'}</span>
                         </div>
                         <div style="display:flex;gap:6px;">
@@ -3025,7 +2901,7 @@ footer {
                         ${subs.length
                             ? subs.map(s => `
                             <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid #f1f5f9;">
-                                <span style="font-size:13px;${s.status !== 'active' ? 'color:var(--muted);text-decoration:line-through;' : ''}">↳ ${s.project_name}</span>
+                                <span style="font-size:13px;${s.status !== 'active' ? 'color:var(--muted);text-decoration:line-through;' : ''}">↳ ${escHtml(s.project_name)}</span>
                                 <div style="display:flex;gap:5px;">
                                     <button class="btn-blue btn-sm" style="width:auto;padding:2px 7px;font-size:11px;"
                                             onclick="editProjectName('${s.id}','${esc(s.project_name)}')">✏️</button>
@@ -3131,7 +3007,7 @@ footer {
             if (parentSel) {
                 parentSel.innerHTML = '<option value="">— Select Main Activity —</option>' +
                     mains.filter(m => m.status === 'active')
-                         .map(m => `<option value="${m.id}">${m.activity_name}</option>`).join('');
+                         .map(m => `<option value="${m.id}">${escHtml(m.activity_name)}</option>`).join('');
             }
             if (!mains.length) { el.innerHTML = '<p style="color:var(--muted);font-size:13px;text-align:center;padding:12px;">No activities yet.</p>'; return; }
             
@@ -3150,7 +3026,7 @@ footer {
                      style="margin-bottom:12px;border:1.5px solid var(--border);border-radius:8px;overflow:hidden;cursor:move;transition:opacity 0.2s ease;">
                     <div style="background:#f8fafc;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:8px;">
                         <div>
-                            <span style="font-weight:700;font-size:14px;color:var(--primary);">🔨 ${main.activity_name}</span>
+                            <span style="font-weight:700;font-size:14px;color:var(--primary);">🔨 ${escHtml(main.activity_name)}</span>
                             <span style="font-size:11px;margin-left:8px;color:${act ? '#38a169' : '#e53e3e'};">${act ? '🟢' : '🔴'}</span>
                         </div>
                         <div style="display:flex;gap:6px;">
@@ -3169,7 +3045,7 @@ footer {
                         ${subs.length
                             ? subs.map(s => `
                             <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid #f1f5f9;">
-                                <span style="font-size:13px;${s.status !== 'active' ? 'color:var(--muted);text-decoration:line-through;' : ''}">↳ ${s.activity_name}</span>
+                                <span style="font-size:13px;${s.status !== 'active' ? 'color:var(--muted);text-decoration:line-through;' : ''}">↳ ${escHtml(s.activity_name)}</span>
                                 <div style="display:flex;gap:5px;">
                                     <button class="btn-blue btn-sm" style="width:auto;padding:2px 7px;font-size:11px;"
                                             onclick="editActivityName('${s.id}','${esc(s.activity_name)}')">✏️</button>
@@ -3506,7 +3382,7 @@ footer {
                                         .sort((a, b) => b[1] - a[1])
                                         .map(([act, actW]) => `
                                         <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0 4px 28px;font-size:12px;color:var(--muted);border-bottom:1px dashed #f1f5f9;">
-                                            <span>${act}</span>
+                                            <span>${escHtml(act)}</span>
                                             <span style="font-weight:600;">${actW}</span>
                                         </div>`).join('') || '<div style="font-size:11px;color:var(--muted);padding-left:28px;">No activity details.</div>';
                                         
@@ -3530,7 +3406,7 @@ footer {
                                 .sort((a, b) => b[1] - a[1])
                                 .map(([act, actW]) => `
                                 <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0 4px 18px;font-size:12px;color:var(--muted);border-bottom:1px dashed #f1f5f9;">
-                                    <span>↳ ${act}</span>
+                                    <span>↳ ${escHtml(act)}</span>
                                     <span style="font-weight:600;">${actW}</span>
                                 </div>`).join('') || '<div style="font-size:11px;color:var(--muted);padding-left:18px;">No activity details.</div>';
                         }
@@ -3542,7 +3418,7 @@ footer {
                                  onclick="toggleDashboardAccordion('${mainId}')"
                                  onmouseover="this.parentElement.style.borderColor='var(--primary)'"
                                  onmouseout="this.parentElement.style.borderColor='var(--border)'">
-                                <div style="font-size:14px;font-weight:700;flex:0 0 auto;max-width:55%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">📍 ${mainName}</div>
+                                <div style="font-size:14px;font-weight:700;flex:0 0 auto;max-width:55%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">📍 ${escHtml(mainName)}</div>
                                 <div class="bar-wrap"><div class="bar-fill" style="width:${Math.round(w / maxW * 100)}%"></div></div>
                                 <div class="site-total" style="font-weight:700;">${w}</div>
                             </div>
@@ -3753,6 +3629,19 @@ footer {
             document.addEventListener('change', (e) => {
                 if (!e.target.closest('#tabForm')) return;
                 saveFormDraft();
+            });
+
+            document.addEventListener('keydown', (e) => {
+                const modal = document.getElementById('dprModal');
+                if (!modal || !modal.classList.contains('open')) return;
+                if (e.key === 'Escape') { closeDPRModal(); return; }
+                if (e.key === 'Tab') {
+                    const focusables = modal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+                    if (!focusables.length) return;
+                    const first = focusables[0], last = focusables[focusables.length - 1];
+                    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+                    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+                }
             });
 
 
