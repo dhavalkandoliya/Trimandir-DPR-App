@@ -132,6 +132,10 @@ $part1 = "'use client';" + "`n" +
           "    s3.src = 'https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js';" + "`n" +
           "    document.head.appendChild(s3);" + "`n" +
           "" + "`n" +
+          "    const s4 = document.createElement('script');" + "`n" +
+          "    s4.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js';" + "`n" +
+          "    s2.onload = () => document.head.appendChild(s4);" + "`n" +
+          "" + "`n" +
           "    // -- Render HTML into container --" + "`n" +
           "    const container = document.getElementById('__dpr_root__');" + "`n" +
           "    if (container) {" + "`n" +

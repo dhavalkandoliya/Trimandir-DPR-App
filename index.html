@@ -1260,12 +1260,15 @@ footer {
                 <div class="lbl">Active Projects</div>
             </div>
         </div>
-        <div class="btn-group" style="margin-top: 4px;">
+        <div class="btn-group" style="margin-top: 4px; grid-template-columns: repeat(3, 1fr);">
             <button class="btn-green btn-sm" style="display: flex; align-items: center; justify-content: center; gap: 6px; font-size:12px;" onclick="exportMasterLogCSV()">
-                📥 Export CSV
+                📥 CSV
             </button>
             <button class="btn-green btn-sm" style="display: flex; align-items: center; justify-content: center; gap: 6px; font-size:12px;" onclick="exportMasterLogExcel()">
-                📊 Export Excel
+                📊 Excel
+            </button>
+            <button class="btn-green btn-sm" style="display: flex; align-items: center; justify-content: center; gap: 6px; font-size:12px;" onclick="exportMasterLogPDF()">
+                📄 PDF
             </button>
         </div>
     </div>
@@ -2447,6 +2450,41 @@ footer {
             showToast('✅ Excel Exported!');
         }
         window.exportMasterLogExcel = exportMasterLogExcel;
+
+        // True vector PDF (selectable text, paginated with repeated headers)
+        // for the Master Log — unlike the per-record report/modal exports,
+        // which stay raster (html2canvas) since they're a WYSIWYG document
+        // capture, not a long tabular export where autoTable's pagination
+        // actually earns its keep.
+        function exportMasterLogPDF() {
+            if (!_history.length) { showToast('⚠️ No history records to export'); return; }
+            if (typeof window.jspdf === 'undefined') { showToast('⚠️ PDF library still loading — try again in a moment'); return; }
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+            if (typeof doc.autoTable !== 'function') { showToast('⚠️ PDF table library still loading — try again in a moment'); return; }
+
+            const rows = buildMasterLogRows();
+            const headerRow = rows[0];
+            const bodyRows = rows.slice(1);
+
+            doc.setFontSize(14);
+            doc.text('Trimandir Construction Project — DPR Master Log', 40, 30);
+            doc.autoTable({
+                head: [headerRow],
+                body: bodyRows,
+                startY: 45,
+                styles: { fontSize: 7, cellPadding: 3 },
+                headStyles: { fillColor: [49, 46, 129] },
+                margin: { top: 45 },
+                didDrawPage: (data) => {
+                    doc.setFontSize(8);
+                    doc.text(`Page ${doc.internal.getNumberOfPages()}`, data.settings.margin.left, doc.internal.pageSize.getHeight() - 10);
+                }
+            });
+            doc.save(`TPD_DPR_Master_Log_${getLocalTodayYMD()}.pdf`);
+            showToast('✅ PDF Exported!');
+        }
+        window.exportMasterLogPDF = exportMasterLogPDF;
 
         function populateSupervisorDropdown() {
             const sel = document.getElementById('searchSupervisor');
