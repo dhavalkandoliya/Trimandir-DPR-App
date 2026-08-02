@@ -113,6 +113,7 @@ $escapedHtml = $bodyHtml   -replace '\\', '\\' -replace '"', '\"' -replace "`r`n
 $part1 = "'use client';" + "`n" +
           "" + "`n" +
           "import { useEffect } from 'react';" + "`n" +
+          "import AnalyticsDashboard from '../components/dashboard/AnalyticsDashboard';" + "`n" +
           "" + "`n" +
           "export default function Page() {" + "`n" +
           "  useEffect(() => {" + "`n" +
@@ -160,7 +161,7 @@ $part3 = '";' + "`n" +
           "" + "`n" +
           "  }, []);" + "`n" +
           "" + "`n" +
-          "  return <div id=""__dpr_root__"" />;" + "`n" +
+          "  return (<><div id=""__dpr_root__"" /><AnalyticsDashboard /></>);" + "`n" +
           "}" + "`n"
 
 # Concatenate — all parts remain .NET Unicode strings, no code-page conversion

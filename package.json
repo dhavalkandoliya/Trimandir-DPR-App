@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "caniuse-lite": "^1.0.30001793",
+    "chart.js": "^4.5.1",
     "html2canvas": "^1.4.1",
     "jspdf": "^2.5.1",
     "next": "^14.2.1",

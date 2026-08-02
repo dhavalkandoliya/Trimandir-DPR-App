@@ -1235,23 +1235,7 @@ footer {
      DASHBOARD TAB
 ═══════════════════════════════════════════════════════════════ -->
 <div class="tab-page" id="tabDashboard" style="display:none;">
-    <div class="card">
-        <div class="section-title">&#128202; Summary Dashboard</div>
-        <div class="period-tabs">
-            <button class="period-tab active" onclick="setPeriod('week',this)">This Week</button>
-            <button class="period-tab"        onclick="setPeriod('month',this)">This Month</button>
-            <button class="period-tab"        onclick="setPeriod('all',this)">All Time</button>
-        </div>
-        <div class="dash-grid">
-            <div class="dash-stat"><span class="dash-stat-icon">👷</span><div class="num" id="dTotalWorkers">—</div><div class="lbl">Total Workers</div><span class="trend-badge" id="dTotalWorkersTrend"></span></div>
-            <div class="dash-stat"><span class="dash-stat-icon">📋</span><div class="num" id="dTotalDPR">—</div><div class="lbl">Total DPRs</div><span class="trend-badge" id="dTotalDPRTrend"></span></div>
-            <div class="dash-stat"><span class="dash-stat-icon">📈</span><div class="num" id="dAvgWorkers">—</div><div class="lbl">Avg / Day</div><span class="trend-badge" id="dAvgWorkersTrend"></span></div>
-            <div class="dash-stat"><span class="dash-stat-icon">🏗️</span><div class="num" id="dActiveSites">—</div><div class="lbl">Active Sites</div><span class="trend-badge" id="dActiveSitesTrend"></span></div>
-        </div>
-        <div id="dashConditionSummary" style="font-size:12px;color:var(--muted);margin-bottom:10px;"></div>
-        <div class="section-title" style="margin-top:4px;">&#128205; Site-wise Manpower</div>
-        <div id="siteBreakdown"><p style="color:#aaa;font-size:13px;">Load history first</p></div>
-    </div>
+    <div id="__dashboard_mount__"></div>
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════════
@@ -1422,7 +1406,6 @@ footer {
         let _activities = [];   // { id, activity_name, parent_id, status } (synced with 5-column nested schema)
         let _history    = [];   // see handleGetDPRs schema below
         let _currentUser    = null;
-        let _dashPeriod     = 'week';
         let _editingKey     = null;
         let _rowCounter     = 0;
         let _selectedCondition = '';
@@ -1765,6 +1748,7 @@ footer {
             document.documentElement.setAttribute('data-theme', next);
             try { localStorage.setItem('dprTheme', next); } catch (e) {}
             updateThemeToggleIcon();
+            window.dispatchEvent(new CustomEvent('dpr:themeChanged', { detail: { theme: next } }));
         }
         window.toggleTheme = toggleTheme;
 
@@ -1799,7 +1783,7 @@ footer {
             if (pg) { pg.classList.add('active'); pg.style.display = 'block'; }
             const ab = btn || document.getElementById('tabBtn' + tab);
             if (ab) ab.classList.add('active');
-            if (tab === 'Dashboard') renderDashboard();
+            if (tab === 'Dashboard') window.dispatchEvent(new CustomEvent('dpr:historyUpdated'));
             if (tab === 'History')   renderHistory();
             if (tab === 'Admin')     renderAdminPanel();
         }
@@ -2144,7 +2128,7 @@ footer {
                     populateSupervisorDropdown();
                     renderAdminAnalytics();
                     resetHistoryPageAndRender();
-                    renderDashboard();
+                    window.dispatchEvent(new CustomEvent('dpr:historyUpdated'));
                 })
                 .catch(() => {
                     if (el) el.innerHTML = '<p style="color:#e57373;text-align:center;padding:10px;">⚠️ Failed to load records.</p>';
@@ -3352,6 +3336,11 @@ footer {
             window.dragEndActivity = dragEndActivity;
         }
 
+        // Read-only accessors for the portal-mounted React AnalyticsDashboard
+        // component to read the same in-memory arrays without duplicating fetch logic.
+        window.__getHistory  = function() { return _history; };
+        window.__getProjects = function() { return _projects; };
+
         // ── Data Maintenance ────────────────────────────────────────
         async function runDataCleanup() {
             if (!confirm('This will delete rows with corrupted/shifted column data from DPR_Records and DPR_Detail. Proceed?')) return;
@@ -3367,246 +3356,12 @@ footer {
         }
 
         /* ═══════════════════════════════════════════════════════════
-           DASHBOARD
+           DASHBOARD — now a real React component, see
+           /components/dashboard/AnalyticsDashboard.jsx, portal-mounted
+           into #__dashboard_mount__. window.__getHistory()/__getProjects()
+           above and the 'dpr:historyUpdated'/'dpr:themeChanged' events
+           are the interop bridge.
         ═══════════════════════════════════════════════════════════ */
-        function toggleDashboardAccordion(id) {
-            const el = document.getElementById(id);
-            if (!el) return;
-            el.style.display = el.style.display === 'none' ? 'block' : 'none';
-        }
-
-        function setPeriod(p, btn) {
-            _dashPeriod = p;
-            document.querySelectorAll('.period-tab').forEach(b => b.classList.remove('active'));
-            if (btn) btn.classList.add('active');
-            renderDashboard();
-        }
-
-        // Returns { totalW, totalD } for _history items whose date falls in [start, end) (Date objects).
-        function getAggregatesForRange(start, end) {
-            const items = _history.filter(item => {
-                const ymd = toYMD(item.date);
-                if (!ymd || ymd.length < 10) return false;
-                const [yr, mo, da] = ymd.split('-').map(Number);
-                const d = new Date(yr, mo - 1, da);
-                return d >= start && d < end;
-            });
-            const totalW = items.reduce((a, i) => a + (Number(i.total) || 0), 0);
-            return { totalW, totalD: items.length };
-        }
-
-        function renderTrendBadge(elId, current, previous) {
-            const el = document.getElementById(elId);
-            if (!el) return;
-            if (!previous) { el.textContent = ''; el.className = 'trend-badge'; return; }
-            const delta = Math.round(((current - previous) / previous) * 100);
-            if (delta === 0) {
-                el.textContent = '— 0%';
-                el.className = 'trend-badge trend-flat';
-            } else if (delta > 0) {
-                el.textContent = `▲ ${delta}%`;
-                el.className = 'trend-badge trend-up';
-            } else {
-                el.textContent = `▼ ${Math.abs(delta)}%`;
-                el.className = 'trend-badge trend-down';
-            }
-        }
-
-        function renderDashboardTrends() {
-            const trendIds = ['dTotalWorkersTrend', 'dTotalDPRTrend', 'dAvgWorkersTrend', 'dActiveSitesTrend'];
-            if (_dashPeriod === 'all') {
-                trendIds.forEach(id => { const el = document.getElementById(id); if (el) { el.textContent = ''; el.className = 'trend-badge'; } });
-                return;
-            }
-            const now = new Date();
-            let curStart, curEnd, prevStart, prevEnd;
-            if (_dashPeriod === 'week') {
-                const day = now.getDay() || 7;
-                curStart = new Date(now); curStart.setDate(now.getDate() - day + 1); curStart.setHours(0,0,0,0);
-                curEnd = new Date(now); curEnd.setHours(23,59,59,999);
-                prevEnd = new Date(curStart);
-                prevStart = new Date(curStart); prevStart.setDate(prevStart.getDate() - 7);
-            } else { // month
-                curStart = new Date(now.getFullYear(), now.getMonth(), 1);
-                curEnd = new Date(now); curEnd.setHours(23,59,59,999);
-                prevEnd = new Date(curStart);
-                prevStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-            }
-            const cur  = getAggregatesForRange(curStart, curEnd);
-            const prev = getAggregatesForRange(prevStart, prevEnd);
-            renderTrendBadge('dTotalWorkersTrend', cur.totalW, prev.totalW);
-            renderTrendBadge('dTotalDPRTrend', cur.totalD, prev.totalD);
-            renderTrendBadge('dAvgWorkersTrend',
-                cur.totalD ? cur.totalW / cur.totalD : 0,
-                prev.totalD ? prev.totalW / prev.totalD : 0);
-            // Active-sites trend intentionally omitted (a set-cardinality delta is not a meaningful %).
-        }
-
-        function renderDashboard() {
-            if (!_history.length) return;
-            const now  = new Date();
-            const data = _history.filter(item => {
-                const ymd = toYMD(item.date);
-                if (!ymd || ymd.length < 10) return _dashPeriod === 'all';
-                const [yr, mo, da] = ymd.split('-').map(Number);
-                const d = new Date(yr, mo - 1, da);
-                if (_dashPeriod === 'week') {
-                    const day = now.getDay() || 7;
-                    const mon = new Date(now); mon.setDate(now.getDate() - day + 1); mon.setHours(0,0,0,0);
-                    return d >= mon;
-                }
-                if (_dashPeriod === 'month') return mo === now.getMonth() + 1 && yr === now.getFullYear();
-                return true;
-            });
-
-            const totalW = data.reduce((a, i) => a + (Number(i.total) || 0), 0);
-            const totalD = data.length;
-            document.getElementById('dTotalWorkers').textContent = totalW;
-            document.getElementById('dTotalDPR').textContent     = totalD;
-            document.getElementById('dAvgWorkers').textContent   = totalD ? Math.round(totalW / totalD) : 0;
-            document.getElementById('dActiveSites').textContent  = [...new Set(data.map(i => i.site).filter(Boolean))].length;
-
-            const conditionCounts = {};
-            data.forEach(i => { if (i.siteCondition) conditionCounts[i.siteCondition] = (conditionCounts[i.siteCondition] || 0) + 1; });
-            const condSummaryEl = document.getElementById('dashConditionSummary');
-            if (condSummaryEl) {
-                const parts = Object.entries(conditionCounts)
-                    .sort((a, b) => b[1] - a[1])
-                    .map(([cond, n]) => `${conditionEmoji(cond)} ${n} ${escHtml(cond)} day${n === 1 ? '' : 's'}`);
-                condSummaryEl.textContent = parts.length ? parts.join('  ·  ') : '';
-            }
-
-            // Map project name to project for lookup
-            const projMap = {};
-            _projects.forEach(p => { projMap[String(p.project_name).trim()] = p; });
-            const projById = {};
-            _projects.forEach(p => { projById[String(p.id).trim()] = p; });
-
-            // Structure:
-            // mainMap = {
-            //   [mainName]: {
-            //     total: 0,
-            //     hasSubs: false,
-            //     subs: {
-            //       [subName]: { total: 0, activities: { [actName]: total } }
-            //     }
-            //   }
-            // }
-            const mainMap = {};
-            
-            data.forEach(item => {
-                const siteName = item.site ? String(item.site).trim() : 'Unknown';
-                const p = projMap[siteName];
-                let mainName = siteName;
-                let subName = '';
-                
-                if (p) {
-                    const parentIdStr = p.parent_id ? String(p.parent_id).trim() : '';
-                    if (parentIdStr && projById[parentIdStr]) {
-                        mainName = projById[parentIdStr].project_name;
-                        subName = p.project_name;
-                    }
-                }
-                
-                if (!mainMap[mainName]) {
-                    mainMap[mainName] = { total: 0, hasSubs: false, subs: {} };
-                }
-                
-                mainMap[mainName].total += (Number(item.total) || 0);
-                
-                if (subName) {
-                    mainMap[mainName].hasSubs = true;
-                }
-                
-                if (!mainMap[mainName].subs[subName]) {
-                    mainMap[mainName].subs[subName] = { total: 0, activities: {} };
-                }
-                mainMap[mainName].subs[subName].total += (Number(item.total) || 0);
-                
-                const details = Array.isArray(item.details) ? item.details : [];
-                details.forEach(det => {
-                    const actName = det.activity || 'Unknown';
-                    const actTotal = (Number(det.total) || (Number(det.skilled) || 0) + (Number(det.unskilled) || 0));
-                    mainMap[mainName].subs[subName].activities[actName] = 
-                        (mainMap[mainName].subs[subName].activities[actName] || 0) + actTotal;
-                });
-            });
-
-            const maxW = Math.max(...Object.values(mainMap).map(m => m.total), 1);
-            let counter = 0;
-            document.getElementById('siteBreakdown').innerHTML =
-                Object.entries(mainMap)
-                    .sort((a, b) => b[1].total - a[1].total)
-                    .map(([mainName, mainData]) => {
-                        counter++;
-                        const mainId = `db_main_${counter}`;
-                        const w = mainData.total;
-                        
-                        let bodyHtml = '';
-                        if (mainData.hasSubs) {
-                            bodyHtml = Object.entries(mainData.subs)
-                                .sort((a, b) => b[1].total - a[1].total)
-                                .map(([subName, subData]) => {
-                                    counter++;
-                                    const subId = `db_sub_${counter}`;
-                                    const subW = subData.total;
-                                    const displayName = subName ? `↳ ${subName}` : `↳ General / Direct`;
-                                    
-                                    const actEntries = Object.entries(subData.activities)
-                                        .sort((a, b) => b[1] - a[1])
-                                        .map(([act, actW]) => `
-                                        <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0 4px 28px;font-size:12px;color:var(--muted);border-bottom:1px dashed #f1f5f9;">
-                                            <span>${escHtml(act)}</span>
-                                            <span style="font-weight:600;">${actW}</span>
-                                        </div>`).join('') || '<div style="font-size:11px;color:var(--muted);padding-left:28px;">No activity details.</div>';
-                                        
-                                    return `
-                                    <div style="margin-bottom:8px;border-bottom:1px solid #f1f5f9;padding-bottom:6px;">
-                                        <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;cursor:pointer;background:#f8fafc;border-radius:6px;transition:background 0.2s;"
-                                             onclick="toggleDashboardAccordion('${subId}')"
-                                             onmouseover="this.style.background='#f1f5f9'"
-                                             onmouseout="this.style.background='#f8fafc'">
-                                            <span style="font-size:13px;font-weight:600;color:var(--primary);">${displayName}</span>
-                                            <span style="font-size:12px;font-weight:700;color:var(--muted);">${subW}</span>
-                                        </div>
-                                        <div id="${subId}" style="display:none;margin-top:4px;">
-                                            ${actEntries}
-                                        </div>
-                                    </div>`;
-                                }).join('');
-                        } else {
-                            const subData = mainData.subs[''] || { activities: {} };
-                            bodyHtml = Object.entries(subData.activities)
-                                .sort((a, b) => b[1] - a[1])
-                                .map(([act, actW]) => `
-                                <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0 4px 18px;font-size:12px;color:var(--muted);border-bottom:1px dashed #f1f5f9;">
-                                    <span>↳ ${escHtml(act)}</span>
-                                    <span style="font-weight:600;">${actW}</span>
-                                </div>`).join('') || '<div style="font-size:11px;color:var(--muted);padding-left:18px;">No activity details.</div>';
-                        }
-                        
-                        return `
-                        <div style="margin-bottom:16px;background:#ffffff;border:1px solid var(--border);border-radius:8px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.02);">
-                            <div class="site-row" 
-                                 style="margin-bottom:0;background:transparent;border:none;padding:12px;cursor:pointer;transition:background 0.2s;"
-                                 onclick="toggleDashboardAccordion('${mainId}')"
-                                 onmouseover="this.parentElement.style.borderColor='var(--primary)'"
-                                 onmouseout="this.parentElement.style.borderColor='var(--border)'">
-                                <div style="font-size:14px;font-weight:700;flex:0 0 auto;max-width:55%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">📍 ${escHtml(mainName)}</div>
-                                <div class="bar-wrap"><div class="bar-fill" style="width:${Math.round(w / maxW * 100)}%"></div></div>
-                                <div class="site-total" style="font-weight:700;">${w}</div>
-                            </div>
-                            <div id="${mainId}" style="display:none;padding:0 12px 12px;border-top:1px solid #f1f5f9;background:#fafbfc;">
-                                <div style="margin-top:8px;">
-                                    ${bodyHtml}
-                                </div>
-                            </div>
-                        </div>`;
-                    }).join('') ||
-                    '<p style="color:#aaa;font-size:13px;text-align:center;">No data for this period</p>';
-
-            renderDashboardTrends();
-        }
 
         /* ═══════════════════════════════════════════════════════════
            DOWNLOADS / SHARE — shared capture+deliver helpers
