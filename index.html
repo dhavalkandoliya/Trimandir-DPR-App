@@ -1954,6 +1954,8 @@ footer {
                         </div>
                     </div>
                 </div>
+                <label>Planned Qty <span style="font-weight:400;text-transform:none;">(Optional — for % complete)</span></label>
+                <input type="number" class="planned-qty-inp" min="0" placeholder="e.g. total units planned for this activity">
                 <label>Note <span style="font-weight:400;text-transform:none;">(Optional)</span></label>
                 <input type="text" class="note-inp" placeholder="Work location or note...">`;
 
@@ -1980,6 +1982,7 @@ footer {
                 div.querySelector('.skill').value    = data.skilled   != null ? data.skilled   : 0;
                 div.querySelector('.unskill').value  = data.unskilled != null ? data.unskilled : 0;
                 div.querySelector('.note-inp').value = data.note || '';
+                div.querySelector('.planned-qty-inp').value = data.plannedQty ? data.plannedQty : '';
             }
             updateFormTotals();
         }
@@ -2022,9 +2025,10 @@ footer {
                 const skilled   = Math.max(0, Number((el.querySelector('.skill')   || {}).value) || 0);
                 const unskilled = Math.max(0, Number((el.querySelector('.unskill') || {}).value) || 0);
                 const note      = ((el.querySelector('.note-inp') || {}).value || '').trim();
+                const plannedQty = Math.max(0, Number((el.querySelector('.planned-qty-inp') || {}).value) || 0);
                 if (mainAct) {
                     const section = detectSection(mainAct, subAct);
-                    rows.push({ main_activity: mainAct, sub_activity: subAct, section, skilled, unskilled, note });
+                    rows.push({ main_activity: mainAct, sub_activity: subAct, section, skilled, unskilled, note, plannedQty });
                 }
             });
             return rows;
@@ -2724,8 +2728,8 @@ footer {
             const civArr = Array.isArray(item.civilActivities)    ? item.civilActivities    : [];
             const intArr = Array.isArray(item.interiorActivities) ? item.interiorActivities : [];
             const allActs = [
-                ...civArr.map(a => ({ main_activity: a.main_activity || a.activity, sub_activity: '', section: 'Civil',    skilled: a.skilled, unskilled: a.unskilled, note: a.note })),
-                ...intArr.map(a => ({ main_activity: a.main_activity || a.activity, sub_activity: '', section: 'Interior', skilled: a.skilled, unskilled: a.unskilled, note: a.note }))
+                ...civArr.map(a => ({ main_activity: a.main_activity || a.activity, sub_activity: '', section: 'Civil',    skilled: a.skilled, unskilled: a.unskilled, note: a.note, plannedQty: a.plannedQty })),
+                ...intArr.map(a => ({ main_activity: a.main_activity || a.activity, sub_activity: '', section: 'Interior', skilled: a.skilled, unskilled: a.unskilled, note: a.note, plannedQty: a.plannedQty }))
             ];
             // Fall back to DPR_Detail rows
             const detRows = Array.isArray(item.details) ? item.details : [];
@@ -2735,7 +2739,8 @@ footer {
                 section:       r.section || 'Civil',
                 skilled:       r.skilled,
                 unskilled:     r.unskilled,
-                note:          r.note
+                note:          r.note,
+                plannedQty:    r.plannedQty
             }));
 
             if (rowsToLoad.length) rowsToLoad.forEach(r => addActivityRow(r));

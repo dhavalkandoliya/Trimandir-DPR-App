@@ -133,6 +133,23 @@ export default function AnalyticsDashboard() {
     return { totalW, totalD, avgW, activeSites };
   }, [periodData]);
 
+  // Work-completion %: sum(actual) / sum(plannedQty) across activity-detail
+  // rows in the period. plannedQty is optional per row (added in Phase 5), so
+  // this is null (not 0%) whenever nobody has entered a planned quantity yet.
+  const completion = useMemo(() => {
+    let actual = 0, planned = 0;
+    periodData.forEach(item => {
+      (Array.isArray(item.details) ? item.details : []).forEach(det => {
+        const p = Number(det.plannedQty) || 0;
+        if (p > 0) {
+          planned += p;
+          actual += Number(det.total) || (Number(det.skilled) || 0) + (Number(det.unskilled) || 0);
+        }
+      });
+    });
+    return planned > 0 ? Math.round((actual / planned) * 100) : null;
+  }, [periodData]);
+
   // Week-over-week / month-over-month deltas: current window vs. the
   // immediately preceding equal-length window, pure client-side math.
   const trends = useMemo(() => {
@@ -348,6 +365,9 @@ export default function AnalyticsDashboard() {
           <div className="dash-stat"><span className="dash-stat-icon">📋</span><div className="num">{stats.totalD}</div><div className="lbl">Total DPRs</div>{trends && trendBadge(trends.totalD)}</div>
           <div className="dash-stat"><span className="dash-stat-icon">📈</span><div className="num">{stats.avgW}</div><div className="lbl">Avg / Day</div>{trends && trendBadge(trends.avgW)}</div>
           <div className="dash-stat"><span className="dash-stat-icon">🏗️</span><div className="num">{stats.activeSites}</div><div className="lbl">Active Sites</div></div>
+          {completion !== null && (
+            <div className="dash-stat"><span className="dash-stat-icon">🎯</span><div className="num">{completion}%</div><div className="lbl">Work Completion</div></div>
+          )}
         </div>
         {conditionSummary && <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 10 }}>{conditionSummary}</div>}
 

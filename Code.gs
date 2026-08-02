@@ -8,9 +8,9 @@
 //   F=Last Updated  G=submittedAt  H=editPermission  I=requestedBy
 //   J=activities(JSON)  K=SiteCondition
 //
-// DPR_Detail (A→J):
+// DPR_Detail (A→K):
 //   A=Date  B=Site  C=Section  D=Activity  E=Skilled  F=Unskilled
-//   G=Total  H=Note  I=Prepared By  J=Timestamp
+//   G=Total  H=Note  I=Prepared By  J=Timestamp  K=PlannedQty
 //
 // Projects  (A→D): id | project_name | parent_id | status
 // Activities(A→D): id | activity_name | parent_id | status
@@ -27,7 +27,7 @@ var SHEET_ACTIVITIES = 'Activities';
 // RECORDS: A  B     C            D                  E               F             G             H                I             J
 var RECORDS_HEADERS  = ['Date','Site','Prepared By','Activity Details','Total Manpower','Last Updated','submittedAt','editPermission','requestedBy','civilActivities','SiteCondition'];
 // DETAIL: A      B      C         D          E         F           G       H      I            J
-var DETAIL_HEADERS   = ['Date','Site','Section','Activity','Skilled','Unskilled','Total','Note','Prepared By','Timestamp'];
+var DETAIL_HEADERS   = ['Date','Site','Section','Activity','Skilled','Unskilled','Total','Note','Prepared By','Timestamp','PlannedQty'];
 var USER_HEADERS     = ['username','displayName','password','role'];
 var PROJECT_HEADERS  = ['id', 'main_project_name', 'sub_project_name', 'parent_id', 'status', 'sort_order'];
 var ACTIVITY_HEADERS = ['id', 'main_category_name', 'sub_category_name', 'parent_id', 'status', 'sort_order'];
@@ -58,7 +58,8 @@ var DET = {
   total:      6,   // G
   note:       7,   // H
   preparedBy: 8,   // I
-  timestamp:  9    // J
+  timestamp:  9,   // J
+  plannedQty: 10   // K
 };
 
 // ── ROUTER ───────────────────────────────────────────────────────
@@ -175,6 +176,7 @@ function normalizeKey(raw) {
     'sub_activity': 'subActivity', 'subactivity': 'subActivity',
     'skilled': 'skilled', 'skilled_workers': 'skilled',
     'unskilled': 'unskilled', 'unskilled_workers': 'unskilled',
+    'plannedqty': 'plannedQty', 'planned_qty': 'plannedQty', 'planned_quantity': 'plannedQty', 'target_qty': 'plannedQty',
     'note': 'note', 'notes': 'note', 'remark': 'note', 'remarks': 'note',
     'username': 'username',
     'displayname': 'displayName', 'display_name': 'displayName', 'name': 'displayName',
@@ -540,7 +542,8 @@ function handleGetDPRs() {
       unskilled:  un,
       total:      Number(drow[DET.total]) || sk + un,
       note:       String(drow[DET.note]   || '').trim(),
-      preparedBy: String(drow[DET.preparedBy] || '').trim()
+      preparedBy: String(drow[DET.preparedBy] || '').trim(),
+      plannedQty: Number(drow[DET.plannedQty]) || 0
     });
   }
 
@@ -598,7 +601,7 @@ function handleSaveDPR(body) {
     var sk      = Number(a.skilled)   || 0;
     var un      = Number(a.unskilled) || 0;
     totalMP += sk + un;
-    var rec = { activity: actName, main_activity: a.main_activity || '', skilled: sk, unskilled: un, note: a.note || '' };
+    var rec = { activity: actName, main_activity: a.main_activity || '', skilled: sk, unskilled: un, note: a.note || '', plannedQty: Number(a.plannedQty) || 0 };
     civilArr.push(rec);
   });
 
@@ -636,7 +639,8 @@ function handleSaveDPR(body) {
       sk + un,    // G: Total
       String(a.note || ''), // H: Note
       prepBy,     // I: Prepared By
-      submAt      // J: Timestamp
+      submAt,     // J: Timestamp
+      Number(a.plannedQty) || 0  // K: PlannedQty
     ]);
   });
 
@@ -674,7 +678,7 @@ function handleEditDPR(body) {
     var sk      = Number(a.skilled)   || 0;
     var un      = Number(a.unskilled) || 0;
     totalMP += sk + un;
-    var rec = { activity: actName, main_activity: a.main_activity || '', skilled: sk, unskilled: un, note: a.note || '' };
+    var rec = { activity: actName, main_activity: a.main_activity || '', skilled: sk, unskilled: un, note: a.note || '', plannedQty: Number(a.plannedQty) || 0 };
     civilArr.push(rec);
   });
 
@@ -702,7 +706,7 @@ function handleEditDPR(body) {
     var sk      = Number(a.skilled)   || 0;
     var un      = Number(a.unskilled) || 0;
     detSheet.appendRow([
-      d, s, 'Civil', actName, sk, un, sk + un, String(a.note || ''), prepBy, now
+      d, s, 'Civil', actName, sk, un, sk + un, String(a.note || ''), prepBy, now, Number(a.plannedQty) || 0
     ]);
   });
 
