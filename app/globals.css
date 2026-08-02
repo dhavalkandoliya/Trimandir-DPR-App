@@ -390,6 +390,38 @@ textarea:focus {
   box-shadow: 0 0 0 3px var(--primary-glow);
 }
 
+/* ── SITE CONDITION CHIPS ── */
+.condition-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.condition-chip {
+  width: auto;
+  margin-top: 0;
+  padding: 7px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1.5px solid var(--border);
+  border-radius: 20px;
+  background: var(--card);
+  color: var(--muted);
+}
+
+.condition-chip:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  opacity: 1;
+}
+
+.condition-chip.selected {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+}
+
 /* ── ACTIVITY BOX ── */
 .activitybox {
   border: 1.5px solid var(--border);

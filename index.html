@@ -1146,6 +1146,14 @@ footer {
         <input type="date" id="date">
         <label>Site / Project</label>
         <select id="site"><option value="">&#8987; Loading projects...</option></select>
+        <label>Site Condition <span style="font-weight:400;text-transform:none;">(Optional)</span></label>
+        <div class="condition-chips" id="conditionChips">
+            <button type="button" class="condition-chip" data-val="Sunny" onclick="selectSiteCondition('Sunny')">&#9728;&#65039; Sunny</button>
+            <button type="button" class="condition-chip" data-val="Rainy" onclick="selectSiteCondition('Rainy')">&#127783;&#65039; Rainy</button>
+            <button type="button" class="condition-chip" data-val="Cloudy" onclick="selectSiteCondition('Cloudy')">&#9729;&#65039; Cloudy</button>
+            <button type="button" class="condition-chip" data-val="Site Closed" onclick="selectSiteCondition('Site Closed')">&#128679; Site Closed</button>
+            <button type="button" class="condition-chip" data-val="Holiday" onclick="selectSiteCondition('Holiday')">&#127881; Holiday</button>
+        </div>
     </div>
 
     <div class="card">
@@ -1240,6 +1248,7 @@ footer {
             <div class="dash-stat"><span class="dash-stat-icon">📈</span><div class="num" id="dAvgWorkers">—</div><div class="lbl">Avg / Day</div><span class="trend-badge" id="dAvgWorkersTrend"></span></div>
             <div class="dash-stat"><span class="dash-stat-icon">🏗️</span><div class="num" id="dActiveSites">—</div><div class="lbl">Active Sites</div><span class="trend-badge" id="dActiveSitesTrend"></span></div>
         </div>
+        <div id="dashConditionSummary" style="font-size:12px;color:var(--muted);margin-bottom:10px;"></div>
         <div class="section-title" style="margin-top:4px;">&#128205; Site-wise Manpower</div>
         <div id="siteBreakdown"><p style="color:#aaa;font-size:13px;">Load history first</p></div>
     </div>
@@ -1416,6 +1425,25 @@ footer {
         let _dashPeriod     = 'week';
         let _editingKey     = null;
         let _rowCounter     = 0;
+        let _selectedCondition = '';
+
+        function conditionEmoji(val) {
+            const map = { 'Sunny': '☀️', 'Rainy': '🌧️', 'Cloudy': '☁️', 'Site Closed': '🚧', 'Holiday': '🎉' };
+            return map[val] || '';
+        }
+
+        function selectSiteConditionSilently(val) {
+            _selectedCondition = val || '';
+            document.querySelectorAll('#conditionChips .condition-chip').forEach(btn => {
+                btn.classList.toggle('selected', btn.getAttribute('data-val') === _selectedCondition);
+            });
+        }
+
+        function selectSiteCondition(val) {
+            selectSiteConditionSilently(_selectedCondition === val ? '' : val);
+            saveFormDraft();
+        }
+        window.selectSiteCondition = selectSiteCondition;
         // Pagination state � attached to window so dynamic script injection keeps global access
         window._historyPage    = window._historyPage    || 1;
         window._itemsPerPage   = window._itemsPerPage   || 10;
@@ -1895,6 +1923,7 @@ footer {
             document.getElementById('activityRowsContainer').innerHTML = '';
             _rowCounter = 0;
             document.getElementById('report').style.display = 'none';
+            selectSiteConditionSilently('');
             addActivityRow();
         }
 
@@ -2069,7 +2098,8 @@ footer {
                 activities,          // includes section field per row
                 by:        prepBy,
                 editedBy:  editedBy || '',
-                submittedAt: new Date().toISOString()
+                submittedAt: new Date().toISOString(),
+                siteCondition: _selectedCondition
             };
             if (!navigator.onLine) {
                 const q = JSON.parse(localStorage.getItem('dprOfflineQ') || '[]');
@@ -2291,7 +2321,7 @@ footer {
                 localStorage.removeItem('dpr_form_draft');
                 return;
             }
-            const draft = { date: dateVal, site: siteVal, activities };
+            const draft = { date: dateVal, site: siteVal, activities, siteCondition: _selectedCondition };
             localStorage.setItem('dpr_form_draft', JSON.stringify(draft));
         }
 
@@ -2310,7 +2340,8 @@ footer {
                     const siteEl = document.getElementById('site');
                     if (siteEl) siteEl.value = draft.site;
                 }
-                
+                selectSiteConditionSilently(draft.siteCondition || '');
+
                 const container = document.getElementById('activityRowsContainer');
                 if (container) {
                     container.innerHTML = '';
@@ -2611,7 +2642,7 @@ footer {
                         <span style="font-size:12px;font-weight:400;color:var(--muted);margin-left:6px;">${byLine}</span>
                     </div>
                     <div style="font-size:12px;color:var(--muted);margin-top:3px;padding-right:30px;">
-                        📍 ${getSiteDisplayName(item.site) || '—'} &nbsp;·&nbsp; 👷 <b>${item.total || 0}</b> workers
+                        📍 ${getSiteDisplayName(item.site) || '—'} &nbsp;·&nbsp; 👷 <b>${item.total || 0}</b> workers${item.siteCondition ? ` &nbsp;·&nbsp; ${escHtml(conditionEmoji(item.siteCondition))} ${escHtml(item.siteCondition)}` : ''}
                     </div>
                     <div class="hbtn-group">
                         <button class="btn-blue btn-sm" onclick="openDPR(${realIdx})" style="width:auto;padding:6px 10px;">📂 View</button>
@@ -2703,6 +2734,7 @@ footer {
 
             document.getElementById('activityRowsContainer').innerHTML = '';
             _rowCounter = 0;
+            selectSiteConditionSilently(item.siteCondition || '');
 
             // Reconstruct rows from civilActivities + interiorActivities (JSON columns)
             const civArr = Array.isArray(item.civilActivities)    ? item.civilActivities    : [];
@@ -3433,6 +3465,16 @@ footer {
             document.getElementById('dTotalDPR').textContent     = totalD;
             document.getElementById('dAvgWorkers').textContent   = totalD ? Math.round(totalW / totalD) : 0;
             document.getElementById('dActiveSites').textContent  = [...new Set(data.map(i => i.site).filter(Boolean))].length;
+
+            const conditionCounts = {};
+            data.forEach(i => { if (i.siteCondition) conditionCounts[i.siteCondition] = (conditionCounts[i.siteCondition] || 0) + 1; });
+            const condSummaryEl = document.getElementById('dashConditionSummary');
+            if (condSummaryEl) {
+                const parts = Object.entries(conditionCounts)
+                    .sort((a, b) => b[1] - a[1])
+                    .map(([cond, n]) => `${conditionEmoji(cond)} ${n} ${escHtml(cond)} day${n === 1 ? '' : 's'}`);
+                condSummaryEl.textContent = parts.length ? parts.join('  ·  ') : '';
+            }
 
             // Map project name to project for lookup
             const projMap = {};

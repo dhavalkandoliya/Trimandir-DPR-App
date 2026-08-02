@@ -3,10 +3,10 @@
 // STRICT SCHEMA — matching exact spreadsheet column layout
 // FOR CIVIL WORKS ONLY
 //
-// DPR_Records (A→J):
+// DPR_Records (A→K):
 //   A=Date  B=Site  C=Prepared By  D=Activity Details  E=Total Manpower
 //   F=Last Updated  G=submittedAt  H=editPermission  I=requestedBy
-//   J=activities(JSON)
+//   J=activities(JSON)  K=SiteCondition
 //
 // DPR_Detail (A→J):
 //   A=Date  B=Site  C=Section  D=Activity  E=Skilled  F=Unskilled
@@ -25,7 +25,7 @@ var SHEET_ACTIVITIES = 'Activities';
 
 // ── Exact header rows written when sheets are first created ──────
 // RECORDS: A  B     C            D                  E               F             G             H                I             J
-var RECORDS_HEADERS  = ['Date','Site','Prepared By','Activity Details','Total Manpower','Last Updated','submittedAt','editPermission','requestedBy','civilActivities'];
+var RECORDS_HEADERS  = ['Date','Site','Prepared By','Activity Details','Total Manpower','Last Updated','submittedAt','editPermission','requestedBy','civilActivities','SiteCondition'];
 // DETAIL: A      B      C         D          E         F           G       H      I            J
 var DETAIL_HEADERS   = ['Date','Site','Section','Activity','Skilled','Unskilled','Total','Note','Prepared By','Timestamp'];
 var USER_HEADERS     = ['username','displayName','password','role'];
@@ -43,7 +43,8 @@ var REC = {
   submittedAt:        6,   // G
   editPermission:     7,   // H
   requestedBy:        8,   // I
-  civilActivities:    9    // J
+  civilActivities:    9,   // J
+  siteCondition:      10   // K
 };
 
 // ── Fixed column indexes (0-based) for DPR_Detail ───────────────
@@ -167,6 +168,7 @@ function normalizeKey(raw) {
     'editpermission': 'editPermission', 'edit_permission': 'editPermission',
     'requestedby': 'requestedBy', 'requested_by': 'requestedBy',
     'civilactivities': 'civilActivities', 'civil_activities': 'civilActivities',
+    'sitecondition': 'siteCondition', 'site_condition': 'siteCondition', 'weather': 'siteCondition',
     'section': 'section',
     'activity': 'activity', 'activity_name': 'activity', 'task': 'activity',
     'main_activity': 'activity', 'mainactivity': 'activity',
@@ -515,7 +517,8 @@ function handleGetDPRs() {
       submittedAt:        row[REC.submittedAt]             || '',
       editPermission:     String(row[REC.editPermission]   || '').trim(),
       requestedBy:        String(row[REC.requestedBy]      || '').trim(),
-      civilActivities:    parseJsonArr(row[REC.civilActivities])
+      civilActivities:    parseJsonArr(row[REC.civilActivities]),
+      siteCondition:      String(row[REC.siteCondition]     || '').trim()
     });
   }
 
@@ -554,6 +557,7 @@ function handleGetDPRs() {
       editPermission:     r.editPermission,
       requestedBy:        r.requestedBy,
       civilActivities:    r.civilActivities,
+      siteCondition:      r.siteCondition,
       details:            detailMap[key] || []
     };
   });
@@ -612,7 +616,8 @@ function handleSaveDPR(body) {
     submAt,                 // G: submittedAt
     '',                     // H: editPermission
     '',                     // I: requestedBy
-    toJsonStr(civilArr)     // J: civilActivities
+    toJsonStr(civilArr),    // J: civilActivities
+    String(body.siteCondition || '')  // K: SiteCondition
   ]);
 
   var detSheet = getOrCreateSheet(SHEET_DETAIL, DETAIL_HEADERS);
@@ -684,8 +689,9 @@ function handleEditDPR(body) {
   newRow[REC.totalManpower]      = totalMP;
   newRow[REC.lastUpdated]        = now + (editedBy ? ' (by ' + editedBy + ')' : '');
   newRow[REC.submittedAt]        = submAt;
-  newRow[REC.editPermission]     = '';   
+  newRow[REC.editPermission]     = '';
   newRow[REC.civilActivities]    = toJsonStr(civilArr);
+  newRow[REC.siteCondition]      = body.siteCondition || newRow[REC.siteCondition] || '';
   range.setValues([newRow]);
 
   deleteDetailRowsByKey(d, s);
