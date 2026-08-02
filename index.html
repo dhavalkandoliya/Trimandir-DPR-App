@@ -1135,6 +1135,11 @@ footer {
      NEW DPR FORM
 ═══════════════════════════════════════════════════════════════ -->
 <div class="tab-page active" id="tabForm">
+    <div class="btn-group" style="margin-bottom:14px;">
+        <button class="btn-gray btn-sm" style="width:auto;" onclick="quickNewDprToday()">&#127807; New DPR (Today)</button>
+        <button class="btn-gray btn-sm" style="width:auto;" onclick="quickDuplicateYesterday()">&#128203; Duplicate Last DPR</button>
+    </div>
+
     <div class="card">
         <div class="section-title">&#128197; Date &amp; Site</div>
         <label>Date</label>
@@ -1154,7 +1159,8 @@ footer {
         <button class="btn-blue" onclick="downloadImage()">&#128247; Download Image</button>
         <button class="btn-blue" onclick="downloadPDF()">&#128196; Download PDF</button>
     </div>
-    <button class="btn-wa" onclick="copyWhats()">&#128172; Copy for WhatsApp</button>
+    <button class="btn-wa" onclick="shareReport()">&#128228; Share (WhatsApp / Email)</button>
+    <button class="btn-gray" onclick="copyWhats()">&#128172; Copy Text for WhatsApp</button>
 
     <div id="report" style="display:none;">
         <h3>DPR &#8212; MAN POWER REPORT</h3>
@@ -1225,10 +1231,10 @@ footer {
             <button class="period-tab"        onclick="setPeriod('all',this)">All Time</button>
         </div>
         <div class="dash-grid">
-            <div class="dash-stat"><span class="dash-stat-icon">👷</span><div class="num" id="dTotalWorkers">—</div><div class="lbl">Total Workers</div></div>
-            <div class="dash-stat"><span class="dash-stat-icon">📋</span><div class="num" id="dTotalDPR">—</div><div class="lbl">Total DPRs</div></div>
-            <div class="dash-stat"><span class="dash-stat-icon">📈</span><div class="num" id="dAvgWorkers">—</div><div class="lbl">Avg / Day</div></div>
-            <div class="dash-stat"><span class="dash-stat-icon">🏗️</span><div class="num" id="dActiveSites">—</div><div class="lbl">Active Sites</div></div>
+            <div class="dash-stat"><span class="dash-stat-icon">👷</span><div class="num" id="dTotalWorkers">—</div><div class="lbl">Total Workers</div><span class="trend-badge" id="dTotalWorkersTrend"></span></div>
+            <div class="dash-stat"><span class="dash-stat-icon">📋</span><div class="num" id="dTotalDPR">—</div><div class="lbl">Total DPRs</div><span class="trend-badge" id="dTotalDPRTrend"></span></div>
+            <div class="dash-stat"><span class="dash-stat-icon">📈</span><div class="num" id="dAvgWorkers">—</div><div class="lbl">Avg / Day</div><span class="trend-badge" id="dAvgWorkersTrend"></span></div>
+            <div class="dash-stat"><span class="dash-stat-icon">🏗️</span><div class="num" id="dActiveSites">—</div><div class="lbl">Active Sites</div><span class="trend-badge" id="dActiveSitesTrend"></span></div>
         </div>
         <div class="section-title" style="margin-top:4px;">&#128205; Site-wise Manpower</div>
         <div id="siteBreakdown"><p style="color:#aaa;font-size:13px;">Load history first</p></div>
@@ -1761,7 +1767,7 @@ footer {
             if (tab === 'Admin')     renderAdminPanel();
         }
 
-        function resetAndSwitchToForm(btn) {
+        function resetAndSwitchToForm(btn, forceNew) {
             document.getElementById('dprModal').classList.remove('open');
             document.getElementById('report').style.display = 'none';
             document.querySelectorAll('.tab-page').forEach(p => { p.classList.remove('active'); p.style.display = 'none'; });
@@ -1770,13 +1776,47 @@ footer {
             if (fp) { fp.classList.add('active'); fp.style.display = 'block'; }
             (btn || document.getElementById('tabBtnForm')).classList.add('active');
             _editingKey = null;
-            if (localStorage.getItem('dpr_form_draft')) {
+            if (!forceNew && localStorage.getItem('dpr_form_draft')) {
                 loadFormDraft();
             } else {
                 document.getElementById('date').value = new Date().toISOString().split('T')[0];
                 resetForm();
             }
         }
+
+        // Quick action: start a brand-new DPR for today, pre-filling the site
+        // from the most recent history entry (ignores any lingering draft).
+        function quickNewDprToday() {
+            resetAndSwitchToForm(null, true);
+            const lastSite = (_history && _history[0]) ? _history[0].site : '';
+            const siteSel = document.getElementById('site');
+            if (siteSel && lastSite && Array.from(siteSel.options).some(o => o.value === lastSite)) {
+                siteSel.value = lastSite;
+            }
+            saveFormDraft();
+            showToast('🆕 New DPR ready for today');
+        }
+        window.quickNewDprToday = quickNewDprToday;
+
+        // Quick action: duplicate the most recent history entry's activity rows
+        // for the currently-selected site into the form (as a starting point).
+        function quickDuplicateYesterday() {
+            const siteSel = document.getElementById('site');
+            const site = siteSel ? siteSel.value : '';
+            if (!site) { showToast('⚠️ Select a site first'); return; }
+            const prior = (_history || []).find(h => String(h.site || '').trim() === String(site).trim());
+            if (!prior) { showToast('⚠️ No previous DPR found for this site'); return; }
+            const acts = Array.isArray(prior.civilActivities) && prior.civilActivities.length
+                ? prior.civilActivities
+                : (Array.isArray(prior.details) ? prior.details : []);
+            if (!acts.length) { showToast('⚠️ Previous DPR has no activity rows'); return; }
+            document.getElementById('activityRowsContainer').innerHTML = '';
+            _rowCounter = 0;
+            acts.forEach(a => addActivityRow(a));
+            saveFormDraft();
+            showToast(`📋 Duplicated ${acts.length} activity row(s) from last DPR`);
+        }
+        window.quickDuplicateYesterday = quickDuplicateYesterday;
 
         /* ═══════════════════════════════════════════════════════════
            SITE DROPDOWN — with sub-project indentation
@@ -2165,63 +2205,26 @@ footer {
             const cleanSite = String(item.site || 'Site').replace(/[^a-zA-Z0-9_\-]/g, '_');
             const cleanDate = toYMD(item.date);
             const baseName = `DPR_History_${cleanSite}_${cleanDate}`;
+            const isShare = type === 'share';
 
-            showToast(`⏳ Generating ${type === 'pdf' ? 'PDF' : 'Image'}...`);
+            showToast(isShare ? '⏳ Preparing to share...' : `⏳ Generating ${type === 'pdf' ? 'PDF' : 'Image'}...`);
 
             // Use 150ms timeout to guarantee dynamic mounting has fully laid out child elements
             setTimeout(() => {
-                html2canvas(tempContainer, {
-                    scale: 3.5,
-                    devicePixelRatio: 3.5,
-                    useCORS: true,
-                    allowTaint: false,
-                    backgroundColor: '#ffffff',
-                    logging: false,
-                    scrollX: 0,
-                    scrollY: 0,
-                    onclone: function(clonedDoc) {
-                        const canvas = clonedDoc.querySelector('canvas');
-                        if (canvas) {
-                            const ctx = canvas.getContext('2d');
-                            ctx.imageSmoothingEnabled = false;
-                            ctx.webkitImageSmoothingEnabled = false;
-                            ctx.mozImageSmoothingEnabled = false;
-                        }
-                    }
-                }).then(c => {
+                captureReportCanvas(tempContainer, 0).then(c => {
                     document.body.removeChild(tempContainer);
 
-                    const dataUrl = c.toDataURL('image/jpeg', 0.95);
-                    if (!dataUrl || dataUrl === 'data:,' || dataUrl.length < 100) {
+                    if (!c || c.width === 0) {
                         showToast('⚠️ Generated image was empty. Try again.');
                         return;
                     }
 
-                    if (type === 'pdf') {
-                        const { jsPDF } = window.jspdf;
-                        const imgWidth = c.width;
-                        const imgHeight = c.height;
-                        const pdf = new jsPDF({
-                            orientation: 'portrait',
-                            unit: 'px',
-                            format: [imgWidth, imgHeight]
-                        });
-
-                        pdf.addImage(dataUrl, 'JPEG', 0, 0, imgWidth, imgHeight);
-                        pdf.save(`${baseName}.pdf`);
-                        showToast('📄 PDF Downloaded!');
-                    } else {
-                        const a = document.createElement('a');
-                        a.download = `${baseName}.jpg`;
-                        a.href = dataUrl;
-                        a.click();
-                        showToast('📷 Image Downloaded!');
-                    }
+                    deliverCanvas(c, { baseName, asPdf: isShare ? true : type === 'pdf', share: isShare });
                 }).catch(err => {
                     if (document.getElementById('report-temp-capture')) {
                         document.body.removeChild(tempContainer);
                     }
-                    showToast(`⚠️ ${type === 'pdf' ? 'PDF' : 'Image'} generation failed`);
+                    showToast(isShare ? '⚠️ Share failed' : `⚠️ ${type === 'pdf' ? 'PDF' : 'Image'} generation failed`);
                 });
             }, 150);
         }
@@ -2547,6 +2550,7 @@ footer {
                     <button class="history-dropdown-item delete-item" onclick="closeAllHistoryDropdowns(); deleteDPR(${realIdx})">❌ Delete</button>
                     <button class="history-dropdown-item" onclick="closeAllHistoryDropdowns(); downloadHistoryDPR(${realIdx}, 'image')">📸 Download Image</button>
                     <button class="history-dropdown-item" onclick="closeAllHistoryDropdowns(); downloadHistoryDPR(${realIdx}, 'pdf')">📄 Download PDF</button>
+                    <button class="history-dropdown-item" onclick="closeAllHistoryDropdowns(); downloadHistoryDPR(${realIdx}, 'share')">📤 Share (WhatsApp / Email)</button>
                 </div>
                 `;
 
@@ -3297,6 +3301,66 @@ footer {
             renderDashboard();
         }
 
+        // Returns { totalW, totalD } for _history items whose date falls in [start, end) (Date objects).
+        function getAggregatesForRange(start, end) {
+            const items = _history.filter(item => {
+                const ymd = toYMD(item.date);
+                if (!ymd || ymd.length < 10) return false;
+                const [yr, mo, da] = ymd.split('-').map(Number);
+                const d = new Date(yr, mo - 1, da);
+                return d >= start && d < end;
+            });
+            const totalW = items.reduce((a, i) => a + (Number(i.total) || 0), 0);
+            return { totalW, totalD: items.length };
+        }
+
+        function renderTrendBadge(elId, current, previous) {
+            const el = document.getElementById(elId);
+            if (!el) return;
+            if (!previous) { el.textContent = ''; el.className = 'trend-badge'; return; }
+            const delta = Math.round(((current - previous) / previous) * 100);
+            if (delta === 0) {
+                el.textContent = '— 0%';
+                el.className = 'trend-badge trend-flat';
+            } else if (delta > 0) {
+                el.textContent = `▲ ${delta}%`;
+                el.className = 'trend-badge trend-up';
+            } else {
+                el.textContent = `▼ ${Math.abs(delta)}%`;
+                el.className = 'trend-badge trend-down';
+            }
+        }
+
+        function renderDashboardTrends() {
+            const trendIds = ['dTotalWorkersTrend', 'dTotalDPRTrend', 'dAvgWorkersTrend', 'dActiveSitesTrend'];
+            if (_dashPeriod === 'all') {
+                trendIds.forEach(id => { const el = document.getElementById(id); if (el) { el.textContent = ''; el.className = 'trend-badge'; } });
+                return;
+            }
+            const now = new Date();
+            let curStart, curEnd, prevStart, prevEnd;
+            if (_dashPeriod === 'week') {
+                const day = now.getDay() || 7;
+                curStart = new Date(now); curStart.setDate(now.getDate() - day + 1); curStart.setHours(0,0,0,0);
+                curEnd = new Date(now); curEnd.setHours(23,59,59,999);
+                prevEnd = new Date(curStart);
+                prevStart = new Date(curStart); prevStart.setDate(prevStart.getDate() - 7);
+            } else { // month
+                curStart = new Date(now.getFullYear(), now.getMonth(), 1);
+                curEnd = new Date(now); curEnd.setHours(23,59,59,999);
+                prevEnd = new Date(curStart);
+                prevStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+            }
+            const cur  = getAggregatesForRange(curStart, curEnd);
+            const prev = getAggregatesForRange(prevStart, prevEnd);
+            renderTrendBadge('dTotalWorkersTrend', cur.totalW, prev.totalW);
+            renderTrendBadge('dTotalDPRTrend', cur.totalD, prev.totalD);
+            renderTrendBadge('dAvgWorkersTrend',
+                cur.totalD ? cur.totalW / cur.totalD : 0,
+                prev.totalD ? prev.totalW / prev.totalD : 0);
+            // Active-sites trend intentionally omitted (a set-cardinality delta is not a meaningful %).
+        }
+
         function renderDashboard() {
             if (!_history.length) return;
             const now  = new Date();
@@ -3449,33 +3513,15 @@ footer {
                         </div>`;
                     }).join('') ||
                     '<p style="color:#aaa;font-size:13px;text-align:center;">No data for this period</p>';
+
+            renderDashboardTrends();
         }
 
         /* ═══════════════════════════════════════════════════════════
-           DOWNLOADS
+           DOWNLOADS / SHARE — shared capture+deliver helpers
         ═══════════════════════════════════════════════════════════ */
-        function downloadImage() {
-            const rep = document.getElementById('report');
-            if (rep.style.display === 'none') { showToast('⚠️ Generate DPR first'); return; }
-            
-            const oldWidth = rep.style.width;
-            const oldColor = rep.style.color;
-            const oldMaxW = rep.style.maxWidth;
-            const oldShadow = rep.style.boxShadow;
-            
-            rep.style.width = '480px';
-            rep.style.maxWidth = '480px';
-            rep.style.color = '#000000';
-            rep.style.boxShadow = 'none';
-            
-            const allItems = rep.querySelectorAll('.report-activity, .report-meta, .report-total');
-            allItems.forEach(el => {
-                el.style.pageBreakInside = 'avoid';
-                el.style.breakInside = 'avoid';
-            });
-            
-            showToast('⏳ Generating Image...');
-            html2canvas(rep, {
+        function captureReportCanvas(node, scrollY) {
+            return html2canvas(node, {
                 scale: 3.5,
                 devicePixelRatio: 3.5,
                 useCORS: true,
@@ -3483,7 +3529,7 @@ footer {
                 backgroundColor: '#ffffff',
                 logging: false,
                 scrollX: 0,
-                scrollY: -window.scrollY,
+                scrollY: typeof scrollY === 'number' ? scrollY : -window.scrollY,
                 onclone: function(clonedDoc) {
                     const canvas = clonedDoc.querySelector('canvas');
                     if (canvas) {
@@ -3493,92 +3539,104 @@ footer {
                         ctx.mozImageSmoothingEnabled = false;
                     }
                 }
-            }).then(c => {
-                rep.style.width = oldWidth;
-                rep.style.maxWidth = oldMaxW;
-                rep.style.color = oldColor;
-                rep.style.boxShadow = oldShadow;
-                
-                const dataUrl = c.toDataURL('image/jpeg', 0.95);
+            });
+        }
+
+        function buildPdfFromCanvas(canvas) {
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF({ orientation: 'portrait', unit: 'px', format: [canvas.width, canvas.height] });
+            pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, canvas.width, canvas.height);
+            return pdf;
+        }
+
+        // Delivers a captured canvas either via the native Share sheet (mobile,
+        // WhatsApp/Email/any installed app) or by triggering a normal download
+        // when Web Share (with files) isn't supported — e.g. desktop browsers.
+        async function deliverCanvas(canvas, { baseName, asPdf, share }) {
+            if (share && navigator.canShare) {
+                try {
+                    let blob, filename, mime;
+                    if (asPdf) {
+                        blob = buildPdfFromCanvas(canvas).output('blob');
+                        filename = `${baseName}.pdf`; mime = 'application/pdf';
+                    } else {
+                        blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.95));
+                        filename = `${baseName}.jpg`; mime = 'image/jpeg';
+                    }
+                    const file = new File([blob], filename, { type: mime });
+                    if (navigator.canShare({ files: [file] })) {
+                        await navigator.share({ files: [file], title: 'DPR Report', text: 'Daily Progress Report' });
+                        showToast('📤 Shared!');
+                        return;
+                    }
+                } catch (err) {
+                    if (err && err.name === 'AbortError') return; // user cancelled the share sheet
+                    // fall through to download fallback below
+                }
+            }
+            if (asPdf) {
+                buildPdfFromCanvas(canvas).save(`${baseName}.pdf`);
+                showToast('📄 PDF Downloaded!');
+            } else {
                 const a = document.createElement('a');
-                a.download = `DPR_${document.getElementById('date').value}.jpg`;
-                a.href = dataUrl;
+                a.download = `${baseName}.jpg`;
+                a.href = canvas.toDataURL('image/jpeg', 0.95);
                 a.click();
                 showToast('📷 Image Downloaded!');
-            }).catch(err => {
+            }
+        }
+
+        function withReportCaptureStyles(rep, fn) {
+            const oldWidth = rep.style.width;
+            const oldColor = rep.style.color;
+            const oldMaxW = rep.style.maxWidth;
+            const oldShadow = rep.style.boxShadow;
+
+            rep.style.width = '480px';
+            rep.style.maxWidth = '480px';
+            rep.style.color = '#000000';
+            rep.style.boxShadow = 'none';
+
+            const allItems = rep.querySelectorAll('.report-activity, .report-meta, .report-total');
+            allItems.forEach(el => {
+                el.style.pageBreakInside = 'avoid';
+                el.style.breakInside = 'avoid';
+            });
+
+            const restore = () => {
                 rep.style.width = oldWidth;
                 rep.style.maxWidth = oldMaxW;
                 rep.style.color = oldColor;
                 rep.style.boxShadow = oldShadow;
-                showToast('⚠️ Image generation failed');
-            });
+            };
+            return fn().then(result => { restore(); return result; }).catch(err => { restore(); throw err; });
+        }
+
+        function downloadImage() {
+            const rep = document.getElementById('report');
+            if (rep.style.display === 'none') { showToast('⚠️ Generate DPR first'); return; }
+            showToast('⏳ Generating Image...');
+            withReportCaptureStyles(rep, () => captureReportCanvas(rep))
+                .then(c => deliverCanvas(c, { baseName: `DPR_${document.getElementById('date').value}`, asPdf: false, share: false }))
+                .catch(() => showToast('⚠️ Image generation failed'));
         }
 
         function downloadPDF() {
             const rep = document.getElementById('report');
             if (rep.style.display === 'none') { showToast('⚠️ Generate DPR first'); return; }
-            
-            const oldWidth = rep.style.width;
-            const oldColor = rep.style.color;
-            const oldMaxW = rep.style.maxWidth;
-            const oldShadow = rep.style.boxShadow;
-            
-            rep.style.width = '480px';
-            rep.style.maxWidth = '480px';
-            rep.style.color = '#000000';
-            rep.style.boxShadow = 'none';
-            
-            const allItems = rep.querySelectorAll('.report-activity, .report-meta, .report-total');
-            allItems.forEach(el => {
-                el.style.pageBreakInside = 'avoid';
-                el.style.breakInside = 'avoid';
-            });
-            
             showToast('⏳ Generating PDF...');
-            html2canvas(rep, {
-                scale: 3.5,
-                devicePixelRatio: 3.5,
-                useCORS: true,
-                allowTaint: false,
-                backgroundColor: '#ffffff',
-                logging: false,
-                scrollX: 0,
-                scrollY: -window.scrollY,
-                onclone: function(clonedDoc) {
-                    const canvas = clonedDoc.querySelector('canvas');
-                    if (canvas) {
-                        const ctx = canvas.getContext('2d');
-                        ctx.imageSmoothingEnabled = false;
-                        ctx.webkitImageSmoothingEnabled = false;
-                        ctx.mozImageSmoothingEnabled = false;
-                    }
-                }
-            }).then(c => {
-                rep.style.width = oldWidth;
-                rep.style.maxWidth = oldMaxW;
-                rep.style.color = oldColor;
-                rep.style.boxShadow = oldShadow;
-                
-                const dataUrl = c.toDataURL('image/jpeg', 0.95);
-                const { jsPDF } = window.jspdf;
-                const imgWidth = c.width;
-                const imgHeight = c.height;
-                const pdf = new jsPDF({
-                    orientation: 'portrait',
-                    unit: 'px',
-                    format: [imgWidth, imgHeight]
-                });
-                
-                pdf.addImage(dataUrl, 'JPEG', 0, 0, imgWidth, imgHeight);
-                pdf.save(`DPR_${document.getElementById('date').value}.pdf`);
-                showToast('📄 PDF Downloaded!');
-            }).catch(err => {
-                rep.style.width = oldWidth;
-                rep.style.maxWidth = oldMaxW;
-                rep.style.color = oldColor;
-                rep.style.boxShadow = oldShadow;
-                showToast('⚠️ PDF generation failed');
-            });
+            withReportCaptureStyles(rep, () => captureReportCanvas(rep))
+                .then(c => deliverCanvas(c, { baseName: `DPR_${document.getElementById('date').value}`, asPdf: true, share: false }))
+                .catch(() => showToast('⚠️ PDF generation failed'));
+        }
+
+        function shareReport() {
+            const rep = document.getElementById('report');
+            if (rep.style.display === 'none') { showToast('⚠️ Generate DPR first'); return; }
+            showToast('⏳ Preparing to share...');
+            withReportCaptureStyles(rep, () => captureReportCanvas(rep))
+                .then(c => deliverCanvas(c, { baseName: `DPR_${document.getElementById('date').value}`, asPdf: true, share: true }))
+                .catch(() => showToast('⚠️ Share failed'));
         }
 
         function copyWhats() {
