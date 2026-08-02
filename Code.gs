@@ -22,15 +22,17 @@ var SHEET_DETAIL     = 'DPR_Detail';
 var SHEET_USERS      = 'Users';
 var SHEET_PROJECTS   = 'Projects';
 var SHEET_ACTIVITIES = 'Activities';
+var SHEET_MATERIALS  = 'Materials';
 
 // ── Exact header rows written when sheets are first created ──────
 // RECORDS: A  B     C            D                  E               F             G             H                I             J
-var RECORDS_HEADERS  = ['Date','Site','Prepared By','Activity Details','Total Manpower','Last Updated','submittedAt','editPermission','requestedBy','civilActivities','SiteCondition'];
+var RECORDS_HEADERS  = ['Date','Site','Prepared By','Activity Details','Total Manpower','Last Updated','submittedAt','editPermission','requestedBy','civilActivities','SiteCondition','MaterialsUsed'];
 // DETAIL: A      B      C         D          E         F           G       H      I            J
 var DETAIL_HEADERS   = ['Date','Site','Section','Activity','Skilled','Unskilled','Total','Note','Prepared By','Timestamp','PlannedQty'];
 var USER_HEADERS     = ['username','displayName','password','role'];
 var PROJECT_HEADERS  = ['id', 'main_project_name', 'sub_project_name', 'parent_id', 'status', 'sort_order'];
 var ACTIVITY_HEADERS = ['id', 'main_category_name', 'sub_category_name', 'parent_id', 'status', 'sort_order'];
+var MATERIAL_HEADERS = ['id', 'material_name', 'unit', 'budget_qty', 'status'];
 
 // ── Fixed column indexes (0-based) for DPR_Records ──────────────
 var REC = {
@@ -44,7 +46,8 @@ var REC = {
   editPermission:     7,   // H
   requestedBy:        8,   // I
   civilActivities:    9,   // J
-  siteCondition:      10   // K
+  siteCondition:      10,  // K
+  materialsUsed:      11   // L
 };
 
 // ── Fixed column indexes (0-based) for DPR_Detail ───────────────
@@ -69,6 +72,7 @@ function doGet(e) {
   if (action === 'getUsers')      return handleGetUsers();
   if (action === 'getProjects')   return handleGetProjects();
   if (action === 'getActivities') return handleGetActivities();
+  if (action === 'getMaterials')  return handleGetMaterials();
   if (action === 'debug')         return handleDebug();
   return handleGetDPRs();
 }
@@ -96,6 +100,9 @@ function doPost(e) {
     case 'deleteActivity':   return handleDeleteActivity(body);
     case 'cleanCorrupted':   return handleCleanCorrupted(body);
     case 'updateSortOrder':  return handleUpdateSortOrder(body);
+    case 'addMaterial':      return handleAddMaterial(body);
+    case 'updateMaterial':   return handleUpdateMaterial(body);
+    case 'deleteMaterial':   return handleDeleteMaterial(body);
     default:                 return jsonResponse({ error: 'Unknown action: ' + body.action });
   }
 }
@@ -267,6 +274,7 @@ function repairAllSheetHeaders() {
   repairSheet(SHEET_DETAIL,     DETAIL_HEADERS,   '#e8f0fe');
   repairSheet(SHEET_PROJECTS,   PROJECT_HEADERS,  '#fff3e0');
   repairSheet(SHEET_ACTIVITIES, ACTIVITY_HEADERS, '#f3e5f5');
+  repairSheet(SHEET_MATERIALS,  MATERIAL_HEADERS, '#fce4ec');
 
   SpreadsheetApp.flush();
   Logger.log('repairAllSheetHeaders results:\n' + repairs.join('\n'));
@@ -520,7 +528,8 @@ function handleGetDPRs() {
       editPermission:     String(row[REC.editPermission]   || '').trim(),
       requestedBy:        String(row[REC.requestedBy]      || '').trim(),
       civilActivities:    parseJsonArr(row[REC.civilActivities]),
-      siteCondition:      String(row[REC.siteCondition]     || '').trim()
+      siteCondition:      String(row[REC.siteCondition]     || '').trim(),
+      materialsUsed:      parseJsonArr(row[REC.materialsUsed])
     });
   }
 
@@ -561,6 +570,7 @@ function handleGetDPRs() {
       requestedBy:        r.requestedBy,
       civilActivities:    r.civilActivities,
       siteCondition:      r.siteCondition,
+      materialsUsed:      r.materialsUsed,
       details:            detailMap[key] || []
     };
   });
@@ -620,7 +630,8 @@ function handleSaveDPR(body) {
     '',                     // H: editPermission
     '',                     // I: requestedBy
     toJsonStr(civilArr),    // J: civilActivities
-    String(body.siteCondition || '')  // K: SiteCondition
+    String(body.siteCondition || ''),   // K: SiteCondition
+    toJsonStr(Array.isArray(body.materialsUsed) ? body.materialsUsed : [])  // L: MaterialsUsed
   ]);
 
   var detSheet = getOrCreateSheet(SHEET_DETAIL, DETAIL_HEADERS);
@@ -696,6 +707,7 @@ function handleEditDPR(body) {
   newRow[REC.editPermission]     = '';
   newRow[REC.civilActivities]    = toJsonStr(civilArr);
   newRow[REC.siteCondition]      = body.siteCondition || newRow[REC.siteCondition] || '';
+  if (Array.isArray(body.materialsUsed)) newRow[REC.materialsUsed] = toJsonStr(body.materialsUsed);
   range.setValues([newRow]);
 
   deleteDetailRowsByKey(d, s);
@@ -1018,6 +1030,57 @@ function handleDeleteActivity(body) {
     if (String(data[i][0]) === String(body.id) || String(data[i][3]) === String(body.id)) {
       sheet.deleteRow(i + 1);
     }
+  }
+  return jsonResponse({ status: 'ok' });
+}
+
+// ── MATERIALS (flat list, no parent/child hierarchy) ──────────────
+
+function handleGetMaterials() {
+  var sheet = getSheet(SHEET_MATERIALS);
+  if (!sheet) return jsonResponse([]);
+  var materials = sheetToObjects(sheet).map(function(m) {
+    return {
+      id:            m.id,
+      material_name: m.material_name,
+      unit:          m.unit || '',
+      budget_qty:    Number(m.budget_qty) || 0,
+      status:        m.status || 'active'
+    };
+  });
+  return jsonResponse(materials);
+}
+
+function handleAddMaterial(body) {
+  var sheet = getOrCreateSheet(SHEET_MATERIALS, MATERIAL_HEADERS);
+  var maxId = getMaxId(sheet, 0);
+  var newId = maxId + 1;
+  sheet.appendRow([newId, body.material_name || '', body.unit || '', Number(body.budget_qty) || 0, 'active']);
+  return jsonResponse({ status: 'ok', id: newId });
+}
+
+function handleUpdateMaterial(body) {
+  var sheet = getSheet(SHEET_MATERIALS);
+  if (!sheet) return jsonResponse({ error: 'Sheet not found' });
+  var data = sheet.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === String(body.id)) {
+      if (body.material_name !== undefined) sheet.getRange(i + 1, 2).setValue(body.material_name);
+      if (body.unit          !== undefined) sheet.getRange(i + 1, 3).setValue(body.unit);
+      if (body.budget_qty    !== undefined) sheet.getRange(i + 1, 4).setValue(Number(body.budget_qty) || 0);
+      if (body.status        !== undefined) sheet.getRange(i + 1, 5).setValue(body.status);
+      return jsonResponse({ status: 'ok' });
+    }
+  }
+  return jsonResponse({ error: 'Not found' });
+}
+
+function handleDeleteMaterial(body) {
+  var sheet = getSheet(SHEET_MATERIALS);
+  if (!sheet) return jsonResponse({ error: 'Sheet not found' });
+  var data = sheet.getDataRange().getValues();
+  for (var i = data.length - 1; i >= 1; i--) {
+    if (String(data[i][0]) === String(body.id)) sheet.deleteRow(i + 1);
   }
   return jsonResponse({ status: 'ok' });
 }

@@ -1162,6 +1162,12 @@ footer {
         <button class="btn-add" onclick="addActivityRow()" style="margin-top:6px;">&#43; Add Activity Row</button>
     </div>
 
+    <div class="card">
+        <div class="section-title">&#129521; Materials Used <span style="font-weight:400;text-transform:none;font-size:11px;">(Optional)</span></div>
+        <div id="materialsUsedContainer"></div>
+        <button class="btn-add" onclick="addMaterialRow()" style="margin-top:6px;">&#43; Add Material</button>
+    </div>
+
     <button class="btn-green" onclick="generate()">&#9989; Generate DPR</button>
     <div class="btn-group">
         <button class="btn-blue" onclick="downloadImage()">&#128247; Download Image</button>
@@ -1377,6 +1383,32 @@ footer {
             </div>
         </div>
     </div>
+
+    <div class="admin-acc-card">
+        <div class="admin-acc-header"
+             onclick="this.nextElementSibling.classList.toggle('open');this.querySelector('.aci').textContent=this.nextElementSibling.classList.contains('open')?'&#9660;':'&#9654;';">
+            <span>&#129521; Manage Materials</span><span class="aci admin-acc-icon">&#9654;</span>
+        </div>
+        <div class="admin-acc-body">
+            <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">
+                Set a budgeted quantity per material — the Dashboard flags any material whose total usage across DPRs exceeds its budget.
+            </p>
+            <div style="background:var(--surface-subtle);border:1.5px solid var(--border);border-radius:8px;padding:14px;margin-bottom:14px;">
+                <div style="font-weight:700;font-size:14px;color:var(--primary);margin-bottom:10px;">&#10133; Add Material</div>
+                <label>Material Name</label>
+                <input type="text" id="newMaterialName" placeholder="e.g. Cement">
+                <label>Unit <span style="font-weight:400;text-transform:none;">(Optional)</span></label>
+                <input type="text" id="newMaterialUnit" placeholder="e.g. bags, cum, kg">
+                <label>Budget Quantity <span style="font-weight:400;text-transform:none;">(Optional)</span></label>
+                <input type="number" id="newMaterialBudget" min="0" placeholder="e.g. 500">
+                <button class="btn-green" onclick="adminAddMaterial()">&#9989; Add Material</button>
+            </div>
+            <div style="font-weight:700;font-size:14px;color:var(--primary);margin-bottom:4px;">&#128202; All Materials</div>
+            <div class="admin-list-scroll" style="max-height:480px;" id="adminMaterialList">
+                <p style="color:var(--muted);font-size:13px;text-align:center;padding:12px;">Loading...</p>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════════
@@ -1407,6 +1439,7 @@ footer {
         let _users      = [SUPER_ADMIN];
         let _projects   = [];   // { id, project_name, parent_id, status } (synced with 5-column nested Projects/Activities database)
         let _activities = [];   // { id, activity_name, parent_id, status } (synced with 5-column nested schema)
+        let _materials  = [];   // { id, material_name, unit, budget_qty, status }
         let _history    = [];   // see handleGetDPRs schema below
         let _currentUser    = null;
         let _editingKey     = null;
@@ -1661,14 +1694,16 @@ footer {
             if (aaList) aaList.innerHTML = getSkeletonLoader();
             
             try {
-                const [users, projects, activities] = await Promise.all([
+                const [users, projects, activities, materials] = await Promise.all([
                     apiFetch('getUsers').catch(() => []),
                     apiFetch('getProjects').catch(() => []),
-                    apiFetch('getActivities').catch(() => [])
+                    apiFetch('getActivities').catch(() => []),
+                    apiFetch('getMaterials').catch(() => [])
                 ]);
                 if (Array.isArray(users))      _users      = [SUPER_ADMIN, ...users];
                 if (Array.isArray(projects))   _projects   = projects;
                 if (Array.isArray(activities)) _activities = activities;
+                if (Array.isArray(materials))  _materials  = materials;
             } catch (e) { showToast('⚠️ Could not reach server'); }
             renderLoginChips();
             populateSiteDropdown();
@@ -1912,6 +1947,9 @@ footer {
             document.getElementById('report').style.display = 'none';
             selectSiteConditionSilently('');
             addActivityRow();
+            const matContainer = document.getElementById('materialsUsedContainer');
+            if (matContainer) matContainer.innerHTML = '';
+            _matRowCounter = 0;
         }
 
         function addActivityRow(data) {
@@ -2018,6 +2056,56 @@ footer {
             }
         }
 
+        let _matRowCounter = 0;
+
+        function addMaterialRow(data) {
+            _matRowCounter++;
+            const rowId = 'matrow_' + _matRowCounter;
+            const div = document.createElement('div');
+            div.className = 'activitybox';
+            div.id = rowId;
+            const options = _materials
+                .filter(m => m.status !== 'inactive')
+                .map(m => `<option value="${esc(m.material_name)}" data-unit="${esc(m.unit || '')}">${escHtml(m.material_name)}${m.unit ? ` (${escHtml(m.unit)})` : ''}</option>`)
+                .join('');
+            div.innerHTML = `
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                    <span style="font-weight:700;font-size:11px;color:var(--primary);text-transform:uppercase;letter-spacing:.7px;">Material</span>
+                    <button class="delete-btn" style="width:auto;padding:4px 8px;margin:0;" onclick="removeMaterialRow('${rowId}')">&#10005;</button>
+                </div>
+                <select class="material-sel">
+                    <option value="">— Select Material —</option>
+                    ${options}
+                </select>
+                <label>Quantity Used</label>
+                <input type="number" class="material-qty-inp" min="0" placeholder="e.g. 25">`;
+            document.getElementById('materialsUsedContainer').appendChild(div);
+            if (data) {
+                const sel = div.querySelector('.material-sel');
+                if (data.material_name) sel.value = data.material_name;
+                div.querySelector('.material-qty-inp').value = data.qty != null ? data.qty : '';
+            }
+        }
+        window.addMaterialRow = addMaterialRow;
+
+        function removeMaterialRow(id) {
+            const el = document.getElementById(id);
+            if (el) el.remove();
+            saveFormDraft();
+        }
+        window.removeMaterialRow = removeMaterialRow;
+
+        function collectMaterialsUsed() {
+            const rows = [];
+            document.querySelectorAll('#materialsUsedContainer .activitybox').forEach(el => {
+                const sel = el.querySelector('.material-sel');
+                const name = sel ? sel.value.trim() : '';
+                const qty = Math.max(0, Number((el.querySelector('.material-qty-inp') || {}).value) || 0);
+                if (name && qty > 0) rows.push({ material_name: name, qty });
+            });
+            return rows;
+        }
+
         function collectActivityRows() {
             const rows = [];
             document.querySelectorAll('.activitybox').forEach(el => {
@@ -2090,7 +2178,8 @@ footer {
                 by:        prepBy,
                 editedBy:  editedBy || '',
                 submittedAt: new Date().toISOString(),
-                siteCondition: _selectedCondition
+                siteCondition: _selectedCondition,
+                materialsUsed: collectMaterialsUsed()
             };
             if (!navigator.onLine) {
                 const q = JSON.parse(localStorage.getItem('dprOfflineQ') || '[]');
@@ -2312,7 +2401,7 @@ footer {
                 localStorage.removeItem('dpr_form_draft');
                 return;
             }
-            const draft = { date: dateVal, site: siteVal, activities, siteCondition: _selectedCondition };
+            const draft = { date: dateVal, site: siteVal, activities, siteCondition: _selectedCondition, materialsUsed: collectMaterialsUsed() };
             localStorage.setItem('dpr_form_draft', JSON.stringify(draft));
         }
 
@@ -2342,6 +2431,12 @@ footer {
                     } else {
                         addActivityRow();
                     }
+                }
+                const matContainer = document.getElementById('materialsUsedContainer');
+                if (matContainer) {
+                    matContainer.innerHTML = '';
+                    _matRowCounter = 0;
+                    if (Array.isArray(draft.materialsUsed)) draft.materialsUsed.forEach(m => addMaterialRow(m));
                 }
                 updateFormTotals();
             } catch (e) {
@@ -2784,6 +2879,13 @@ footer {
             if (rowsToLoad.length) rowsToLoad.forEach(r => addActivityRow(r));
             else addActivityRow();
 
+            const matContainer = document.getElementById('materialsUsedContainer');
+            if (matContainer) {
+                matContainer.innerHTML = '';
+                _matRowCounter = 0;
+                (Array.isArray(item.materialsUsed) ? item.materialsUsed : []).forEach(m => addMaterialRow(m));
+            }
+
             closeDPRModal();
             switchTab('Form', document.getElementById('tabBtnForm'));
             showToast('✏️ Loaded for editing — click Generate DPR when done');
@@ -2840,6 +2942,7 @@ footer {
             renderAdminUsers();
             renderAdminProjects();
             renderAdminActivities();
+            renderAdminMaterials();
         }
 
         // ── Users ───────────────────────────────────────────────────
@@ -3195,6 +3298,98 @@ footer {
             }).join('');
         }
 
+        // ── Materials ───────────────────────────────────────────────
+        async function adminAddMaterial() {
+            const name = document.getElementById('newMaterialName').value.trim();
+            const unit = document.getElementById('newMaterialUnit').value.trim();
+            const budget = Number(document.getElementById('newMaterialBudget').value) || 0;
+            if (!name) { showToast('⚠️ Enter material name'); return; }
+            showToast('⏳ Adding...');
+            try {
+                const res = await apiPost({ action: 'addMaterial', material_name: name, unit, budget_qty: budget });
+                if (res && res.status === 'ok') {
+                    document.getElementById('newMaterialName').value = '';
+                    document.getElementById('newMaterialUnit').value = '';
+                    document.getElementById('newMaterialBudget').value = '';
+                    showToast('✅ Material added!');
+                    const d = await apiFetch('getMaterials').catch(() => _materials);
+                    if (Array.isArray(d)) _materials = d;
+                    renderAdminMaterials();
+                } else {
+                    showToast('⚠️ Add failed: ' + (res.error || 'unknown'));
+                }
+            } catch (e) {
+                showToast('⚠️ Connection error');
+                console.error(e);
+            }
+        }
+        window.adminAddMaterial = adminAddMaterial;
+
+        async function toggleMaterial(id, curStatus) {
+            const ns = curStatus === 'active' ? 'inactive' : 'active';
+            await apiPost({ action: 'updateMaterial', id, status: ns });
+            const d = await apiFetch('getMaterials').catch(() => _materials);
+            if (Array.isArray(d)) _materials = d;
+            renderAdminMaterials();
+            showToast(`✅ ${ns === 'active' ? 'Activated' : 'Deactivated'}!`);
+        }
+        window.toggleMaterial = toggleMaterial;
+
+        async function editMaterial(id, cur, curUnit, curBudget) {
+            const n = prompt('Edit material name:', cur);
+            if (n === null) return;
+            const u = prompt('Edit unit:', curUnit || '');
+            if (u === null) return;
+            const b = prompt('Edit budget quantity:', curBudget || 0);
+            if (b === null) return;
+            await apiPost({ action: 'updateMaterial', id, material_name: n.trim(), unit: u.trim(), budget_qty: Number(b) || 0 });
+            const d = await apiFetch('getMaterials').catch(() => _materials);
+            if (Array.isArray(d)) _materials = d;
+            renderAdminMaterials();
+            showToast('✅ Material updated!');
+        }
+        window.editMaterial = editMaterial;
+
+        async function deleteMaterial(id, name) {
+            if (!confirm(`Delete material "${name}"? This cannot be undone.`)) return;
+            showToast('⏳ Deleting...');
+            try {
+                const res = await apiPost({ action: 'deleteMaterial', id });
+                if (res.error) { showToast('⚠️ Error: ' + res.error); return; }
+                showToast('✅ Deleted!');
+                const d = await apiFetch('getMaterials').catch(() => _materials);
+                if (Array.isArray(d)) _materials = d;
+                renderAdminMaterials();
+            } catch (e) {
+                showToast('⚠️ Delete failed');
+            }
+        }
+        window.deleteMaterial = deleteMaterial;
+
+        function renderAdminMaterials() {
+            const el = document.getElementById('adminMaterialList');
+            if (!el) return;
+            if (!_materials.length) { el.innerHTML = '<p style="color:var(--muted);font-size:13px;text-align:center;padding:12px;">No materials yet.</p>'; return; }
+            el.innerHTML = _materials.map(m => {
+                const act = m.status !== 'inactive';
+                return `
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">
+                    <div>
+                        <span style="font-size:13px;font-weight:600;${!act ? 'color:var(--muted);text-decoration:line-through;' : ''}">${escHtml(m.material_name)}</span>
+                        <div style="font-size:11px;color:var(--muted);">${m.unit ? escHtml(m.unit) + ' · ' : ''}Budget: ${m.budget_qty || 0}</div>
+                    </div>
+                    <div style="display:flex;gap:5px;">
+                        <button class="btn-blue btn-sm" style="width:auto;padding:2px 7px;font-size:11px;"
+                                onclick="editMaterial('${m.id}','${esc(m.material_name)}','${esc(m.unit || '')}',${Number(m.budget_qty) || 0})">✏️</button>
+                        <button class="btn-red btn-sm" style="width:auto;padding:2px 7px;font-size:11px;background:#e53e3e;border-color:#e53e3e;"
+                                onclick="deleteMaterial('${m.id}','${esc(m.material_name)}')">🗑️</button>
+                        <button class="${act ? 'btn-red' : 'btn-green'} btn-sm" style="width:auto;padding:2px 8px;font-size:11px;"
+                                onclick="toggleMaterial('${m.id}','${m.status}')">${act ? '🔴' : '🟢'}</button>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
         // Project specific drag-and-drop (retained cleanly)
         let _draggedId = null;
 
@@ -3383,6 +3578,7 @@ footer {
         // component to read the same in-memory arrays without duplicating fetch logic.
         window.__getHistory  = function() { return _history; };
         window.__getProjects = function() { return _projects; };
+        window.__getMaterials = function() { return _materials; };
 
         // ── Data Maintenance ────────────────────────────────────────
         async function runDataCleanup() {

@@ -106,6 +106,10 @@ export default function AnalyticsDashboard() {
   const projects = useMemo(() => (
     (typeof window !== 'undefined' && window.__getProjects) ? window.__getProjects() : []
   ), [dataVersion]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const materials = useMemo(() => (
+    (typeof window !== 'undefined' && window.__getMaterials) ? window.__getMaterials() : []
+  ), [dataVersion]);
 
   const periodData = useMemo(() => {
     if (!history.length) return [];
@@ -149,6 +153,34 @@ export default function AnalyticsDashboard() {
     });
     return planned > 0 ? Math.round((actual / planned) * 100) : null;
   }, [periodData]);
+
+  // Material usage vs budget for the period — flags anything over its
+  // budgeted quantity (0 = no budget set, treated as "no alert possible").
+  const materialUsage = useMemo(() => {
+    const used = {};
+    periodData.forEach(item => {
+      (Array.isArray(item.materialsUsed) ? item.materialsUsed : []).forEach(m => {
+        const name = m.material_name || m.name;
+        if (!name) return;
+        used[name] = (used[name] || 0) + (Number(m.qty) || 0);
+      });
+    });
+    return materials
+      .filter(m => m.status !== 'inactive')
+      .map(m => {
+        const usedQty = used[m.material_name] || 0;
+        const budget = Number(m.budget_qty) || 0;
+        return {
+          name: m.material_name,
+          unit: m.unit || '',
+          used: usedQty,
+          budget,
+          overBudget: budget > 0 && usedQty > budget,
+        };
+      })
+      .filter(m => m.used > 0 || m.budget > 0)
+      .sort((a, b) => (b.overBudget ? 1 : 0) - (a.overBudget ? 1 : 0) || b.used - a.used);
+  }, [periodData, materials]);
 
   // Week-over-week / month-over-month deltas: current window vs. the
   // immediately preceding equal-length window, pure client-side math.
@@ -440,6 +472,25 @@ export default function AnalyticsDashboard() {
             );
           })}
         </div>
+
+        {materialUsage.length > 0 && (
+          <>
+            <div className="section-title" style={{ marginTop: 16 }}>🧱 Material Usage</div>
+            <div>
+              {materialUsage.map(m => (
+                <div key={m.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', marginBottom: 6, borderRadius: 8, border: '1px solid var(--border)', background: m.overBudget ? 'rgba(239,68,68,0.08)' : 'var(--surface-subtle)' }}>
+                  <div>
+                    <span style={{ fontSize: 13, fontWeight: 600 }}>{m.overBudget ? '⚠️ ' : ''}{m.name}</span>
+                    <div style={{ fontSize: 11, color: 'var(--muted)' }}>
+                      Used: {m.used}{m.unit ? ` ${m.unit}` : ''}{m.budget > 0 ? ` / Budget: ${m.budget}${m.unit ? ` ${m.unit}` : ''}` : ' (no budget set)'}
+                    </div>
+                  </div>
+                  {m.overBudget && <span className="trend-badge trend-down">Over budget</span>}
+                </div>
+              ))}
+            </div>
+          </>
+        )}
       </div>
     </ErrorBoundary>,
     mountNode
