@@ -21,8 +21,33 @@
   --shadow-lg: 0 12px 32px rgba(49,46,129,0.16), 0 4px 10px rgba(49,46,129,0.08);
   --glass-bg: rgba(255,255,255,0.72);
   --glass-border: rgba(255,255,255,0.55);
+  --surface-subtle: #f8fafc;
   --radius: 14px;
   --radius-sm: 10px;
+}
+
+[data-theme="dark"] {
+  --bg: #0f1117;
+  --card: #1a1d29;
+  --primary: #a5b4fc;
+  --primary-light: #262b3d;
+  --primary-glow: rgba(165, 180, 252, 0.18);
+  --accent: #818cf8;
+  --accent-hover: #6366f1;
+  --accent-light: #262b3d;
+  --green: #4ade80;
+  --red: #f87171;
+  --whatsapp: #2dd4bf;
+  --text: #e5e7eb;
+  --muted: #9ca3af;
+  --border: #2d3142;
+  --border-strong: #3d4258;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2);
+  --shadow: 0 4px 16px rgba(0,0,0,0.35), 0 1px 3px rgba(0,0,0,0.2);
+  --shadow-lg: 0 12px 32px rgba(0,0,0,0.45), 0 4px 10px rgba(0,0,0,0.25);
+  --glass-bg: rgba(26,29,41,0.72);
+  --glass-border: rgba(255,255,255,0.08);
+  --surface-subtle: #21242f;
 }
 
 *, *::before, *::after {
@@ -239,12 +264,31 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
   opacity: 1;
 }
 
+.btn-theme {
+  background: rgba(255,255,255,0.12);
+  border: 1px solid rgba(255,255,255,0.28);
+  color: white;
+  border-radius: var(--radius-sm);
+  padding: 5px 10px;
+  font-size: 14px;
+  cursor: pointer;
+  width: auto;
+  margin-top: 0;
+  line-height: 1;
+  transition: background 0.2s;
+}
+
+.btn-theme:hover {
+  background: rgba(255,255,255,0.22);
+  opacity: 1;
+}
+
 /* ── TABS ── */
 .tab-bar {
   display: flex;
   gap: 4px;
   margin-bottom: 16px;
-  background: white;
+  background: var(--card);
   padding: 5px;
   border-radius: var(--radius);
   box-shadow: var(--shadow-sm);
@@ -330,7 +374,7 @@ textarea {
   border-radius: var(--radius-sm);
   font-size: 14px;
   font-family: 'Inter', sans-serif;
-  background: #fafbfd;
+  background: var(--surface-subtle);
   color: var(--text);
   transition: border-color 0.2s, box-shadow 0.2s;
   appearance: none;
@@ -342,7 +386,7 @@ select:focus,
 textarea:focus {
   outline: none;
   border-color: var(--primary);
-  background: #fff;
+  background: var(--card);
   box-shadow: 0 0 0 3px var(--primary-glow);
 }
 
@@ -352,7 +396,7 @@ textarea:focus {
   padding: 14px;
   border-radius: var(--radius-sm);
   margin-bottom: 10px;
-  background: #f8fafc;
+  background: var(--surface-subtle);
   transition: border-color 0.2s;
 }
 
@@ -541,6 +585,7 @@ button:hover {
 
 #report, #report-temp-capture {
   color: #000000 !important;
+  background: #ffffff !important;
   font-weight: 500;
 }
 
@@ -636,7 +681,7 @@ button:hover {
   border: 1.5px solid var(--border);
   border-radius: var(--radius-sm);
   margin-bottom: 8px;
-  background: #fafbfc;
+  background: var(--surface-subtle);
   gap: 8px;
 }
 
@@ -704,7 +749,7 @@ button:hover {
   padding: 8px;
   border: 1.5px solid var(--border);
   border-radius: var(--radius-sm);
-  background: white;
+  background: var(--card);
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
@@ -731,7 +776,7 @@ button:hover {
   display: flex;
   align-items: center;
   padding: 10px 13px;
-  background: #f8fafc;
+  background: var(--surface-subtle);
   border-radius: var(--radius-sm);
   margin-bottom: 7px;
   border: 1px solid var(--border);
@@ -764,7 +809,7 @@ button:hover {
 
 /* ── ADMIN ACCORDION ── */
 .admin-acc-card {
-  background: #ffffff;
+  background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   margin-bottom: 12px;
@@ -778,7 +823,7 @@ button:hover {
   justify-content: space-between;
   align-items: center;
   cursor: pointer;
-  background: #f8fafc;
+  background: var(--surface-subtle);
   font-weight: 600;
   font-size: 15px;
   color: var(--primary);
@@ -787,7 +832,7 @@ button:hover {
 }
 
 .admin-acc-header:hover {
-  background: #f1f5f9;
+  background: var(--primary-light);
 }
 
 .admin-acc-icon {
@@ -812,7 +857,7 @@ button:hover {
 }
 
 .admin-list-scroll::-webkit-scrollbar { width: 5px; }
-.admin-list-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+.admin-list-scroll::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; }
 
 /* ── MISC ── */
 #offlineBadge {
@@ -924,7 +969,7 @@ footer {
 }
 
 .modal-close:hover {
-  background: #e2e8f0;
+  background: rgba(148,163,184,0.25);
   opacity: 1;
 }
 
@@ -1011,7 +1056,7 @@ footer {
 }
 
 .history-options-btn:hover {
-  background: #f1f5f9 !important;
+  background: var(--primary-light) !important;
   color: var(--text) !important;
 }
 
@@ -1019,7 +1064,7 @@ footer {
   position: absolute;
   top: 44px;
   right: 10px;
-  background: #ffffff;
+  background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
@@ -1053,14 +1098,14 @@ footer {
 }
 
 .history-dropdown-item:hover {
-  background: #f8fafc !important;
+  background: var(--primary-light) !important;
 }
 
 .history-dropdown-item.delete-item {
-  color: #e53e3e !important;
+  color: var(--red) !important;
 }
 
 .history-dropdown-item.delete-item:hover {
-  background: #fff5f5 !important;
+  background: rgba(239,68,68,0.12) !important;
 }
 

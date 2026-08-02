@@ -1114,7 +1114,10 @@ footer {
     </div>
     <div class="header-right">
         <div class="header-user" id="headerUser"></div>
-        <button class="btn-signout" onclick="doLogout()">Sign Out</button>
+        <div style="display:flex;gap:6px;justify-content:flex-end;">
+            <button class="btn-theme" onclick="toggleTheme()" id="themeToggleBtn" aria-label="Toggle dark mode" title="Toggle dark mode">&#127769;</button>
+            <button class="btn-signout" onclick="doLogout()">Sign Out</button>
+        </div>
     </div>
 </div>
 
@@ -1705,6 +1708,22 @@ footer {
             err.textContent = '';
             showApp();
         }
+
+        function updateThemeToggleIcon() {
+            const btn = document.getElementById('themeToggleBtn');
+            if (!btn) return;
+            const theme = document.documentElement.getAttribute('data-theme') || 'light';
+            btn.innerHTML = theme === 'dark' ? '&#9728;&#65039;' : '&#127769;';
+        }
+
+        function toggleTheme() {
+            const current = document.documentElement.getAttribute('data-theme') || 'light';
+            const next = current === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', next);
+            try { localStorage.setItem('dprTheme', next); } catch (e) {}
+            updateThemeToggleIcon();
+        }
+        window.toggleTheme = toggleTheme;
 
         function doLogout() {
             _currentUser = null;
@@ -3584,6 +3603,7 @@ footer {
         /* ══ INIT ══ */
         if (typeof window !== "undefined") {
             const runInit = () => {
+                updateThemeToggleIcon();
                 renderLoginChips();
                 try {
                     const s = sessionStorage.getItem('dprUser');
