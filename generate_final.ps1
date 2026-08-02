@@ -127,6 +127,10 @@ $part1 = "'use client';" + "`n" +
           "    s2.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';" + "`n" +
           "    document.head.appendChild(s2);" + "`n" +
           "" + "`n" +
+          "    const s3 = document.createElement('script');" + "`n" +
+          "    s3.src = 'https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js';" + "`n" +
+          "    document.head.appendChild(s3);" + "`n" +
+          "" + "`n" +
           "    // -- Render HTML into container --" + "`n" +
           "    const container = document.getElementById('__dpr_root__');" + "`n" +
           "    if (container) {" + "`n" +

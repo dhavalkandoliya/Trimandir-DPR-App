@@ -602,6 +602,28 @@ button:hover {
   letter-spacing: 0.5px;
 }
 
+.report-letterhead {
+  text-align: center;
+  padding-bottom: 10px;
+  margin-bottom: 12px;
+  border-bottom: 3px solid #312e81;
+}
+
+.report-letterhead-title {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+}
+
+.report-letterhead-sub {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 1.4px;
+  margin-top: 2px;
+  opacity: 0.75;
+}
+
 .report-section-title {
   font-weight: 700;
   font-size: 13px;

@@ -1163,6 +1163,10 @@ footer {
     <button class="btn-gray" onclick="copyWhats()">&#128172; Copy Text for WhatsApp</button>
 
     <div id="report" style="display:none;">
+        <div class="report-letterhead">
+            <div class="report-letterhead-title">Trimandir Construction Project</div>
+            <div class="report-letterhead-sub">Daily Progress Report</div>
+        </div>
         <h3>DPR &#8212; MAN POWER REPORT</h3>
         <div class="report-meta" id="rdate"></div>
         <div id="rcivil"></div>
@@ -1263,9 +1267,14 @@ footer {
                 <div class="lbl">Active Projects</div>
             </div>
         </div>
-        <button class="btn-green" onclick="exportMasterLogCSV()" style="margin-top: 4px; display: flex; align-items: center; justify-content: center; gap: 8px; font-size:13px; padding: 10px 14px;">
-            📥 Export Master Log (CSV)
-        </button>
+        <div class="btn-group" style="margin-top: 4px;">
+            <button class="btn-green btn-sm" style="display: flex; align-items: center; justify-content: center; gap: 6px; font-size:12px;" onclick="exportMasterLogCSV()">
+                📥 Export CSV
+            </button>
+            <button class="btn-green btn-sm" style="display: flex; align-items: center; justify-content: center; gap: 6px; font-size:12px;" onclick="exportMasterLogExcel()">
+                📊 Export Excel
+            </button>
+        </div>
     </div>
 
     <!-- Pending edit requests -->
@@ -2147,6 +2156,10 @@ footer {
                 : (item.by || '—');
 
             return `
+                <div class="report-letterhead">
+                    <div class="report-letterhead-title">Trimandir Construction Project</div>
+                    <div class="report-letterhead-sub">Daily Progress Report</div>
+                </div>
                 <h3>DPR &mdash; MAN POWER REPORT</h3>
                 <div class="report-meta">
                     <b>📅 Date :</b> ${formatDate(d) || '—'}<br>
@@ -2314,8 +2327,9 @@ footer {
             }
         }
 
-        function exportMasterLogCSV() {
-            if (!_history.length) { showToast('⚠️ No history records to export'); return; }
+        // Flattens _history into one row per activity line item (plus a header row).
+        // Shared by both the CSV and Excel export paths so they never drift apart.
+        function buildMasterLogRows() {
             const headers = [
                 'Date', 'Site', 'Supervisor (Created By)', 'Last Edited By', 'Submitted At',
                 'Total DPR Manpower', 'Activity Category (Main)', 'Sub-Activity', 'Section',
@@ -2329,7 +2343,7 @@ footer {
                 const editedBy = item.editedBy || '';
                 const submittedAt = item.submittedAt || '';
                 const totalManpower = item.total || 0;
-                
+
                 let activities = [];
                 if (Array.isArray(item.civilActivities)) {
                     activities.push(...item.civilActivities.map(a => ({ ...a, section: 'Civil' })));
@@ -2347,7 +2361,7 @@ footer {
                         note: d.note
                     })));
                 }
-                
+
                 if (activities.length === 0) {
                     rows.push([dateStr, siteStr, createdBy, editedBy, submittedAt, totalManpower, '', '', '', 0, 0, 0, '']);
                 } else {
@@ -2363,6 +2377,30 @@ footer {
                     });
                 }
             });
+            return rows;
+        }
+
+        // All-time per-site rollup, used as the "Site Summary" sheet in the Excel export.
+        function buildSiteSummaryRows() {
+            const siteMap = {};
+            _history.forEach(item => {
+                const site = item.site || 'Unknown';
+                if (!siteMap[site]) siteMap[site] = { totalWorkers: 0, totalDPRs: 0 };
+                siteMap[site].totalWorkers += Number(item.total) || 0;
+                siteMap[site].totalDPRs += 1;
+            });
+            const rows = [['Site', 'Total Workers (All Time)', 'Total DPRs', 'Avg Workers / DPR']];
+            Object.entries(siteMap)
+                .sort((a, b) => b[1].totalWorkers - a[1].totalWorkers)
+                .forEach(([site, d]) => {
+                    rows.push([site, d.totalWorkers, d.totalDPRs, d.totalDPRs ? Math.round(d.totalWorkers / d.totalDPRs) : 0]);
+                });
+            return rows;
+        }
+
+        function exportMasterLogCSV() {
+            if (!_history.length) { showToast('⚠️ No history records to export'); return; }
+            const rows = buildMasterLogRows();
             const csvContent = "data:text/csv;charset=utf-8," + rows.map(e => e.map(val => {
                 let s = String(val === null || val === undefined ? '' : val).replace(/"/g, '""');
                 if (s.includes(',') || s.includes('"') || s.includes('\n') || s.includes('\r')) {
@@ -2379,6 +2417,17 @@ footer {
             document.body.removeChild(link);
             showToast('✅ CSV Exported!');
         }
+
+        function exportMasterLogExcel() {
+            if (!_history.length) { showToast('⚠️ No history records to export'); return; }
+            if (typeof XLSX === 'undefined') { showToast('⚠️ Excel library still loading — try again in a moment'); return; }
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(buildMasterLogRows()), 'Master Log');
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(buildSiteSummaryRows()), 'Site Summary');
+            XLSX.writeFile(wb, `TPD_DPR_Master_Log_${getLocalTodayYMD()}.xlsx`);
+            showToast('✅ Excel Exported!');
+        }
+        window.exportMasterLogExcel = exportMasterLogExcel;
 
         function populateSupervisorDropdown() {
             const sel = document.getElementById('searchSupervisor');
