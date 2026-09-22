@@ -3,26 +3,32 @@
 // STRICT SCHEMA — matching exact spreadsheet column layout
 // FOR CIVIL WORKS ONLY
 //
-// DPR_Records (A→K):
+// DPR_Records (A→L):
 //   A=Date  B=Site  C=Prepared By  D=Activity Details  E=Total Manpower
 //   F=Last Updated  G=submittedAt  H=editPermission  I=requestedBy
-//   J=activities(JSON)  K=SiteCondition
+//   J=civilActivities(JSON)  K=SiteCondition  L=MaterialsUsed(JSON)
 //
 // DPR_Detail (A→K):
 //   A=Date  B=Site  C=Section  D=Activity  E=Skilled  F=Unskilled
 //   G=Total  H=Note  I=Prepared By  J=Timestamp  K=PlannedQty
 //
-// Projects  (A→D): id | project_name | parent_id | status
-// Activities(A→D): id | activity_name | parent_id | status
+// Projects  (A→F): id | main_project_name | sub_project_name | parent_id | status | sort_order
+// Activities(A→F): id | main_category_name | sub_category_name | parent_id | status | sort_order
+// Materials (A→E): id | material_name | unit | budget_qty | status
+// Material_Logs(A→G): Date | Site | Material_Name | Quantity | Unit | Logged_By | Created_At
+//   — auto-provisioned by ensureMaterialLogsSheet(); one row per material per
+//     log entry, decoupled from DPR_Records. Historical MaterialsUsed JSON
+//     blobs are backfilled once via migrateExistingMaterialRecords().
 // Users     (A→D): username | displayName | password | role
 // ================================================================
 
-var SHEET_RECORDS    = 'DPR_Records';
-var SHEET_DETAIL     = 'DPR_Detail';
-var SHEET_USERS      = 'Users';
-var SHEET_PROJECTS   = 'Projects';
-var SHEET_ACTIVITIES = 'Activities';
-var SHEET_MATERIALS  = 'Materials';
+var SHEET_RECORDS      = 'DPR_Records';
+var SHEET_DETAIL       = 'DPR_Detail';
+var SHEET_USERS        = 'Users';
+var SHEET_PROJECTS     = 'Projects';
+var SHEET_ACTIVITIES   = 'Activities';
+var SHEET_MATERIALS    = 'Materials';
+var SHEET_MATERIAL_LOGS = 'Material_Logs';
 
 // ── Exact header rows written when sheets are first created ──────
 // RECORDS: A  B     C            D                  E               F             G             H                I             J
@@ -33,6 +39,8 @@ var USER_HEADERS     = ['username','displayName','password','role'];
 var PROJECT_HEADERS  = ['id', 'main_project_name', 'sub_project_name', 'parent_id', 'status', 'sort_order'];
 var ACTIVITY_HEADERS = ['id', 'main_category_name', 'sub_category_name', 'parent_id', 'status', 'sort_order'];
 var MATERIAL_HEADERS = ['id', 'material_name', 'unit', 'budget_qty', 'status'];
+// MATERIAL_LOGS: A     B      C               D           E      F           G
+var MATERIAL_LOG_HEADERS = ['Date', 'Site', 'Material_Name', 'Quantity', 'Unit', 'Logged_By', 'Created_At'];
 
 // ── Fixed column indexes (0-based) for DPR_Records ──────────────
 var REC = {
@@ -65,15 +73,28 @@ var DET = {
   plannedQty: 10   // K
 };
 
+// ── Fixed column indexes (0-based) for Material_Logs ────────────
+var MLOG = {
+  date:         0,   // A
+  site:         1,   // B
+  materialName: 2,   // C
+  quantity:     3,   // D
+  unit:         4,   // E
+  loggedBy:     5,   // F
+  createdAt:    6    // G
+};
+
 // ── ROUTER ───────────────────────────────────────────────────────
 
 function doGet(e) {
   var action = (e && e.parameter && e.parameter.action) ? e.parameter.action : '';
-  if (action === 'getUsers')      return handleGetUsers();
-  if (action === 'getProjects')   return handleGetProjects();
-  if (action === 'getActivities') return handleGetActivities();
-  if (action === 'getMaterials')  return handleGetMaterials();
-  if (action === 'debug')         return handleDebug();
+  if (action === 'getUsers')         return handleGetUsers();
+  if (action === 'getProjects')      return handleGetProjects();
+  if (action === 'getActivities')    return handleGetActivities();
+  if (action === 'getMaterials')     return handleGetMaterials();
+  if (action === 'getMaterialLogs')  return handleGetMaterialLogs();
+  if (action === 'migrateMaterials') return jsonResponse(migrateExistingMaterialRecords());
+  if (action === 'debug')            return handleDebug();
   return handleGetDPRs();
 }
 
@@ -103,6 +124,7 @@ function doPost(e) {
     case 'addMaterial':      return handleAddMaterial(body);
     case 'updateMaterial':   return handleUpdateMaterial(body);
     case 'deleteMaterial':   return handleDeleteMaterial(body);
+    case 'saveMaterialLog':  return handleSaveMaterialLog(body);
     default:                 return jsonResponse({ error: 'Unknown action: ' + body.action });
   }
 }
@@ -152,6 +174,13 @@ function parseJsonArr(v) {
   if (Array.isArray(v)) return v;
   try { var r = JSON.parse(String(v)); return Array.isArray(r) ? r : []; }
   catch (e) { return []; }
+}
+
+// Trim + lowercase a status cell so hand-typed variants like "Active",
+// "ACTIVE " etc. still match the frontend's strict === 'active' checks.
+function normStatus(v) {
+  var s = String(v || '').trim().toLowerCase();
+  return s || 'active';
 }
 
 // ── UTILITY: Flexible header reader (for legacy/unknown sheets) ──
@@ -211,7 +240,18 @@ function jsonResponse(data) {
 }
 
 function getSheet(name) {
-  return SpreadsheetApp.getActiveSpreadsheet().getSheetByName(name);
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(name);
+  if (sheet) return sheet;
+  // Fallback: tolerate a tab that was renamed with different casing or
+  // stray whitespace (e.g. "projects", " Projects") so a cosmetic rename
+  // doesn't silently return an empty dataset to the client.
+  var target = String(name).trim().toLowerCase();
+  var all = ss.getSheets();
+  for (var i = 0; i < all.length; i++) {
+    if (String(all[i].getName()).trim().toLowerCase() === target) return all[i];
+  }
+  return null;
 }
 
 function getOrCreateSheet(name, headers) {
@@ -281,10 +321,18 @@ function repairAllSheetHeaders() {
   return repairs;
 }
 
-function sheetToObjects(sheet) {
+function sheetToObjects(sheet, fallbackHeaders) {
   var data = sheet.getDataRange().getValues();
   if (data.length < 2) return [];
   var headers = data[0].map(function(h) { return normalizeKey(h); });
+  // If the header row doesn't match any of the expected column keys (e.g.
+  // the sheet's wording differs from what normalizeKey() maps), fall back
+  // to reading columns by fixed position in the documented order — rather
+  // than silently returning every row with blank/undefined fields.
+  if (fallbackHeaders && fallbackHeaders.length) {
+    var anyMatch = fallbackHeaders.some(function(fh) { return headers.indexOf(fh) !== -1; });
+    if (!anyMatch) headers = fallbackHeaders.slice();
+  }
   return data.slice(1)
     .filter(function(row) { return row[0] !== '' && row[0] !== null && row[0] !== undefined; })
     .map(function(row) {
@@ -443,10 +491,15 @@ function setupDPRSheets() {
     activitiesSheet.getRange(2, 1, seedActivities.length, ACTIVITY_HEADERS.length).setValues(seedActivities);
   }
 
+  // ── 6. MATERIAL_LOGS SHEET ──────────────────────────────────────
+  // Auto-provisions headers + dark-theme styling, and (on first creation)
+  // backfills historical consumption from DPR_Records.MaterialsUsed JSON.
+  ensureMaterialLogsSheet(ss);
+
   // Final flush to commit all formatting and data writes
   SpreadsheetApp.flush();
 
-  return 'Setup complete: Users, DPR_Records, DPR_Detail, Projects, Activities — headers injected and formatted.';
+  return 'Setup complete: Users, DPR_Records, DPR_Detail, Projects, Activities, Material_Logs — headers injected and formatted.';
 }
 
 
@@ -922,12 +975,12 @@ function handleResetPassword(body) {
 function handleGetProjects() {
   var sheet = getSheet(SHEET_PROJECTS);
   if (!sheet) return jsonResponse([]);
-  var projects = sheetToObjects(sheet).map(function(p) {
+  var projects = sheetToObjects(sheet, PROJECT_HEADERS).map(function(p) {
     return {
       id:            p.id,
       project_name:  p.sub_project_name || p.main_project_name,
       parent_id:     p.parent_id || '',
-      status:        p.status || 'active',
+      status:        normStatus(p.status),
       sort_order:    p.sort_order !== undefined && p.sort_order !== '' ? Number(p.sort_order) : 9999
     };
   });
@@ -986,12 +1039,12 @@ function handleDeleteProject(body) {
 function handleGetActivities() {
   var sheet = getSheet(SHEET_ACTIVITIES);
   if (!sheet) return jsonResponse([]);
-  var activities = sheetToObjects(sheet).map(function(a) {
+  var activities = sheetToObjects(sheet, ACTIVITY_HEADERS).map(function(a) {
     return {
       id:            a.id,
       activity_name: a.sub_category_name || a.main_category_name,
       parent_id:     a.parent_id || '',
-      status:        a.status || 'active',
+      status:        normStatus(a.status),
       sort_order:    a.sort_order !== undefined && a.sort_order !== '' ? Number(a.sort_order) : 9999
     };
   });
@@ -1051,13 +1104,13 @@ function handleDeleteActivity(body) {
 function handleGetMaterials() {
   var sheet = getSheet(SHEET_MATERIALS);
   if (!sheet) return jsonResponse([]);
-  var materials = sheetToObjects(sheet).map(function(m) {
+  var materials = sheetToObjects(sheet, MATERIAL_HEADERS).map(function(m) {
     return {
       id:            m.id,
       material_name: m.material_name,
       unit:          m.unit || '',
       budget_qty:    Number(m.budget_qty) || 0,
-      status:        m.status || 'active'
+      status:        normStatus(m.status)
     };
   });
   return jsonResponse(materials);
@@ -1095,6 +1148,162 @@ function handleDeleteMaterial(body) {
     if (String(data[i][0]) === String(body.id)) sheet.deleteRow(i + 1);
   }
   return jsonResponse({ status: 'ok' });
+}
+
+// ── MATERIAL_LOGS — normalised per-material consumption log ──────
+// One row per material per log entry, decoupled from DPR_Records.
+// Auto-provisioned (headers + styling) on first use; zero manual sheet work.
+
+// Builds a { material_name(trimmed) -> unit } lookup from the Materials
+// master list, used to stamp each log row with its unit at write time.
+function getMaterialUnitLookup() {
+  var lookup = {};
+  var matSheet = getSheet(SHEET_MATERIALS);
+  if (!matSheet) return lookup;
+  sheetToObjects(matSheet, MATERIAL_HEADERS).forEach(function(m) {
+    if (m.material_name) lookup[String(m.material_name).trim()] = m.unit || '';
+  });
+  return lookup;
+}
+
+// Creates (if missing) and formats the Material_Logs sheet: bold white-on-dark
+// header, frozen header row, auto-sized columns. Safe to call on every request.
+// skipAutoMigrate avoids re-entering migrateExistingMaterialRecords() when
+// this is called *from* the migration itself.
+function ensureMaterialLogsSheet(ss, skipAutoMigrate) {
+  ss = ss || SpreadsheetApp.getActiveSpreadsheet();
+  var sheet  = ss.getSheetByName(SHEET_MATERIAL_LOGS);
+  var isNew  = !sheet;
+  if (isNew) sheet = ss.insertSheet(SHEET_MATERIAL_LOGS);
+
+  sheet.getRange(1, 1, 1, MATERIAL_LOG_HEADERS.length).setValues([MATERIAL_LOG_HEADERS]);
+  var hdrRange = sheet.getRange(1, 1, 1, MATERIAL_LOG_HEADERS.length);
+  hdrRange.setFontWeight('bold');
+  hdrRange.setBackground('#1f2937');
+  hdrRange.setFontColor('#ffffff');
+  hdrRange.setVerticalAlignment('middle');
+  sheet.setFrozenRows(1);
+  sheet.autoResizeColumns(1, MATERIAL_LOG_HEADERS.length);
+
+  // First-ever provisioning: pull in any consumption already recorded as
+  // MaterialsUsed JSON blobs on DPR_Records, so historical data isn't lost.
+  if (isNew && !skipAutoMigrate) {
+    try { migrateExistingMaterialRecords(); } catch (e) { /* non-fatal — action=migrateMaterials can be re-run manually */ }
+  }
+  return sheet;
+}
+
+// One-time (idempotent — safe to re-run) migration: reads every DPR_Records
+// row's MaterialsUsed JSON blob and inserts one clean Material_Logs row per
+// material item. Dedupes against rows already present so re-running never
+// creates duplicates.
+function migrateExistingMaterialRecords() {
+  var ss       = SpreadsheetApp.getActiveSpreadsheet();
+  var recSheet = getSheet(SHEET_RECORDS);
+  if (!recSheet) return { status: 'ok', migrated: 0, message: 'DPR_Records sheet not found' };
+
+  var logSheet   = ensureMaterialLogsSheet(ss, true);
+  var unitByName = getMaterialUnitLookup();
+
+  // Build a dedupe set from whatever is already in Material_Logs.
+  var existing = logSheet.getDataRange().getValues();
+  var seen = {};
+  for (var e = 1; e < existing.length; e++) {
+    var erow = existing[e];
+    var ekey = [
+      normDate(erow[MLOG.date]),
+      String(erow[MLOG.site] || '').trim(),
+      String(erow[MLOG.materialName] || '').trim(),
+      Number(erow[MLOG.quantity]) || 0,
+      String(erow[MLOG.loggedBy] || '').trim()
+    ].join('||');
+    seen[ekey] = true;
+  }
+
+  var recData   = recSheet.getDataRange().getValues();
+  var toAppend  = [];
+  for (var i = 1; i < recData.length; i++) {
+    var row = recData[i];
+    var raw = row[REC.materialsUsed];
+    if (!raw) continue;
+    var items = parseJsonArr(raw);
+    if (!items.length) continue;
+
+    var d = normDate(row[REC.date]);
+    var s = String(row[REC.site] || '').trim();
+    if (!d || !s) continue;
+
+    var loggedBy  = String(row[REC.preparedBy] || '').trim();
+    var createdAt = row[REC.submittedAt] ? String(row[REC.submittedAt])
+                   : (row[REC.lastUpdated] ? String(row[REC.lastUpdated]) : nowStamp());
+
+    items.forEach(function(it) {
+      var name = String(it.material_name || it.name || '').trim();
+      var qty  = Number(it.qty) || 0;
+      if (!name || qty <= 0) return;
+      var key = [d, s, name, qty, loggedBy].join('||');
+      if (seen[key]) return;
+      seen[key] = true;
+      toAppend.push([d, s, name, qty, unitByName[name] || '', loggedBy, createdAt]);
+    });
+  }
+
+  if (toAppend.length) {
+    logSheet.getRange(logSheet.getLastRow() + 1, 1, toAppend.length, MATERIAL_LOG_HEADERS.length).setValues(toAppend);
+  }
+
+  return { status: 'ok', migrated: toAppend.length };
+}
+
+// Appends one Material_Logs row per material item — called from the
+// Material Consumption tab's "Save Material Consumption" action.
+function handleSaveMaterialLog(body) {
+  var d = normDate(body.date);
+  var s = String(body.site || '').trim();
+  if (!d || !s) return jsonResponse({ error: 'Missing date or site' });
+
+  var items = Array.isArray(body.materialsUsed) ? body.materialsUsed : [];
+  var clean = items
+    .map(function(it) { return { name: String(it.material_name || it.name || '').trim(), qty: Number(it.qty) || 0 }; })
+    .filter(function(it) { return it.name && it.qty > 0; });
+  if (!clean.length) return jsonResponse({ error: 'No valid material rows' });
+
+  var logSheet   = ensureMaterialLogsSheet();
+  var unitByName = getMaterialUnitLookup();
+  var loggedBy   = String(body.by || body.editedBy || '').trim();
+  var createdAt  = nowStamp();
+
+  var rows = clean.map(function(it) {
+    return [d, s, it.name, it.qty, unitByName[it.name] || '', loggedBy, createdAt];
+  });
+  logSheet.getRange(logSheet.getLastRow() + 1, 1, rows.length, MATERIAL_LOG_HEADERS.length).setValues(rows);
+
+  return jsonResponse({ status: 'ok', inserted: rows.length });
+}
+
+// Reads Material_Logs directly — the clean per-row source for the
+// Material Consumption tab's log view, filters, and budget summary.
+function handleGetMaterialLogs() {
+  var sheet = getSheet(SHEET_MATERIAL_LOGS);
+  if (!sheet) return jsonResponse([]);
+  var data = sheet.getDataRange().getValues();
+  var logs = [];
+  for (var i = 1; i < data.length; i++) {
+    var row = data[i];
+    var d = normDate(row[MLOG.date]);
+    if (!d) continue;
+    logs.push({
+      date:          d,
+      site:          String(row[MLOG.site]         || '').trim(),
+      material_name: String(row[MLOG.materialName]  || '').trim(),
+      qty:           Number(row[MLOG.quantity]) || 0,
+      unit:          String(row[MLOG.unit]          || '').trim(),
+      loggedBy:      String(row[MLOG.loggedBy]      || '').trim(),
+      createdAt:     row[MLOG.createdAt] || ''
+    });
+  }
+  logs.sort(function(a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; });
+  return jsonResponse(logs);
 }
 
 function handleUpdateSortOrder(body) {

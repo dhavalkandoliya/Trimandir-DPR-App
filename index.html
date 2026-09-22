@@ -1255,12 +1255,45 @@ footer {
     </div>
 
     <div class="card">
+        <div class="section-title">&#128269; Filter Consumption Log</div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
+            <div>
+                <label>Start Date</label>
+                <input type="date" id="matLogStartDate" onchange="renderMaterialConsumptionTab()" style="margin-bottom:0;">
+            </div>
+            <div>
+                <label>End Date</label>
+                <input type="date" id="matLogEndDate" onchange="renderMaterialConsumptionTab()" style="margin-bottom:0;">
+            </div>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+            <div>
+                <label>Site / Project</label>
+                <select id="matLogSiteFilter" onchange="renderMaterialConsumptionTab()" style="margin-bottom:0;">
+                    <option value="">&#8212; All Sites &#8212;</option>
+                </select>
+            </div>
+            <div>
+                <label>Material</label>
+                <select id="matLogMaterialFilter" onchange="renderMaterialConsumptionTab()" style="margin-bottom:0;">
+                    <option value="">&#8212; All Materials &#8212;</option>
+                </select>
+            </div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:12px;">
+            <button class="btn-blue btn-sm" style="flex:1;margin:0;" onclick="loadMaterialLogs()">&#128260; Refresh</button>
+            <button class="btn-gray btn-sm" style="flex:1;margin:0;" onclick="clearMaterialLogFilter()">&#10060; Clear Filter</button>
+        </div>
+    </div>
+
+    <div class="card">
         <div class="section-title">&#128202; Usage vs Budget</div>
         <div id="materialBudgetSummary"><p style="color:var(--muted);font-size:13px;text-align:center;padding:12px;">Loading...</p></div>
     </div>
 
     <div class="card">
         <div class="section-title">&#129534; Consumption Log</div>
+        <div id="materialLogCount" style="font-size:12px;color:var(--muted);text-align:center;margin-bottom:8px;"></div>
         <div id="materialConsumptionLog"><p style="color:var(--muted);font-size:13px;text-align:center;padding:12px;">Loading...</p></div>
     </div>
 </div>
@@ -1462,6 +1495,7 @@ footer {
         let _activities = [];   // { id, activity_name, parent_id, status } (synced with 5-column nested schema)
         let _materials  = [];   // { id, material_name, unit, budget_qty, status }
         let _history    = [];   // see handleGetDPRs schema below
+        let _materialLogs = []; // { date, site, material_name, qty, unit, loggedBy, createdAt } — see Material_Logs sheet
         let _currentUser    = null;
         let _editingKey     = null;
         let _rowCounter     = 0;
@@ -1845,7 +1879,7 @@ footer {
             if (tab === 'Dashboard') window.dispatchEvent(new CustomEvent('dpr:historyUpdated'));
             if (tab === 'History')   renderHistory();
             if (tab === 'Admin')     renderAdminPanel();
-            if (tab === 'Materials') renderMaterialConsumptionTab();
+            if (tab === 'Materials') loadMaterialLogs();
         }
 
         function resetAndSwitchToForm(btn, forceNew) {
@@ -2128,7 +2162,8 @@ footer {
         }
 
         /* ═══════════════════════════════════════════════════════════
-           MATERIAL CONSUMPTION TAB
+           MATERIAL CONSUMPTION TAB — backed by the Material_Logs sheet
+           (one row per material per log, independent of DPR_Records)
         ═══════════════════════════════════════════════════════════ */
         async function saveMaterialsUsed() {
             if (!_currentUser) { showToast('⚠️ Please sign in first'); return; }
@@ -2140,27 +2175,13 @@ footer {
             const materialsUsed = collectMaterialsUsed();
             if (!materialsUsed.length) { showToast('⚠️ Add at least one material with a quantity'); return; }
 
-            const existing = _history.find(h => toYMD(h.date) === dateVal && String(h.site).trim() === siteVal.trim());
-            const payload = existing
-                ? {
-                    action:       'editDPR',
-                    date:         dateVal,
-                    site:         siteVal,
-                    materialsOnly: true,
-                    editedBy:     _currentUser.username,
-                    materialsUsed
-                  }
-                : {
-                    action:       'saveDPR',
-                    date:         dateVal,
-                    site:         siteVal,
-                    total:        0,
-                    activities:   [],
-                    by:           _currentUser.username,
-                    submittedAt:  new Date().toISOString(),
-                    siteCondition: '',
-                    materialsUsed
-                  };
+            const payload = {
+                action: 'saveMaterialLog',
+                date:   dateVal,
+                site:   siteVal,
+                by:     _currentUser.username,
+                materialsUsed
+            };
 
             if (!navigator.onLine) {
                 const q = JSON.parse(localStorage.getItem('dprOfflineQ') || '[]');
@@ -2177,21 +2198,76 @@ footer {
                 showToast('✅ Material consumption saved!');
                 document.getElementById('materialsUsedContainer').innerHTML = '';
                 _matRowCounter = 0;
-                loadHistory();
+                loadMaterialLogs();
             } catch (e) {
                 showToast('⚠️ Save failed — check connection');
             }
         }
         window.saveMaterialsUsed = saveMaterialsUsed;
 
-        function computeMaterialUsage() {
-            const used = {};
-            _history.forEach(item => {
-                (Array.isArray(item.materialsUsed) ? item.materialsUsed : []).forEach(m => {
-                    const name = m.material_name || m.name;
-                    if (!name) return;
-                    used[name] = (used[name] || 0) + (Number(m.qty) || 0);
+        function loadMaterialLogs() {
+            const el = document.getElementById('materialConsumptionLog');
+            if (el) el.innerHTML = getSkeletonLoader();
+            apiFetch('getMaterialLogs')
+                .then(d => {
+                    _materialLogs = Array.isArray(d) ? d : [];
+                    populateMaterialLogFilters();
+                    renderMaterialConsumptionTab();
+                })
+                .catch(() => {
+                    if (el) el.innerHTML = '<p style="color:#e57373;text-align:center;padding:10px;">⚠️ Failed to load material logs.</p>';
                 });
+        }
+        window.loadMaterialLogs = loadMaterialLogs;
+
+        function populateMaterialLogFilters() {
+            const siteSel = document.getElementById('matLogSiteFilter');
+            if (siteSel) {
+                const prev = siteSel.value;
+                const sites = Array.from(new Set(_materialLogs.map(l => l.site).filter(Boolean))).sort();
+                siteSel.innerHTML = '<option value="">— All Sites —</option>' +
+                    sites.map(s => `<option value="${esc(s)}">${escHtml(getSiteDisplayName(s))}</option>`).join('');
+                if (prev && Array.from(siteSel.options).some(o => o.value === prev)) siteSel.value = prev;
+            }
+            const matSel = document.getElementById('matLogMaterialFilter');
+            if (matSel) {
+                const prev = matSel.value;
+                const names = Array.from(new Set(_materialLogs.map(l => l.material_name).filter(Boolean))).sort();
+                matSel.innerHTML = '<option value="">— All Materials —</option>' +
+                    names.map(n => `<option value="${esc(n)}">${escHtml(n)}</option>`).join('');
+                if (prev && Array.from(matSel.options).some(o => o.value === prev)) matSel.value = prev;
+            }
+        }
+
+        function getFilteredMaterialLogs() {
+            const start = (document.getElementById('matLogStartDate')?.value || '').trim();
+            const end   = (document.getElementById('matLogEndDate')?.value   || '').trim();
+            const site  = (document.getElementById('matLogSiteFilter')?.value || '').trim();
+            const mat   = (document.getElementById('matLogMaterialFilter')?.value || '').trim();
+            return _materialLogs.filter(l => {
+                if (start && l.date < start) return false;
+                if (end && l.date > end) return false;
+                if (site && String(l.site || '').trim() !== site) return false;
+                if (mat && String(l.material_name || '').trim() !== mat) return false;
+                return true;
+            });
+        }
+
+        function clearMaterialLogFilter() {
+            ['matLogStartDate', 'matLogEndDate', 'matLogSiteFilter', 'matLogMaterialFilter'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.value = '';
+            });
+            renderMaterialConsumptionTab();
+        }
+        window.clearMaterialLogFilter = clearMaterialLogFilter;
+
+        function computeMaterialUsageFromLogs(logs) {
+            const used = {};
+            logs.forEach(l => {
+                const name = l.material_name;
+                if (!name) return;
+                used[name] = (used[name] || 0) + (Number(l.qty) || 0);
             });
             return _materials
                 .filter(m => m.status !== 'inactive')
@@ -2204,10 +2280,10 @@ footer {
                 .sort((a, b) => (b.overBudget ? 1 : 0) - (a.overBudget ? 1 : 0) || b.used - a.used);
         }
 
-        function renderMaterialBudgetSummary() {
+        function renderMaterialBudgetSummary(logs) {
             const el = document.getElementById('materialBudgetSummary');
             if (!el) return;
-            const rows = computeMaterialUsage();
+            const rows = computeMaterialUsageFromLogs(logs);
             if (!rows.length) { el.innerHTML = '<p style="color:var(--muted);font-size:13px;text-align:center;padding:12px;">No material usage recorded yet.</p>'; return; }
             el.innerHTML = rows.map(m => `
                 <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);${m.overBudget ? 'background:#fef2f2;' : ''}">
@@ -2219,31 +2295,29 @@ footer {
                 </div>`).join('');
         }
 
-        function renderMaterialConsumptionLog() {
-            const el = document.getElementById('materialConsumptionLog');
+        function renderMaterialConsumptionLog(logs) {
+            const el      = document.getElementById('materialConsumptionLog');
+            const countEl = document.getElementById('materialLogCount');
+            if (countEl) countEl.textContent = `📊 ${logs.length} log entr${logs.length !== 1 ? 'ies' : 'y'}`;
             if (!el) return;
-            const entries = _history
-                .filter(item => Array.isArray(item.materialsUsed) && item.materialsUsed.length)
-                .slice()
-                .sort((a, b) => toYMD(b.date).localeCompare(toYMD(a.date)));
-            if (!entries.length) { el.innerHTML = '<p style="color:var(--muted);font-size:13px;text-align:center;padding:12px;">No material consumption logged yet.</p>'; return; }
-            el.innerHTML = entries.map(item => `
-                <div style="padding:10px 0;border-bottom:1px solid var(--border);">
-                    <div style="display:flex;justify-content:space-between;font-size:12.5px;font-weight:700;color:var(--text);">
-                        <span>${formatDate(toYMD(item.date))}</span>
-                        <span>${escHtml(getSiteDisplayName(item.site))}</span>
+            if (!logs.length) { el.innerHTML = '<p style="color:var(--muted);font-size:13px;text-align:center;padding:12px;">No material consumption logged yet.</p>'; return; }
+            const sorted = logs.slice().sort((a, b) => b.date.localeCompare(a.date) || String(b.createdAt).localeCompare(String(a.createdAt)));
+            el.innerHTML = sorted.map(l => `
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">
+                    <div>
+                        <span style="font-size:13px;font-weight:600;">${escHtml(l.material_name)}</span>
+                        <div style="font-size:11px;color:var(--muted);">${formatDate(l.date)} · ${escHtml(getSiteDisplayName(l.site))}${l.loggedBy ? ' · ' + escHtml(l.loggedBy) : ''}</div>
                     </div>
-                    <div style="font-size:12px;color:var(--muted);margin-top:4px;">
-                        ${item.materialsUsed.map(m => `${escHtml(m.material_name || '')}: ${m.qty}`).join(' &middot; ')}
-                    </div>
+                    <div style="font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;">${l.qty}${l.unit ? ' ' + escHtml(l.unit) : ''}</div>
                 </div>`).join('');
         }
 
         function renderMaterialConsumptionTab() {
             const matDateEl = document.getElementById('matDate');
             if (matDateEl && !matDateEl.value) matDateEl.value = new Date().toISOString().split('T')[0];
-            renderMaterialBudgetSummary();
-            renderMaterialConsumptionLog();
+            const logs = getFilteredMaterialLogs();
+            renderMaterialBudgetSummary(logs);
+            renderMaterialConsumptionLog(logs);
         }
         window.renderMaterialConsumptionTab = renderMaterialConsumptionTab;
 
