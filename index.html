@@ -1128,6 +1128,7 @@ footer {
     <button class="tab-btn active" id="tabBtnForm"      onclick="resetAndSwitchToForm(this)">&#128221; New DPR</button>
     <button class="tab-btn"        id="tabBtnHistory"   onclick="switchTab('History',this)">&#128194; History</button>
     <button class="tab-btn"        id="tabBtnDashboard" onclick="switchTab('Dashboard',this)">&#128202; Dashboard</button>
+    <button class="tab-btn"        id="tabBtnMaterials" onclick="switchTab('Materials',this)">&#128230; Material Consumption</button>
     <button class="tab-btn"        id="adminTabBtn"     onclick="switchTab('Admin',this)" style="display:none;">&#9881;&#65039; Admin</button>
 </div>
 
@@ -1160,12 +1161,6 @@ footer {
         <div class="section-title">&#128203; Work Activities</div>
         <div id="activityRowsContainer"></div>
         <button class="btn-add" onclick="addActivityRow()" style="margin-top:6px;">&#43; Add Activity Row</button>
-    </div>
-
-    <div class="card">
-        <div class="section-title">&#129521; Materials Used <span style="font-weight:400;text-transform:none;font-size:11px;">(Optional)</span></div>
-        <div id="materialsUsedContainer"></div>
-        <button class="btn-add" onclick="addMaterialRow()" style="margin-top:6px;">&#43; Add Material</button>
     </div>
 
     <button class="btn-green" onclick="generate()">&#9989; Generate DPR</button>
@@ -1242,6 +1237,32 @@ footer {
 ═══════════════════════════════════════════════════════════════ -->
 <div class="tab-page" id="tabDashboard" style="display:none;">
     <div id="__dashboard_mount__"></div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     MATERIAL CONSUMPTION TAB
+═══════════════════════════════════════════════════════════════ -->
+<div class="tab-page" id="tabMaterials" style="display:none;">
+    <div class="card">
+        <div class="section-title">&#128230; Log Material Consumption</div>
+        <label>Date</label>
+        <input type="date" id="matDate">
+        <label>Site / Project</label>
+        <select id="matSite"><option value="">&#8987; Loading projects...</option></select>
+        <div id="materialsUsedContainer" style="margin-top:10px;"></div>
+        <button class="btn-add" onclick="addMaterialRow()" style="margin-top:6px;">&#43; Add Material</button>
+        <button class="btn-green" onclick="saveMaterialsUsed()" style="margin-top:14px;">&#9989; Save Material Consumption</button>
+    </div>
+
+    <div class="card">
+        <div class="section-title">&#128202; Usage vs Budget</div>
+        <div id="materialBudgetSummary"><p style="color:var(--muted);font-size:13px;text-align:center;padding:12px;">Loading...</p></div>
+    </div>
+
+    <div class="card">
+        <div class="section-title">&#129534; Consumption Log</div>
+        <div id="materialConsumptionLog"><p style="color:var(--muted);font-size:13px;text-align:center;padding:12px;">Loading...</p></div>
+    </div>
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════════
@@ -1391,7 +1412,7 @@ footer {
         </div>
         <div class="admin-acc-body">
             <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">
-                Set a budgeted quantity per material — the Dashboard flags any material whose total usage across DPRs exceeds its budget.
+                Set a budgeted quantity per material — the Material Consumption tab flags any material whose total usage across DPRs exceeds its budget.
             </p>
             <div style="background:var(--surface-subtle);border:1.5px solid var(--border);border-radius:8px;padding:14px;margin-bottom:14px;">
                 <div style="font-weight:700;font-size:14px;color:var(--primary);margin-bottom:10px;">&#10133; Add Material</div>
@@ -1824,6 +1845,7 @@ footer {
             if (tab === 'Dashboard') window.dispatchEvent(new CustomEvent('dpr:historyUpdated'));
             if (tab === 'History')   renderHistory();
             if (tab === 'Admin')     renderAdminPanel();
+            if (tab === 'Materials') renderMaterialConsumptionTab();
         }
 
         function resetAndSwitchToForm(btn, forceNew) {
@@ -1913,19 +1935,22 @@ footer {
         }
 
         function populateSiteDropdown() {
-            const sel  = document.getElementById('site');
-            if (!sel) return;
-            const prev = sel.value;
             const tops = _projects.filter(p => (!p.parent_id || String(p.parent_id).trim() === '') && p.status === 'active');
-            let html   = tops.length
+            const html = tops.length
                 ? tops.map(proj => {
                     const subs = _projects.filter(p => String(p.parent_id).trim() === String(proj.id).trim() && p.status === 'active');
                     return `<option value="${esc(proj.project_name)}">${escHtml(proj.project_name)}</option>` +
-                        subs.map(s => `<option value="${esc(s.project_name)}">\u00a0\u00a0↳ ${escHtml(s.project_name)}</option>`).join('');
+                        subs.map(s => `<option value="${esc(s.project_name)}">  ↳ ${escHtml(s.project_name)}</option>`).join('');
                   }).join('')
                 : '<option value="">No active projects</option>';
-            sel.innerHTML = html;
-            if (prev && Array.from(sel.options).find(o => o.value === prev)) sel.value = prev;
+
+            ['site', 'matSite'].forEach(id => {
+                const sel = document.getElementById(id);
+                if (!sel) return;
+                const prev = sel.value;
+                sel.innerHTML = html;
+                if (prev && Array.from(sel.options).find(o => o.value === prev)) sel.value = prev;
+            });
 
             populateSearchSiteDropdown();
         }
@@ -1947,9 +1972,6 @@ footer {
             document.getElementById('report').style.display = 'none';
             selectSiteConditionSilently('');
             addActivityRow();
-            const matContainer = document.getElementById('materialsUsedContainer');
-            if (matContainer) matContainer.innerHTML = '';
-            _matRowCounter = 0;
         }
 
         function addActivityRow(data) {
@@ -2091,7 +2113,6 @@ footer {
         function removeMaterialRow(id) {
             const el = document.getElementById(id);
             if (el) el.remove();
-            saveFormDraft();
         }
         window.removeMaterialRow = removeMaterialRow;
 
@@ -2105,6 +2126,126 @@ footer {
             });
             return rows;
         }
+
+        /* ═══════════════════════════════════════════════════════════
+           MATERIAL CONSUMPTION TAB
+        ═══════════════════════════════════════════════════════════ */
+        async function saveMaterialsUsed() {
+            if (!_currentUser) { showToast('⚠️ Please sign in first'); return; }
+            const dateVal = document.getElementById('matDate').value;
+            const siteVal = document.getElementById('matSite').value;
+            if (!dateVal) { showToast('⚠️ Select a date'); return; }
+            if (!siteVal) { showToast('⚠️ Select a site'); return; }
+
+            const materialsUsed = collectMaterialsUsed();
+            if (!materialsUsed.length) { showToast('⚠️ Add at least one material with a quantity'); return; }
+
+            const existing = _history.find(h => toYMD(h.date) === dateVal && String(h.site).trim() === siteVal.trim());
+            const payload = existing
+                ? {
+                    action:       'editDPR',
+                    date:         dateVal,
+                    site:         siteVal,
+                    materialsOnly: true,
+                    editedBy:     _currentUser.username,
+                    materialsUsed
+                  }
+                : {
+                    action:       'saveDPR',
+                    date:         dateVal,
+                    site:         siteVal,
+                    total:        0,
+                    activities:   [],
+                    by:           _currentUser.username,
+                    submittedAt:  new Date().toISOString(),
+                    siteCondition: '',
+                    materialsUsed
+                  };
+
+            if (!navigator.onLine) {
+                const q = JSON.parse(localStorage.getItem('dprOfflineQ') || '[]');
+                q.push(payload);
+                localStorage.setItem('dprOfflineQ', JSON.stringify(q));
+                showToast('💾 Offline — will sync on reconnect');
+                return;
+            }
+
+            showToast('☁️ Saving material consumption...');
+            try {
+                const res = await apiPost(payload);
+                if (res && res.error) { showToast('⚠️ Save failed: ' + res.error); return; }
+                showToast('✅ Material consumption saved!');
+                document.getElementById('materialsUsedContainer').innerHTML = '';
+                _matRowCounter = 0;
+                loadHistory();
+            } catch (e) {
+                showToast('⚠️ Save failed — check connection');
+            }
+        }
+        window.saveMaterialsUsed = saveMaterialsUsed;
+
+        function computeMaterialUsage() {
+            const used = {};
+            _history.forEach(item => {
+                (Array.isArray(item.materialsUsed) ? item.materialsUsed : []).forEach(m => {
+                    const name = m.material_name || m.name;
+                    if (!name) return;
+                    used[name] = (used[name] || 0) + (Number(m.qty) || 0);
+                });
+            });
+            return _materials
+                .filter(m => m.status !== 'inactive')
+                .map(m => {
+                    const usedQty = used[m.material_name] || 0;
+                    const budget  = Number(m.budget_qty) || 0;
+                    return { name: m.material_name, unit: m.unit || '', used: usedQty, budget, overBudget: budget > 0 && usedQty > budget };
+                })
+                .filter(m => m.used > 0 || m.budget > 0)
+                .sort((a, b) => (b.overBudget ? 1 : 0) - (a.overBudget ? 1 : 0) || b.used - a.used);
+        }
+
+        function renderMaterialBudgetSummary() {
+            const el = document.getElementById('materialBudgetSummary');
+            if (!el) return;
+            const rows = computeMaterialUsage();
+            if (!rows.length) { el.innerHTML = '<p style="color:var(--muted);font-size:13px;text-align:center;padding:12px;">No material usage recorded yet.</p>'; return; }
+            el.innerHTML = rows.map(m => `
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);${m.overBudget ? 'background:#fef2f2;' : ''}">
+                    <div>
+                        <span style="font-size:13px;font-weight:600;">${escHtml(m.name)}</span>
+                        <div style="font-size:11px;color:var(--muted);">Used: ${m.used}${m.unit ? ' ' + escHtml(m.unit) : ''} / Budget: ${m.budget || '—'}</div>
+                    </div>
+                    ${m.overBudget ? '<span style="font-size:11px;font-weight:700;color:#e53e3e;">⚠️ Over budget</span>' : ''}
+                </div>`).join('');
+        }
+
+        function renderMaterialConsumptionLog() {
+            const el = document.getElementById('materialConsumptionLog');
+            if (!el) return;
+            const entries = _history
+                .filter(item => Array.isArray(item.materialsUsed) && item.materialsUsed.length)
+                .slice()
+                .sort((a, b) => toYMD(b.date).localeCompare(toYMD(a.date)));
+            if (!entries.length) { el.innerHTML = '<p style="color:var(--muted);font-size:13px;text-align:center;padding:12px;">No material consumption logged yet.</p>'; return; }
+            el.innerHTML = entries.map(item => `
+                <div style="padding:10px 0;border-bottom:1px solid var(--border);">
+                    <div style="display:flex;justify-content:space-between;font-size:12.5px;font-weight:700;color:var(--text);">
+                        <span>${formatDate(toYMD(item.date))}</span>
+                        <span>${escHtml(getSiteDisplayName(item.site))}</span>
+                    </div>
+                    <div style="font-size:12px;color:var(--muted);margin-top:4px;">
+                        ${item.materialsUsed.map(m => `${escHtml(m.material_name || '')}: ${m.qty}`).join(' &middot; ')}
+                    </div>
+                </div>`).join('');
+        }
+
+        function renderMaterialConsumptionTab() {
+            const matDateEl = document.getElementById('matDate');
+            if (matDateEl && !matDateEl.value) matDateEl.value = new Date().toISOString().split('T')[0];
+            renderMaterialBudgetSummary();
+            renderMaterialConsumptionLog();
+        }
+        window.renderMaterialConsumptionTab = renderMaterialConsumptionTab;
 
         function collectActivityRows() {
             const rows = [];
@@ -2178,8 +2319,7 @@ footer {
                 by:        prepBy,
                 editedBy:  editedBy || '',
                 submittedAt: new Date().toISOString(),
-                siteCondition: _selectedCondition,
-                materialsUsed: collectMaterialsUsed()
+                siteCondition: _selectedCondition
             };
             if (!navigator.onLine) {
                 const q = JSON.parse(localStorage.getItem('dprOfflineQ') || '[]');
@@ -2401,7 +2541,7 @@ footer {
                 localStorage.removeItem('dpr_form_draft');
                 return;
             }
-            const draft = { date: dateVal, site: siteVal, activities, siteCondition: _selectedCondition, materialsUsed: collectMaterialsUsed() };
+            const draft = { date: dateVal, site: siteVal, activities, siteCondition: _selectedCondition };
             localStorage.setItem('dpr_form_draft', JSON.stringify(draft));
         }
 
@@ -2431,12 +2571,6 @@ footer {
                     } else {
                         addActivityRow();
                     }
-                }
-                const matContainer = document.getElementById('materialsUsedContainer');
-                if (matContainer) {
-                    matContainer.innerHTML = '';
-                    _matRowCounter = 0;
-                    if (Array.isArray(draft.materialsUsed)) draft.materialsUsed.forEach(m => addMaterialRow(m));
                 }
                 updateFormTotals();
             } catch (e) {
@@ -2878,13 +3012,6 @@ footer {
 
             if (rowsToLoad.length) rowsToLoad.forEach(r => addActivityRow(r));
             else addActivityRow();
-
-            const matContainer = document.getElementById('materialsUsedContainer');
-            if (matContainer) {
-                matContainer.innerHTML = '';
-                _matRowCounter = 0;
-                (Array.isArray(item.materialsUsed) ? item.materialsUsed : []).forEach(m => addMaterialRow(m));
-            }
 
             closeDPRModal();
             switchTab('Form', document.getElementById('tabBtnForm'));

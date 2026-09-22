@@ -675,10 +675,22 @@ function handleEditDPR(body) {
   }
   if (rowNum < 0) return jsonResponse({ error: 'Record not found' });
 
-  var acts     = Array.isArray(body.activities) ? body.activities : [];
   var prepBy   = String(body.by || '').trim();
   var editedBy = String(body.editedBy || '').trim();
   var now      = nowStamp();
+
+  // Materials-only update (from the Material Consumption tab): touches just
+  // the MaterialsUsed column, leaving manpower/activity data untouched.
+  if (body.materialsOnly) {
+    var mRange  = recSheet.getRange(rowNum, 1, 1, RECORDS_HEADERS.length);
+    var mRow    = mRange.getValues()[0];
+    mRow[REC.lastUpdated]   = now + (editedBy ? ' (by ' + editedBy + ')' : '');
+    mRow[REC.materialsUsed] = toJsonStr(Array.isArray(body.materialsUsed) ? body.materialsUsed : []);
+    mRange.setValues([mRow]);
+    return jsonResponse({ status: 'ok' });
+  }
+
+  var acts     = Array.isArray(body.activities) ? body.activities : [];
   var submAt   = body.submittedAt ? String(body.submittedAt) : now;
 
   var civilArr    = [];
