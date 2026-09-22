@@ -268,6 +268,36 @@ function jsonResponse(data) {
     .setMimeType(ContentService.MimeType.JSON);
 }
 
+// ── MASTER-TABLE CACHE ─────────────────────────────────────────────
+// Projects/Activities/Materials change rarely but are read on every login
+// and every admin-panel render, so they're cached in CacheService for 15
+// minutes. Any write (add/update/delete/reorder) invalidates its key
+// immediately so admins always see their own change reflected right away.
+var CACHE_TTL_SECONDS = 900; // 15 minutes
+var CACHE_KEYS = {
+  projects:   'cache_projects_v1',
+  activities: 'cache_activities_v1',
+  materials:  'cache_materials_v1'
+};
+
+// Returns the cached array for cacheKey if present, otherwise runs
+// computeFn(), caches the result (best-effort — CacheService has a 100KB
+// per-value limit; a failure to cache is never fatal), and returns it.
+function getCachedList(cacheKey, computeFn) {
+  var cache = CacheService.getScriptCache();
+  var cached = cache.get(cacheKey);
+  if (cached) {
+    try { return JSON.parse(cached); } catch (e) { /* corrupt/stale entry — fall through and recompute */ }
+  }
+  var fresh = computeFn();
+  try { cache.put(cacheKey, JSON.stringify(fresh), CACHE_TTL_SECONDS); } catch (e) { /* value too large or cache unavailable — non-fatal */ }
+  return fresh;
+}
+
+function invalidateCache(cacheKey) {
+  try { CacheService.getScriptCache().remove(cacheKey); } catch (e) { /* non-fatal */ }
+}
+
 function getSheet(name) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName(name);
@@ -384,6 +414,22 @@ function getMaxId(sheet, colIdx) {
     if (!isNaN(v) && v > max) max = v;
   }
   return max;
+}
+
+// Like getMaxId, but computes the max of several columns from a single
+// sheet read — used where a handler previously called getMaxId() twice
+// (once for id, once for sort_order) against the same sheet in one request.
+function getMaxIds(sheet, colIdxs) {
+  var data = sheet.getDataRange().getValues();
+  var maxes = colIdxs.map(function() { return 0; });
+  if (data.length < 2) return maxes;
+  for (var i = 1; i < data.length; i++) {
+    for (var k = 0; k < colIdxs.length; k++) {
+      var v = Number(data[i][colIdxs[k]]);
+      if (!isNaN(v) && v > maxes[k]) maxes[k] = v;
+    }
+  }
+  return maxes;
 }
 
 // ── Current timestamp string for new records ─────────────────────
@@ -1001,9 +1047,9 @@ function handleResetPassword(body) {
 
 // ── PROJECTS ──────────────────────────────────────────────────────
 
-function handleGetProjects() {
+function computeProjectsList() {
   var sheet = getSheet(SHEET_PROJECTS);
-  if (!sheet) return jsonResponse([]);
+  if (!sheet) return [];
   var projects = sheetToObjects(sheet, PROJECT_HEADERS).map(function(p) {
     return {
       id:            p.id,
@@ -1016,18 +1062,23 @@ function handleGetProjects() {
   projects.sort(function(a, b) {
     return a.sort_order - b.sort_order;
   });
-  return jsonResponse(projects);
+  return projects;
+}
+
+function handleGetProjects() {
+  return jsonResponse(getCachedList(CACHE_KEYS.projects, computeProjectsList));
 }
 
 function handleAddProject(body) {
   var sheet = getOrCreateSheet(SHEET_PROJECTS, PROJECT_HEADERS);
-  var maxId = getMaxId(sheet, 0);         // pure integer max from col A
-  var newId = maxId + 1;                  // integer ID — never alphanumeric
+  var maxes = getMaxIds(sheet, [0, 5]);   // single read: [max id, max sort_order]
+  var newId = maxes[0] + 1;               // integer ID — never alphanumeric
+  var maxSortOrder = maxes[1];
   var isSub = !!(body.parent_id && String(body.parent_id).trim() !== '');
   var mainName = isSub ? '' : (body.project_name || body.main_project_name || '');
   var subName  = isSub ? (body.project_name || body.sub_project_name || '') : '';
-  var maxSortOrder = getMaxId(sheet, 5);
   sheet.appendRow([newId, mainName, subName, body.parent_id || '', 'active', maxSortOrder + 1]);
+  invalidateCache(CACHE_KEYS.projects);
   return jsonResponse({ status: 'ok', id: newId });
 }
 
@@ -1040,11 +1091,12 @@ function handleUpdateProject(body) {
       var isSub = !!data[i][3];
       if (isSub && body.project_name) sheet.getRange(i + 1, 3).setValue(body.project_name);
       else if (!isSub && body.project_name) sheet.getRange(i + 1, 2).setValue(body.project_name);
-      
+
       if (body.main_project_name !== undefined) sheet.getRange(i + 1, 2).setValue(body.main_project_name);
       if (body.sub_project_name  !== undefined) sheet.getRange(i + 1, 3).setValue(body.sub_project_name);
       if (body.parent_id         !== undefined) sheet.getRange(i + 1, 4).setValue(body.parent_id);
       if (body.status            !== undefined) sheet.getRange(i + 1, 5).setValue(body.status);
+      invalidateCache(CACHE_KEYS.projects);
       return jsonResponse({ status: 'ok' });
     }
   }
@@ -1060,14 +1112,15 @@ function handleDeleteProject(body) {
       sheet.deleteRow(i + 1);
     }
   }
+  invalidateCache(CACHE_KEYS.projects);
   return jsonResponse({ status: 'ok' });
 }
 
 // ── ACTIVITIES ────────────────────────────────────────────────────
 
-function handleGetActivities() {
+function computeActivitiesList() {
   var sheet = getSheet(SHEET_ACTIVITIES);
-  if (!sheet) return jsonResponse([]);
+  if (!sheet) return [];
   var activities = sheetToObjects(sheet, ACTIVITY_HEADERS).map(function(a) {
     return {
       id:            a.id,
@@ -1080,14 +1133,18 @@ function handleGetActivities() {
   activities.sort(function(a, b) {
     return a.sort_order - b.sort_order;
   });
-  return jsonResponse(activities);
+  return activities;
+}
+
+function handleGetActivities() {
+  return jsonResponse(getCachedList(CACHE_KEYS.activities, computeActivitiesList));
 }
 
 function handleAddActivity(body) {
   var sheet = getOrCreateSheet(SHEET_ACTIVITIES, ACTIVITY_HEADERS);
-  var maxId = getMaxId(sheet, 0);
-  var newId = maxId + 1;  // Pure integer, never prepend letters
-  var maxSortOrder = getMaxId(sheet, 5);
+  var maxes = getMaxIds(sheet, [0, 5]);   // single read: [max id, max sort_order]
+  var newId = maxes[0] + 1;               // Pure integer, never prepend letters
+  var maxSortOrder = maxes[1];
 
   var parentId = body.parent_id || '';
   var activityName = body.activity_name || '';
@@ -1097,6 +1154,7 @@ function handleAddActivity(body) {
   var subName  = body.sub_category_name  || (parentId !== '' ? activityName : '');
 
   sheet.appendRow([newId, mainName, subName, parentId, 'active', maxSortOrder + 1]);
+  invalidateCache(CACHE_KEYS.activities);
   return jsonResponse({ status: 'ok', id: newId });
 }
 
@@ -1110,6 +1168,7 @@ function handleUpdateActivity(body) {
       if (isSub && body.activity_name) sheet.getRange(i + 1, 3).setValue(body.activity_name);
       else if (!isSub && body.activity_name) sheet.getRange(i + 1, 2).setValue(body.activity_name);
       if (body.status !== undefined) sheet.getRange(i + 1, 5).setValue(body.status);
+      invalidateCache(CACHE_KEYS.activities);
       return jsonResponse({ status: 'ok' });
     }
   }
@@ -1125,15 +1184,16 @@ function handleDeleteActivity(body) {
       sheet.deleteRow(i + 1);
     }
   }
+  invalidateCache(CACHE_KEYS.activities);
   return jsonResponse({ status: 'ok' });
 }
 
 // ── MATERIALS (flat list, no parent/child hierarchy) ──────────────
 
-function handleGetMaterials() {
+function computeMaterialsList() {
   var sheet = getSheet(SHEET_MATERIALS);
-  if (!sheet) return jsonResponse([]);
-  var materials = sheetToObjects(sheet, MATERIAL_HEADERS).map(function(m) {
+  if (!sheet) return [];
+  return sheetToObjects(sheet, MATERIAL_HEADERS).map(function(m) {
     return {
       id:            m.id,
       material_name: m.material_name,
@@ -1142,7 +1202,10 @@ function handleGetMaterials() {
       status:        normStatus(m.status)
     };
   });
-  return jsonResponse(materials);
+}
+
+function handleGetMaterials() {
+  return jsonResponse(getCachedList(CACHE_KEYS.materials, computeMaterialsList));
 }
 
 function handleAddMaterial(body) {
@@ -1150,6 +1213,7 @@ function handleAddMaterial(body) {
   var maxId = getMaxId(sheet, 0);
   var newId = maxId + 1;
   sheet.appendRow([newId, body.material_name || '', body.unit || '', Number(body.budget_qty) || 0, 'active']);
+  invalidateCache(CACHE_KEYS.materials);
   return jsonResponse({ status: 'ok', id: newId });
 }
 
@@ -1163,6 +1227,7 @@ function handleUpdateMaterial(body) {
       if (body.unit          !== undefined) sheet.getRange(i + 1, 3).setValue(body.unit);
       if (body.budget_qty    !== undefined) sheet.getRange(i + 1, 4).setValue(Number(body.budget_qty) || 0);
       if (body.status        !== undefined) sheet.getRange(i + 1, 5).setValue(body.status);
+      invalidateCache(CACHE_KEYS.materials);
       return jsonResponse({ status: 'ok' });
     }
   }
@@ -1176,6 +1241,7 @@ function handleDeleteMaterial(body) {
   for (var i = data.length - 1; i >= 1; i--) {
     if (String(data[i][0]) === String(body.id)) sheet.deleteRow(i + 1);
   }
+  invalidateCache(CACHE_KEYS.materials);
   return jsonResponse({ status: 'ok' });
 }
 
@@ -1344,9 +1410,9 @@ function handleUpdateSortOrder(body) {
       return jsonResponse({ error: 'Missing or invalid orderedIds' });
     }
 
-    var sheetName;
-    if      (type === 'projects')    sheetName = SHEET_PROJECTS;
-    else if (type === 'activities')  sheetName = SHEET_ACTIVITIES;
+    var sheetName, cacheKey;
+    if      (type === 'projects')    { sheetName = SHEET_PROJECTS;   cacheKey = CACHE_KEYS.projects; }
+    else if (type === 'activities')  { sheetName = SHEET_ACTIVITIES; cacheKey = CACHE_KEYS.activities; }
     else return jsonResponse({ error: 'Invalid type: ' + type });
 
     var sheet = getSheet(sheetName);
@@ -1422,6 +1488,7 @@ function handleUpdateSortOrder(body) {
 
     // ── Step 5: Hard commit all pending cell writes ──────────────────
     SpreadsheetApp.flush();
+    invalidateCache(cacheKey);
 
     return ContentService
       .createTextOutput(JSON.stringify({

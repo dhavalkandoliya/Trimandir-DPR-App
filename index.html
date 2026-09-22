@@ -1739,15 +1739,64 @@ footer {
         }
 
         /* ═══════════════════════════════════════════════════════════
+           MASTER-DATA CACHE — Projects/Activities/Materials rarely change,
+           so we paint instantly from the last-known-good localStorage
+           snapshot, then silently revalidate over the network in the
+           background (mirrors the 15-minute server-side CacheService TTL).
+        ═══════════════════════════════════════════════════════════ */
+        const MASTER_CACHE_KEY = 'dpr_master_cache_v1';
+
+        function loadMasterCacheFromStorage() {
+            try {
+                const raw = localStorage.getItem(MASTER_CACHE_KEY);
+                if (!raw) return null;
+                const parsed = JSON.parse(raw);
+                if (!parsed || !Array.isArray(parsed.projects) || !Array.isArray(parsed.activities) || !Array.isArray(parsed.materials)) return null;
+                return parsed;
+            } catch (e) { return null; }
+        }
+
+        function saveMasterCacheToStorage() {
+            try {
+                localStorage.setItem(MASTER_CACHE_KEY, JSON.stringify({
+                    projects: _projects, activities: _activities, materials: _materials, ts: Date.now()
+                }));
+            } catch (e) { /* storage full/unavailable — non-fatal, network stays source of truth */ }
+        }
+
+        /* ═══════════════════════════════════════════════════════════
            BOOT — parallel data fetch after login
         ═══════════════════════════════════════════════════════════ */
         async function bootApp() {
-            showToast('⏳ Loading data...');
             const apList = document.getElementById('adminProjectList');
             if (apList) apList.innerHTML = getSkeletonLoader();
             const aaList = document.getElementById('adminActivityList');
             if (aaList) aaList.innerHTML = getSkeletonLoader();
-            
+
+            // Instant paint from cache — the site dropdown and admin lists
+            // are usable immediately, with no network round-trip on the
+            // critical path. If there's nothing cached yet, fall back to
+            // the old "loading" toast for this one-time cold start.
+            const cached = loadMasterCacheFromStorage();
+            if (cached) {
+                _projects   = cached.projects;
+                _activities = cached.activities;
+                _materials  = cached.materials;
+                populateSiteDropdown();
+            } else {
+                showToast('⏳ Loading data...');
+            }
+
+            if (localStorage.getItem('dpr_form_draft')) {
+                loadFormDraft();
+            } else {
+                resetForm();
+            }
+            loadHistory();
+
+            // Background revalidation — never blocks the UI already painted
+            // above; silently refreshes globals + cache once the network
+            // responds, whether or not a cache hit already ran.
             try {
                 const [users, projects, activities, materials] = await Promise.all([
                     apiFetch('getUsers').catch(() => []),
@@ -1759,16 +1808,12 @@ footer {
                 if (Array.isArray(projects))   _projects   = projects;
                 if (Array.isArray(activities)) _activities = activities;
                 if (Array.isArray(materials))  _materials  = materials;
-            } catch (e) { showToast('⚠️ Could not reach server'); }
+                saveMasterCacheToStorage();
+            } catch (e) {
+                if (!cached) showToast('⚠️ Could not reach server');
+            }
             renderLoginChips();
             populateSiteDropdown();
-
-            if (localStorage.getItem('dpr_form_draft')) {
-                loadFormDraft();
-            } else {
-                resetForm();
-            }
-            loadHistory();
         }
 
         /* ═══════════════════════════════════════════════════════════
@@ -3300,6 +3345,7 @@ footer {
         }
 
         function renderAdminProjects() {
+            saveMasterCacheToStorage();
             const el      = document.getElementById('adminProjectList');
             if (!el) return;
             const tops    = _projects.filter(p => (!p.parent_id || String(p.parent_id).trim() === ''));
@@ -3435,6 +3481,7 @@ footer {
         }
 
         function renderAdminActivities() {
+            saveMasterCacheToStorage();
             const el    = document.getElementById('adminActivityList');
             if (!el) return;
             const mains = _activities.filter(a => (!a.parent_id || String(a.parent_id).trim() === ''));
@@ -3568,6 +3615,7 @@ footer {
         window.deleteMaterial = deleteMaterial;
 
         function renderAdminMaterials() {
+            saveMasterCacheToStorage();
             const el = document.getElementById('adminMaterialList');
             if (!el) return;
             if (!_materials.length) { el.innerHTML = '<p style="color:var(--muted);font-size:13px;text-align:center;padding:12px;">No materials yet.</p>'; return; }
