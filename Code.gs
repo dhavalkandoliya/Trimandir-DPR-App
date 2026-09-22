@@ -85,20 +85,49 @@ var MLOG = {
 };
 
 // ── ROUTER ───────────────────────────────────────────────────────
+// doGet/doPost are thin catch-all wrappers: ANY uncaught exception anywhere
+// downstream (a bad sheet lookup, a migration hiccup, a formatting call
+// timing out, etc.) is caught here and returned as valid JSON — never as
+// Apps Script's default HTML error page, which is what breaks the
+// frontend's `r.json()` parse with "Invalid JSON response". Actual routing
+// logic lives in doGet_/doPost_ below.
 
 function doGet(e) {
+  try {
+    return doGet_(e);
+  } catch (err) {
+    return ContentService
+      .createTextOutput(JSON.stringify({ success: false, error: err.toString() }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+function doPost(e) {
+  try {
+    return doPost_(e);
+  } catch (err) {
+    return ContentService
+      .createTextOutput(JSON.stringify({ success: false, error: err.toString() }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+function doGet_(e) {
   var action = (e && e.parameter && e.parameter.action) ? e.parameter.action : '';
   if (action === 'getUsers')         return handleGetUsers();
   if (action === 'getProjects')      return handleGetProjects();
   if (action === 'getActivities')    return handleGetActivities();
   if (action === 'getMaterials')     return handleGetMaterials();
   if (action === 'getMaterialLogs')  return handleGetMaterialLogs();
+  // Migration is strictly manual — only ever runs when this exact action is
+  // requested (or when run directly from the Apps Script editor), never as
+  // a side effect of a read/login/save call.
   if (action === 'migrateMaterials') return jsonResponse(migrateExistingMaterialRecords());
   if (action === 'debug')            return handleDebug();
   return handleGetDPRs();
 }
 
-function doPost(e) {
+function doPost_(e) {
   var body;
   try { body = JSON.parse(e.postData.contents); }
   catch (err) { return jsonResponse({ error: 'Invalid JSON' }); }
@@ -1166,16 +1195,19 @@ function getMaterialUnitLookup() {
   return lookup;
 }
 
-// Creates (if missing) and formats the Material_Logs sheet: bold white-on-dark
-// header, frozen header row, auto-sized columns. Safe to call on every request.
-// skipAutoMigrate avoids re-entering migrateExistingMaterialRecords() when
-// this is called *from* the migration itself.
-function ensureMaterialLogsSheet(ss, skipAutoMigrate) {
+// Creates the Material_Logs sheet ONLY if it doesn't already exist, applying
+// header styling once at creation time. On every subsequent call (the hot
+// path — one per material-log save) this is a single getSheetByName lookup
+// and an early return: no re-writing headers, no re-styling, no
+// autoResizeColumns. Never touches DPR_Records and never triggers migration
+// — this function is write-path-only (called from handleSaveMaterialLog and
+// the manual setup/migration paths), not from any read or login path.
+function ensureMaterialLogsSheet(ss) {
   ss = ss || SpreadsheetApp.getActiveSpreadsheet();
-  var sheet  = ss.getSheetByName(SHEET_MATERIAL_LOGS);
-  var isNew  = !sheet;
-  if (isNew) sheet = ss.insertSheet(SHEET_MATERIAL_LOGS);
+  var sheet = ss.getSheetByName(SHEET_MATERIAL_LOGS);
+  if (sheet) return sheet;
 
+  sheet = ss.insertSheet(SHEET_MATERIAL_LOGS);
   sheet.getRange(1, 1, 1, MATERIAL_LOG_HEADERS.length).setValues([MATERIAL_LOG_HEADERS]);
   var hdrRange = sheet.getRange(1, 1, 1, MATERIAL_LOG_HEADERS.length);
   hdrRange.setFontWeight('bold');
@@ -1184,25 +1216,22 @@ function ensureMaterialLogsSheet(ss, skipAutoMigrate) {
   hdrRange.setVerticalAlignment('middle');
   sheet.setFrozenRows(1);
   sheet.autoResizeColumns(1, MATERIAL_LOG_HEADERS.length);
-
-  // First-ever provisioning: pull in any consumption already recorded as
-  // MaterialsUsed JSON blobs on DPR_Records, so historical data isn't lost.
-  if (isNew && !skipAutoMigrate) {
-    try { migrateExistingMaterialRecords(); } catch (e) { /* non-fatal — action=migrateMaterials can be re-run manually */ }
-  }
   return sheet;
 }
 
-// One-time (idempotent — safe to re-run) migration: reads every DPR_Records
-// row's MaterialsUsed JSON blob and inserts one clean Material_Logs row per
-// material item. Dedupes against rows already present so re-running never
-// creates duplicates.
+// One-time, STRICTLY MANUAL (idempotent — safe to re-run) migration: reads
+// every DPR_Records row's MaterialsUsed JSON blob and inserts one clean
+// Material_Logs row per material item. Dedupes against rows already present
+// so re-running never creates duplicates. Only ever invoked via the explicit
+// ?action=migrateMaterials endpoint or by running this function directly
+// from the Apps Script editor — never automatically, and never from a
+// read/login path.
 function migrateExistingMaterialRecords() {
   var ss       = SpreadsheetApp.getActiveSpreadsheet();
   var recSheet = getSheet(SHEET_RECORDS);
   if (!recSheet) return { status: 'ok', migrated: 0, message: 'DPR_Records sheet not found' };
 
-  var logSheet   = ensureMaterialLogsSheet(ss, true);
+  var logSheet   = ensureMaterialLogsSheet(ss);
   var unitByName = getMaterialUnitLookup();
 
   // Build a dedupe set from whatever is already in Material_Logs.
