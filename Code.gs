@@ -956,6 +956,34 @@ function isHashed(v) {
   return /^[a-f0-9]{64}$/.test(String(v || ''));
 }
 
+// One-off, editor-run-only migration: hashes any plaintext password still
+// at rest in the Users sheet. Not routed through doGet_/doPost_ — run it
+// manually from the Apps Script editor after deploying the SHA-256 login
+// change, so no plaintext password is left waiting for that user's next
+// login to trigger the lazy upgrade in handleLogin.
+function migratePasswordsToHash() {
+  var sheet = getSheet(SHEET_USERS);
+  if (!sheet) return { status: 'ok', migrated: 0, message: 'Users sheet not found' };
+
+  var data = sheet.getDataRange().getValues();
+  if (data.length < 2) return { status: 'ok', migrated: 0 };
+
+  var hdrs = data[0].map(function(h) { return normalizeKey(h); });
+  var pIdx = hdrs.indexOf('password');
+  if (pIdx === -1) pIdx = 2; // positional fallback: A=username B=displayName C=password D=role
+
+  var migrated = 0;
+  for (var i = 1; i < data.length; i++) {
+    var rowPass = String(data[i][pIdx] || '').trim();
+    if (!rowPass || isHashed(rowPass)) continue;
+    sheet.getRange(i + 1, pIdx + 1).setValue(hashPassword(rowPass));
+    migrated++;
+  }
+
+  Logger.log('migratePasswordsToHash: ' + migrated + ' password(s) hashed.');
+  return { status: 'ok', migrated: migrated };
+}
+
 function handleGetUsers() {
   var sheet = getSheet(SHEET_USERS);
   if (!sheet) return jsonResponse([]);
