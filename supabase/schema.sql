@@ -1,0 +1,190 @@
+-- ════════════════════════════════════════════════════════════════
+-- Trimandir DPR — Supabase (PostgreSQL) schema
+--
+-- Migration target for the current Google Sheets / Apps Script backend
+-- (Code.gs). Run this once against a fresh Supabase project (SQL Editor,
+-- or `supabase db push` / psql) before running
+-- scripts/migrate-sheets-to-supabase.js.
+--
+-- Design notes:
+--   * uuid primary keys for record-shaped tables (dpr_records,
+--     dpr_manpower_entries, material_logs, users) so client-generated ids
+--     and offline queues are safe; bigint identity keys for the small
+--     admin-managed lookup tables (projects, activities, materials) to
+--     match their existing integer "id" column from the Sheets source.
+--   * `site` stays a plain text column on dpr_records/material_logs,
+--     matching the app's current date+site NATURAL KEY (the site display
+--     NAME, not an id) used for duplicate detection and edit lookups.
+--     `project_id` is included as an optional FK for gradual
+--     normalization; it's nullable and left NULL by the migration script,
+--     since resolving a historical site-name string to a project id is
+--     ambiguous (project names can be renamed) and isn't safe to guess.
+--   * DPR_Records' civilActivities JSON blob and DPR_Detail sheet are
+--     unified into one child table, dpr_manpower_entries, one row per
+--     activity line item — a genuine normalization improvement over the
+--     legacy flat/duplicated Sheets layout.
+--   * updated_at columns are maintained by a trigger, not application code.
+-- ════════════════════════════════════════════════════════════════
+
+create extension if not exists pgcrypto; -- gen_random_uuid()
+
+-- ── USERS ──────────────────────────────────────────────────────
+create table if not exists users (
+  id            uuid primary key default gen_random_uuid(),
+  username      text not null unique,
+  display_name  text not null,
+  password_hash text not null,              -- SHA-256 hex today (see Code.gs hashPassword()); swap for bcrypt/argon2 or Supabase Auth when auth is rebuilt
+  role          text not null default 'user' check (role in ('user', 'admin')),
+  created_at    timestamptz not null default now(),
+  updated_at    timestamptz not null default now()
+);
+create index if not exists idx_users_username on users (lower(username));
+
+-- ── PROJECTS (sites — self-referential main/sub tree) ────────────
+create table if not exists projects (
+  id                 bigint generated always as identity primary key,
+  main_project_name  text,
+  sub_project_name   text,
+  parent_id          bigint references projects (id) on delete set null,
+  status             text not null default 'active' check (status in ('active', 'inactive')),
+  sort_order         integer not null default 0,
+  created_at         timestamptz not null default now(),
+  updated_at         timestamptz not null default now()
+);
+create index if not exists idx_projects_parent_id on projects (parent_id);
+create index if not exists idx_projects_status     on projects (status);
+
+-- ── ACTIVITIES (work-category tree) ──────────────────────────────
+create table if not exists activities (
+  id                  bigint generated always as identity primary key,
+  main_category_name  text,
+  sub_category_name   text,
+  parent_id           bigint references activities (id) on delete set null,
+  status              text not null default 'active' check (status in ('active', 'inactive')),
+  sort_order          integer not null default 0,
+  created_at          timestamptz not null default now(),
+  updated_at          timestamptz not null default now()
+);
+create index if not exists idx_activities_parent_id on activities (parent_id);
+create index if not exists idx_activities_status     on activities (status);
+
+-- ── MATERIALS (budget master list) ───────────────────────────────
+create table if not exists materials (
+  id            bigint generated always as identity primary key,
+  material_name text not null,
+  unit          text,
+  budget_qty    numeric(14, 2) not null default 0,
+  status        text not null default 'active' check (status in ('active', 'inactive')),
+  created_at    timestamptz not null default now(),
+  updated_at    timestamptz not null default now()
+);
+create unique index if not exists idx_materials_name on materials (lower(material_name));
+
+-- ── DPR_RECORDS (one row per date+site daily report) ─────────────
+create table if not exists dpr_records (
+  id                uuid primary key default gen_random_uuid(),
+  report_date       date not null,
+  site              text not null,                                       -- display-name key — matches the app's current date+site duplicate/edit lookup
+  project_id        bigint references projects (id) on delete set null,  -- optional normalized link; nullable, left blank by the migration (see notes above)
+  prepared_by       text not null default '',
+  edited_by         text,
+  activity_details  text not null default '',
+  total_manpower    integer not null default 0,
+  submitted_at      timestamptz,
+  edit_permission   text not null default '' check (edit_permission in ('', 'pending', 'granted')),
+  requested_by      text not null default '',
+  site_condition    text not null default '',
+  created_at        timestamptz not null default now(),
+  updated_at        timestamptz not null default now(),
+  constraint uq_dpr_records_date_site unique (report_date, site)         -- preserves the existing duplicate-DPR guard from handleSaveDPR_
+);
+create index if not exists idx_dpr_records_site        on dpr_records (site);
+create index if not exists idx_dpr_records_report_date on dpr_records (report_date desc);
+create index if not exists idx_dpr_records_project_id  on dpr_records (project_id);
+
+-- ── DPR_MANPOWER_ENTRIES (one row per activity line item) ────────
+-- Replaces both DPR_Records.civilActivities (JSON) and the DPR_Detail
+-- sheet with a single normalized child table.
+create table if not exists dpr_manpower_entries (
+  id             uuid primary key default gen_random_uuid(),
+  dpr_record_id  uuid not null references dpr_records (id) on delete cascade,
+  section        text not null default 'Civil',
+  activity       text not null,
+  skilled        integer not null default 0,
+  unskilled      integer not null default 0,
+  note           text not null default '',
+  planned_qty    numeric(14, 2) not null default 0,
+  created_at     timestamptz not null default now()
+);
+create index if not exists idx_dpr_manpower_entries_record_id on dpr_manpower_entries (dpr_record_id);
+
+-- ── MATERIAL_LOGS (one row per material per log entry) ───────────
+create table if not exists material_logs (
+  id             uuid primary key default gen_random_uuid(),
+  log_date       date not null,
+  site           text not null,
+  dpr_record_id  uuid references dpr_records (id) on delete set null,   -- nullable: historical rows predate this link; new saves can set it
+  material_id    bigint references materials (id) on delete set null,
+  material_name  text not null,
+  quantity       numeric(14, 2) not null default 0,
+  unit           text,
+  logged_by      text not null default '',
+  created_at     timestamptz not null default now()
+);
+create index if not exists idx_material_logs_site        on material_logs (site);
+create index if not exists idx_material_logs_log_date    on material_logs (log_date desc);
+create index if not exists idx_material_logs_material_id on material_logs (material_id);
+create index if not exists idx_material_logs_dpr_record  on material_logs (dpr_record_id);
+
+-- ── updated_at auto-touch trigger (shared across tables) ─────────
+create or replace function set_updated_at()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_users_updated_at on users;
+create trigger trg_users_updated_at
+  before update on users
+  for each row execute function set_updated_at();
+
+drop trigger if exists trg_projects_updated_at on projects;
+create trigger trg_projects_updated_at
+  before update on projects
+  for each row execute function set_updated_at();
+
+drop trigger if exists trg_activities_updated_at on activities;
+create trigger trg_activities_updated_at
+  before update on activities
+  for each row execute function set_updated_at();
+
+drop trigger if exists trg_materials_updated_at on materials;
+create trigger trg_materials_updated_at
+  before update on materials
+  for each row execute function set_updated_at();
+
+drop trigger if exists trg_dpr_records_updated_at on dpr_records;
+create trigger trg_dpr_records_updated_at
+  before update on dpr_records
+  for each row execute function set_updated_at();
+
+-- ════════════════════════════════════════════════════════════════
+-- Row Level Security — deliberately NOT enabled by default.
+--
+-- The app currently authenticates with its own SHA-256 password check
+-- (Code.gs handleLogin), not Supabase Auth, so there's no Supabase JWT/
+-- `auth.uid()` for policies to key off yet. Until that's rebuilt, the
+-- interim access pattern is: all reads/writes go through Next.js route
+-- handlers using the service-role client (lib/supabaseClient.js →
+-- getSupabaseAdmin()), which runs server-side and bypasses RLS by design.
+--
+-- Before exposing any table to a browser-side (anon-key) client, enable
+-- RLS and add policies here, e.g.:
+--   alter table dpr_records enable row level security;
+--   create policy "read own site's DPRs" on dpr_records
+--     for select using ( ... );
+-- ════════════════════════════════════════════════════════════════

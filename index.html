@@ -1744,11 +1744,17 @@ footer {
            API HELPERS
         ═══════════════════════════════════════════════════════════ */
         const apiFetch = (action) => fetch(`${SHEET_URL}?action=${action}`).then(r => r.json());
+        // text/plain avoids a CORS preflight (OPTIONS) round-trip that
+        // application/json triggers on cross-origin requests to the Apps
+        // Script web app — the body is still JSON text; doPost_ parses it
+        // the same way regardless of the declared Content-Type.
         const apiPost  = (body)   => fetch(SHEET_URL, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify(body)
         }).then(r => r.json());
+        const apiGetBootstrap = (dataVersion) =>
+            fetch(`${SHEET_URL}?action=getBootstrapData&dataVersion=${encodeURIComponent(dataVersion || '')}`).then(r => r.json());
 
         /* ═══════════════════════════════════════════════════════════
            TOAST
@@ -1785,16 +1791,18 @@ footer {
         }
 
         /* ═══════════════════════════════════════════════════════════
-           MASTER-DATA CACHE — Projects/Activities/Materials rarely change,
-           so we paint instantly from the last-known-good localStorage
-           snapshot, then silently revalidate over the network in the
-           background (mirrors the 15-minute server-side CacheService TTL).
+           BOOTSTRAP CACHE — Users/Projects/Activities/Materials plus a
+           45-day window of DPRs/Material Logs, all in one localStorage
+           snapshot. We paint instantly from the last-known-good snapshot,
+           then silently revalidate over the network in the background —
+           sending the cached dataVersion so the server can reply with
+           { unchanged: true } (no full sheet reads) when nothing changed.
         ═══════════════════════════════════════════════════════════ */
-        const MASTER_CACHE_KEY = 'dpr_master_cache_v1';
+        const BOOTSTRAP_CACHE_KEY = 'dpr_bootstrap_cache_v1';
 
-        function loadMasterCacheFromStorage() {
+        function loadBootstrapCacheFromStorage() {
             try {
-                const raw = localStorage.getItem(MASTER_CACHE_KEY);
+                const raw = localStorage.getItem(BOOTSTRAP_CACHE_KEY);
                 if (!raw) return null;
                 const parsed = JSON.parse(raw);
                 if (!parsed || !Array.isArray(parsed.projects) || !Array.isArray(parsed.activities) || !Array.isArray(parsed.materials)) return null;
@@ -1802,16 +1810,45 @@ footer {
             } catch (e) { return null; }
         }
 
+        // Full snapshot write — used after a live getBootstrapData response.
+        function saveBootstrapCacheToStorage(data) {
+            try {
+                localStorage.setItem(BOOTSTRAP_CACHE_KEY, JSON.stringify({
+                    dataVersion:        data.dataVersion || '',
+                    users:              Array.isArray(data.users)              ? data.users              : [],
+                    projects:           Array.isArray(data.projects)           ? data.projects           : [],
+                    activities:         Array.isArray(data.activities)         ? data.activities         : [],
+                    materials:          Array.isArray(data.materials)          ? data.materials          : [],
+                    recentDprs:         Array.isArray(data.recentDprs)         ? data.recentDprs         : [],
+                    recentMaterialLogs: Array.isArray(data.recentMaterialLogs) ? data.recentMaterialLogs : [],
+                    ts: Date.now()
+                }));
+            } catch (e) { /* storage full/unavailable — non-fatal, network stays source of truth */ }
+        }
+
+        // Partial merge — called by the admin Projects/Activities/Materials
+        // panels after their own full-refresh fetch, so the cache stays warm
+        // without clobbering the dataVersion/users/history fields it doesn't
+        // have fresh values for (kept under its old name to avoid touching
+        // every admin-panel call site).
         function saveMasterCacheToStorage() {
             try {
-                localStorage.setItem(MASTER_CACHE_KEY, JSON.stringify({
-                    projects: _projects, activities: _activities, materials: _materials, ts: Date.now()
+                const prev = loadBootstrapCacheFromStorage() || {};
+                localStorage.setItem(BOOTSTRAP_CACHE_KEY, JSON.stringify({
+                    dataVersion:        prev.dataVersion || '',
+                    users:              prev.users              || [],
+                    projects:           _projects,
+                    activities:         _activities,
+                    materials:          _materials,
+                    recentDprs:         prev.recentDprs         || [],
+                    recentMaterialLogs: prev.recentMaterialLogs || [],
+                    ts: Date.now()
                 }));
             } catch (e) { /* storage full/unavailable — non-fatal, network stays source of truth */ }
         }
 
         /* ═══════════════════════════════════════════════════════════
-           BOOT — parallel data fetch after login
+           BOOT — single consolidated bootstrap fetch after login
         ═══════════════════════════════════════════════════════════ */
         async function bootApp() {
             const apList = document.getElementById('adminProjectList');
@@ -1819,16 +1856,21 @@ footer {
             const aaList = document.getElementById('adminActivityList');
             if (aaList) aaList.innerHTML = getSkeletonLoader();
 
-            // Instant paint from cache — the site dropdown and admin lists
-            // are usable immediately, with no network round-trip on the
-            // critical path. If there's nothing cached yet, fall back to
-            // the old "loading" toast for this one-time cold start.
-            const cached = loadMasterCacheFromStorage();
+            // Instant paint from cache — site dropdown, admin lists, and a
+            // first cut of History/Materials are all usable immediately,
+            // with no network round-trip on the critical path. If there's
+            // nothing cached yet, fall back to the old "loading" toast for
+            // this one-time cold start.
+            const cached = loadBootstrapCacheFromStorage();
             if (cached) {
-                _projects   = cached.projects;
-                _activities = cached.activities;
-                _materials  = cached.materials;
+                _users        = [SUPER_ADMIN, ...(cached.users || [])];
+                _projects     = cached.projects || [];
+                _activities   = cached.activities || [];
+                _materials    = cached.materials || [];
+                _history      = cached.recentDprs || [];          // instant paint only — loadHistory() below always supersedes with the full dataset
+                _materialLogs = cached.recentMaterialLogs || [];   // instant paint only — loadMaterialLogs() supersedes when the Materials tab opens
                 populateSiteDropdown();
+                renderLoginChips();
             } else {
                 showToast('⏳ Loading data...');
             }
@@ -1838,23 +1880,27 @@ footer {
             } else {
                 resetForm();
             }
-            loadHistory();
+            loadHistory(); // full, unwindowed DPR history — the authoritative source; never overwritten by the bootstrap response below
 
-            // Background revalidation — never blocks the UI already painted
-            // above; silently refreshes globals + cache once the network
-            // responds, whether or not a cache hit already ran.
+            // Single consolidated round-trip — replaces four separate
+            // getUsers/getProjects/getActivities/getMaterials calls. Sends
+            // the cached dataVersion so the server can short-circuit with
+            // { unchanged: true } (no full sheet reads) when nothing has
+            // changed since the last boot.
             try {
-                const [users, projects, activities, materials] = await Promise.all([
-                    apiFetch('getUsers').catch(() => []),
-                    apiFetch('getProjects').catch(() => []),
-                    apiFetch('getActivities').catch(() => []),
-                    apiFetch('getMaterials').catch(() => [])
-                ]);
-                if (Array.isArray(users))      _users      = [SUPER_ADMIN, ...users];
-                if (Array.isArray(projects))   _projects   = projects;
-                if (Array.isArray(activities)) _activities = activities;
-                if (Array.isArray(materials))  _materials  = materials;
-                saveMasterCacheToStorage();
+                const res = await apiGetBootstrap(cached ? cached.dataVersion : '');
+                if (res && !res.unchanged) {
+                    _users        = [SUPER_ADMIN, ...(Array.isArray(res.users) ? res.users : [])];
+                    _projects     = Array.isArray(res.projects)   ? res.projects   : _projects;
+                    _activities   = Array.isArray(res.activities) ? res.activities : _activities;
+                    _materials    = Array.isArray(res.materials)  ? res.materials  : _materials;
+                    // _history intentionally left alone here — loadHistory()'s
+                    // full fetch is already in flight and is the authority;
+                    // applying the 45-day recentDprs window here could race it
+                    // and silently truncate older records from the UI.
+                    _materialLogs = Array.isArray(res.recentMaterialLogs) ? res.recentMaterialLogs : _materialLogs;
+                    saveBootstrapCacheToStorage(res);
+                }
             } catch (e) {
                 if (!cached) showToast('⚠️ Could not reach server');
             }
@@ -2295,7 +2341,15 @@ footer {
 
         function loadMaterialLogs() {
             const el = document.getElementById('materialConsumptionLog');
-            if (el) el.innerHTML = getSkeletonLoader();
+            // Instant paint from whatever's already in memory (e.g. the
+            // bootstrap cache's 45-day window) while the full fetch below
+            // is in flight.
+            if (_materialLogs.length) {
+                populateMaterialLogFilters();
+                renderMaterialConsumptionTab();
+            } else if (el) {
+                el.innerHTML = getSkeletonLoader();
+            }
             apiFetch('getMaterialLogs')
                 .then(d => {
                     _materialLogs = Array.isArray(d) ? d : [];
@@ -2303,7 +2357,7 @@ footer {
                     renderMaterialConsumptionTab();
                 })
                 .catch(() => {
-                    if (el) el.innerHTML = '<p style="color:#e57373;text-align:center;padding:10px;">⚠️ Failed to load material logs.</p>';
+                    if (!_materialLogs.length && el) el.innerHTML = '<p style="color:#e57373;text-align:center;padding:10px;">⚠️ Failed to load material logs.</p>';
                 });
         }
         window.loadMaterialLogs = loadMaterialLogs;
@@ -2535,7 +2589,17 @@ footer {
         ═══════════════════════════════════════════════════════════ */
         function loadHistory() {
             const el = document.getElementById('historyList');
-            if (el) el.innerHTML = getSkeletonLoader();
+            // Instant paint from whatever's already in memory (e.g. the
+            // bootstrap cache's 45-day window) while the full, authoritative
+            // fetch below is in flight — avoids a blank skeleton on every boot.
+            if (_history.length) {
+                updateHistoryCount();
+                populateSupervisorDropdown();
+                renderAdminAnalytics();
+                resetHistoryPageAndRender();
+            } else if (el) {
+                el.innerHTML = getSkeletonLoader();
+            }
             apiFetch('')
                 .then(d => {
                     _history = Array.isArray(d) ? d : [];
@@ -2546,7 +2610,7 @@ footer {
                     window.dispatchEvent(new CustomEvent('dpr:historyUpdated'));
                 })
                 .catch(() => {
-                    if (el) el.innerHTML = '<p style="color:#e57373;text-align:center;padding:10px;">⚠️ Failed to load records.</p>';
+                    if (!_history.length && el) el.innerHTML = '<p style="color:#e57373;text-align:center;padding:10px;">⚠️ Failed to load records.</p>';
                 });
         }
 
@@ -3850,7 +3914,7 @@ footer {
             fetch(SHEET_URL, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'text/plain;charset=utf-8'
                 },
                 body: JSON.stringify(payload)
             })

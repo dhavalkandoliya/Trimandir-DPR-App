@@ -6,9 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "migrate:supabase": "node scripts/migrate-sheets-to-supabase.js"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.117.0",
     "caniuse-lite": "^1.0.30001793",
     "chart.js": "^4.5.1",
     "html2canvas": "^1.4.1",

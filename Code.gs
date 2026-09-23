@@ -114,6 +114,7 @@ function doPost(e) {
 
 function doGet_(e) {
   var action = (e && e.parameter && e.parameter.action) ? e.parameter.action : '';
+  if (action === 'getBootstrapData') return handleGetBootstrapData(e);
   if (action === 'getUsers')         return handleGetUsers();
   if (action === 'getProjects')      return handleGetProjects();
   if (action === 'getActivities')    return handleGetActivities();
@@ -123,14 +124,26 @@ function doGet_(e) {
   // requested (or when run directly from the Apps Script editor), never as
   // a side effect of a read/login/save call.
   if (action === 'migrateMaterials') return jsonResponse(migrateExistingMaterialRecords());
+  if (action === 'exportUsersForMigration') return handleExportUsersForMigration(e);
   return handleGetDPRs();
 }
+
+// Actions that only ever read data — never bump dataVersion for these,
+// since getBootstrapData's cheap version-match short-circuit depends on
+// dataVersion changing if and only if the underlying sheets actually did.
+var NON_MUTATING_POST_ACTIONS = { login: true };
 
 function doPost_(e) {
   var body;
   try { body = JSON.parse(e.postData.contents); }
   catch (err) { return jsonResponse({ error: 'Invalid JSON' }); }
 
+  var result = doPostAction_(body);
+  if (body.action && !NON_MUTATING_POST_ACTIONS[body.action]) touchDataVersion();
+  return result;
+}
+
+function doPostAction_(body) {
   switch (body.action) {
     case 'login':            return handleLogin(body);
     case 'createUser':       return handleCreateUser(body);
@@ -297,6 +310,34 @@ function invalidateCache(cacheKey) {
   try { CacheService.getScriptCache().remove(cacheKey); } catch (e) { /* non-fatal */ }
 }
 
+// ── DATA VERSION — cheap change-detection for getBootstrapData ─────
+// A single monotonic counter bumped once per mutating POST (see doPost_).
+// PropertiesService is the durable store; ScriptCache mirrors it so the
+// hot path (every getBootstrapData call) is a cache hit, not a properties
+// read. Never read the underlying sheets just to answer "did anything
+// change?" — that's the whole point of this counter.
+var DATA_VERSION_KEY = 'dataVersion';
+var DATA_VERSION_CACHE_TTL = 21600; // 6 hours — comfortably longer than any session
+
+function getDataVersion() {
+  try {
+    var cached = CacheService.getScriptCache().get(DATA_VERSION_KEY);
+    if (cached !== null) return cached;
+  } catch (e) { /* cache unavailable — fall through to Properties */ }
+
+  var v = PropertiesService.getScriptProperties().getProperty(DATA_VERSION_KEY) || '0';
+  try { CacheService.getScriptCache().put(DATA_VERSION_KEY, v, DATA_VERSION_CACHE_TTL); } catch (e) { /* non-fatal */ }
+  return v;
+}
+
+function touchDataVersion() {
+  var props = PropertiesService.getScriptProperties();
+  var next  = String((Number(props.getProperty(DATA_VERSION_KEY)) || 0) + 1);
+  props.setProperty(DATA_VERSION_KEY, next);
+  try { CacheService.getScriptCache().put(DATA_VERSION_KEY, next, DATA_VERSION_CACHE_TTL); } catch (e) { /* non-fatal */ }
+  return next;
+}
+
 function getSheet(name) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName(name);
@@ -323,6 +364,14 @@ function getOrCreateSheet(name, headers) {
     ensureHeaders(sheet, headers);
   }
   return sheet;
+}
+
+// Batches N rows into a single setValues() call — used wherever a handler
+// previously issued one appendRow() per loop iteration (each appendRow is
+// its own Sheets API round-trip; this collapses N of them into one).
+function appendRowsBatch(sheet, rows) {
+  if (!rows.length) return;
+  sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, rows[0].length).setValues(rows);
 }
 
 // ── ONE-SHOT HEADER REPAIR ────────────────────────────────────────
@@ -632,10 +681,13 @@ function deleteDetailRowsByKey(date, site) {
 }
 
 // ── READ ALL DPRs — joins DPR_Records with DPR_Detail ────────────
+// Read-only — uses getSheet (never getOrCreateSheet) so a GET request
+// never provisions a sheet or writes a header row as a side effect.
 
-function handleGetDPRs() {
-  var recSheet = getOrCreateSheet(SHEET_RECORDS, RECORDS_HEADERS);
-  var detSheet = getOrCreateSheet(SHEET_DETAIL,  DETAIL_HEADERS);
+function computeDPRList() {
+  var recSheet = getSheet(SHEET_RECORDS);
+  var detSheet = getSheet(SHEET_DETAIL);
+  if (!recSheet) return [];
 
   var recData = recSheet.getDataRange().getValues();
   var records = [];
@@ -660,7 +712,7 @@ function handleGetDPRs() {
     });
   }
 
-  var detData   = detSheet.getDataRange().getValues();
+  var detData   = detSheet ? detSheet.getDataRange().getValues() : [];
   var detailMap = {};
   for (var di = 1; di < detData.length; di++) {
     var drow = detData[di];
@@ -706,7 +758,47 @@ function handleGetDPRs() {
     return a.date < b.date ? 1 : a.date > b.date ? -1 : 0;
   });
 
-  return jsonResponse(combined);
+  return combined;
+}
+
+function handleGetDPRs() {
+  return jsonResponse(computeDPRList());
+}
+
+// ── BOOTSTRAP — single consolidated payload for app boot ──────────
+// Replaces four separate getUsers/getProjects/getActivities/getMaterials
+// round-trips with one call, plus a 45-day window of DPRs/Material Logs so
+// the client can paint History/Materials instantly without a full-table
+// read. If the client's cached dataVersion still matches the server's,
+// responds with { unchanged: true } immediately — no sheet reads at all.
+var BOOTSTRAP_RECENT_WINDOW_DAYS = 45;
+
+function recentWindowCutoffYMD() {
+  var cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - BOOTSTRAP_RECENT_WINDOW_DAYS);
+  return Utilities.formatDate(cutoff, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+}
+
+function handleGetBootstrapData(e) {
+  var clientVersion = (e && e.parameter && e.parameter.dataVersion) ? String(e.parameter.dataVersion) : '';
+  var serverVersion = getDataVersion();
+
+  // Cheap path: version matches, so skip every sheet read entirely.
+  if (clientVersion && clientVersion === serverVersion) {
+    return jsonResponse({ unchanged: true, dataVersion: serverVersion });
+  }
+
+  var cutoff = recentWindowCutoffYMD();
+
+  return jsonResponse({
+    dataVersion:        serverVersion,
+    users:              computeUsersList(),
+    projects:           getCachedList(CACHE_KEYS.projects,   computeProjectsList),
+    activities:         getCachedList(CACHE_KEYS.activities, computeActivitiesList),
+    materials:          getCachedList(CACHE_KEYS.materials,  computeMaterialsList),
+    recentDprs:         computeDPRList().filter(function(r) { return r.date >= cutoff; }),
+    recentMaterialLogs: computeMaterialLogsList().filter(function(l) { return l.date >= cutoff; })
+  });
 }
 
 // ── SAVE DPR ─────────────────────────────────────────────────────
@@ -773,12 +865,13 @@ function handleSaveDPR_(body) {
   ]);
 
   var detSheet = getOrCreateSheet(SHEET_DETAIL, DETAIL_HEADERS);
+  var detRows  = [];
   acts.forEach(function(a) {
     if (!a.main_activity && !a.activity) return;
     var actName = String(a.sub_activity && a.sub_activity.trim() ? a.sub_activity : (a.main_activity || a.activity));
     var sk      = Number(a.skilled)   || 0;
     var un      = Number(a.unskilled) || 0;
-    detSheet.appendRow([
+    detRows.push([
       d,          // A: Date
       s,          // B: Site
       'Civil',    // C: Section
@@ -792,6 +885,7 @@ function handleSaveDPR_(body) {
       Number(a.plannedQty) || 0  // K: PlannedQty
     ]);
   });
+  appendRowsBatch(detSheet, detRows);
 
   return jsonResponse({ status: 'ok' });
 }
@@ -873,15 +967,17 @@ function handleEditDPR_(body) {
 
   deleteDetailRowsByKey(d, s);
   var detSheet = getOrCreateSheet(SHEET_DETAIL, DETAIL_HEADERS);
+  var detRows  = [];
   acts.forEach(function(a) {
     if (!a.main_activity && !a.activity) return;
     var actName = String(a.sub_activity && a.sub_activity.trim() ? a.sub_activity : (a.main_activity || a.activity));
     var sk      = Number(a.skilled)   || 0;
     var un      = Number(a.unskilled) || 0;
-    detSheet.appendRow([
+    detRows.push([
       d, s, 'Civil', actName, sk, un, sk + un, String(a.note || ''), prepBy, now, Number(a.plannedQty) || 0
     ]);
   });
+  appendRowsBatch(detSheet, detRows);
 
   return jsonResponse({ status: 'ok' });
 }
@@ -984,12 +1080,59 @@ function migratePasswordsToHash() {
   return { status: 'ok', migrated: migrated };
 }
 
-function handleGetUsers() {
+// One-off, secret-gated export for the Supabase migration script ONLY —
+// this is the one place password hashes ever leave the sheet, which is why
+// it's not on by default: it refuses every request until you set a
+// MIGRATION_EXPORT_SECRET Script Property yourself (Apps Script editor →
+// Project Settings → Script Properties), and the migration script must be
+// given that same value via its own MIGRATION_EXPORT_SECRET env var.
+// Returns hashes (never plaintext, given handleLogin's lazy-hash upgrade
+// and migratePasswordsToHash), but a hash is still a credential — delete
+// this action and the Script Property once the Supabase migration is done.
+function handleExportUsersForMigration(e) {
+  var expectedSecret = PropertiesService.getScriptProperties().getProperty('MIGRATION_EXPORT_SECRET');
+  var suppliedSecret = (e && e.parameter && e.parameter.secret) ? String(e.parameter.secret) : '';
+  if (!expectedSecret || suppliedSecret !== expectedSecret) {
+    return jsonResponse({ error: 'Not found' }); // deliberately vague — don't confirm this action exists
+  }
+
   var sheet = getSheet(SHEET_USERS);
   if (!sheet) return jsonResponse([]);
+  var data = sheet.getDataRange().getValues();
+  if (data.length < 2) return jsonResponse([]);
+
+  var hdrs = data[0].map(function(h) { return normalizeKey(h); });
+  var uIdx = hdrs.indexOf('username');
+  var dIdx = hdrs.indexOf('displayName');
+  var pIdx = hdrs.indexOf('password');
+  var rIdx = hdrs.indexOf('role');
+  if (uIdx === -1) uIdx = 0;
+  if (dIdx === -1) dIdx = 1;
+  if (pIdx === -1) pIdx = 2;
+  if (rIdx === -1) rIdx = 3;
+
+  var out = [];
+  for (var i = 1; i < data.length; i++) {
+    var u = String(data[i][uIdx] || '').trim();
+    if (!u) continue;
+    out.push({
+      username:     u,
+      displayName:  String(data[i][dIdx] || u).trim() || u,
+      passwordHash: String(data[i][pIdx] || '').trim(),
+      role:         String(data[i][rIdx] || 'user').trim() || 'user'
+    });
+  }
+  return jsonResponse(out);
+}
+
+// Read-only — never provisions the sheet or writes headers as a side
+// effect of a read (getSheet returns null if the tab doesn't exist yet).
+function computeUsersList() {
+  var sheet = getSheet(SHEET_USERS);
+  if (!sheet) return [];
 
   var data = sheet.getDataRange().getValues();
-  if (data.length < 1) return jsonResponse([]);
+  if (data.length < 1) return [];
 
   // Determine column layout from header row (if present) or fall back to positional
   var hdrs = data[0].map(function(h) { return normalizeKey(h); });
@@ -1014,7 +1157,11 @@ function handleGetUsers() {
       role:        String(data[i][rIdx] || 'user').trim() || 'user'
     });
   }
-  return jsonResponse(users);
+  return users;
+}
+
+function handleGetUsers() {
+  return jsonResponse(computeUsersList());
 }
 
 function handleLogin(body) {
@@ -1441,16 +1588,16 @@ function handleSaveMaterialLog_(body) {
   var rows = clean.map(function(it) {
     return [d, s, it.name, it.qty, unitByName[it.name] || '', loggedBy, createdAt];
   });
-  logSheet.getRange(logSheet.getLastRow() + 1, 1, rows.length, MATERIAL_LOG_HEADERS.length).setValues(rows);
+  appendRowsBatch(logSheet, rows);
 
   return jsonResponse({ status: 'ok', inserted: rows.length });
 }
 
 // Reads Material_Logs directly — the clean per-row source for the
 // Material Consumption tab's log view, filters, and budget summary.
-function handleGetMaterialLogs() {
+function computeMaterialLogsList() {
   var sheet = getSheet(SHEET_MATERIAL_LOGS);
-  if (!sheet) return jsonResponse([]);
+  if (!sheet) return [];
   var data = sheet.getDataRange().getValues();
   var logs = [];
   for (var i = 1; i < data.length; i++) {
@@ -1468,7 +1615,11 @@ function handleGetMaterialLogs() {
     });
   }
   logs.sort(function(a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; });
-  return jsonResponse(logs);
+  return logs;
+}
+
+function handleGetMaterialLogs() {
+  return jsonResponse(computeMaterialLogsList());
 }
 
 function handleUpdateSortOrder(body) {
@@ -1519,10 +1670,12 @@ function handleUpdateSortOrder(body) {
       idToRow[strId] = r + 2;  // +2: 1-based rows + skip header row
     }
 
-    // ── Step 3: Write sort_order cell-by-cell for each ID in the payload ──
+    // ── Step 3: Compute the final sort_order for every row in memory ──
     // orderedIds[0] → sort_order = 1, orderedIds[1] → sort_order = 2, etc.
+    // (Previously this issued one setValue() RPC per row here.)
     var sortColNumber = sortOrderColIdx + 1;  // convert 0-based idx to 1-based sheet col
-    var unmatched     = [];
+    var unmatched      = [];
+    var orderByRow     = {}; // physical row → new sort_order value
 
     for (var i = 0; i < orderedIds.length; i++) {
       var payloadId = String(orderedIds[i]).trim();
@@ -1535,7 +1688,7 @@ function handleUpdateSortOrder(body) {
       }
 
       if (physRow !== undefined) {
-        sheet.getRange(physRow, sortColNumber).setValue(i + 1);
+        orderByRow[physRow] = i + 1;
       } else {
         unmatched.push(payloadId);
       }
@@ -1546,18 +1699,23 @@ function handleUpdateSortOrder(body) {
     var fallbackOrder = orderedIds.length + 1;
     for (var strKey in idToRow) {
       if (!idToRow.hasOwnProperty(strKey)) continue;
-      // Check if this row's id was part of the ordered payload
-      var inPayload = false;
-      for (var j = 0; j < orderedIds.length; j++) {
-        if (String(orderedIds[j]).trim() === strKey) { inPayload = true; break; }
-      }
-      if (!inPayload) {
-        sheet.getRange(idToRow[strKey], sortColNumber).setValue(fallbackOrder++);
+      var physRowForKey = idToRow[strKey];
+      if (orderByRow[physRowForKey] === undefined) {
+        orderByRow[physRowForKey] = fallbackOrder++;
       }
     }
 
-    // ── Step 5: Hard commit all pending cell writes ──────────────────
-    SpreadsheetApp.flush();
+    // ── Step 5: Single batched write for the whole sort_order column ──
+    // Rows with no id at all (never present in idToRow) keep whatever was
+    // already in their cell — only rows we actually resolved an order for
+    // get overwritten.
+    var existingSortVals = sheet.getRange(2, sortColNumber, lastRow - 1, 1).getValues();
+    var columnValues = existingSortVals.map(function(rowArr, idx) {
+      var physRow = idx + 2;
+      return [ orderByRow[physRow] !== undefined ? orderByRow[physRow] : rowArr[0] ];
+    });
+    sheet.getRange(2, sortColNumber, columnValues.length, 1).setValues(columnValues);
+
     invalidateCache(cacheKey);
 
     return ContentService
