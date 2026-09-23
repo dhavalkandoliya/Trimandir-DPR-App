@@ -1791,60 +1791,179 @@ footer {
         }
 
         /* ═══════════════════════════════════════════════════════════
-           BOOTSTRAP CACHE — Users/Projects/Activities/Materials plus a
-           45-day window of DPRs/Material Logs, all in one localStorage
-           snapshot. We paint instantly from the last-known-good snapshot,
-           then silently revalidate over the network in the background —
-           sending the cached dataVersion so the server can reply with
-           { unchanged: true } (no full sheet reads) when nothing changed.
+           CLIENT DATA LAYER — stale-while-revalidate cache over IndexedDB
+           ═══════════════════════════════════════════════════════════
+           This app is plain DOM-injected script (see generate_final.ps1),
+           not React function components, so the `swr` package's hooks
+           don't apply here — this is the same stale-while-revalidate
+           pattern (instant paint from cache, silent background refresh,
+           broadcast to every interested view) built directly on
+           IndexedDB, which — unlike localStorage's ~5-10MB cap — has
+           enough headroom to hold the FULL DPR history and material log
+           across sessions, not just a 45-day window.
+
+           getSnapshot(key)      — synchronous read of whatever's already
+                                    in memory (undefined until hydrate()
+                                    or a revalidate()/set() resolves).
+           subscribe(key, cb)    — cb fires on every future update to
+                                    `key`; returns an unsubscribe fn. This
+                                    is what lets a view "subscribe to
+                                    cached state" instead of owning its
+                                    own fetch-then-render logic.
+           hydrate(key)          — loads `key` from IndexedDB into memory
+                                    (once per key per session) and
+                                    notifies subscribers if it found
+                                    anything — the mechanism that paints a
+                                    view from a PRIOR session's data
+                                    before any network round-trip.
+           set(key, value)       — updates memory + notifies subscribers
+                                    immediately, persists to IndexedDB in
+                                    the background (never awaited).
+           revalidate(key, fn)   — awaits fn() (the network fetch), then
+                                    set()s the result. On failure, leaves
+                                    whatever's cached in place — a stale
+                                    view beats a broken one — and rethrows
+                                    so the caller can show a one-time
+                                    error only if nothing was ever cached.
         ═══════════════════════════════════════════════════════════ */
-        const BOOTSTRAP_CACHE_KEY = 'dpr_bootstrap_cache_v1';
+        const DataStore = (function () {
+            const DB_NAME  = 'dpr_cache_db';
+            const STORE    = 'kv';
+            const memory   = new Map();   // key -> value (synchronous snapshot)
+            const subs     = new Map();   // key -> Set<callback>
+            const hydrated = new Set();   // keys already loaded from IndexedDB this session
+            let dbPromise  = null;
 
-        function loadBootstrapCacheFromStorage() {
-            try {
-                const raw = localStorage.getItem(BOOTSTRAP_CACHE_KEY);
-                if (!raw) return null;
-                const parsed = JSON.parse(raw);
-                if (!parsed || !Array.isArray(parsed.projects) || !Array.isArray(parsed.activities) || !Array.isArray(parsed.materials)) return null;
-                return parsed;
-            } catch (e) { return null; }
-        }
+            function openDb() {
+                if (dbPromise) return dbPromise;
+                dbPromise = new Promise((resolve) => {
+                    if (!('indexedDB' in window)) { resolve(null); return; }
+                    try {
+                        const req = indexedDB.open(DB_NAME, 1);
+                        req.onupgradeneeded = () => { try { req.result.createObjectStore(STORE); } catch (e) {} };
+                        req.onsuccess = () => resolve(req.result);
+                        req.onerror   = () => resolve(null); // degrade to memory-only — never throws
+                    } catch (e) { resolve(null); }
+                });
+                return dbPromise;
+            }
 
-        // Full snapshot write — used after a live getBootstrapData response.
-        function saveBootstrapCacheToStorage(data) {
-            try {
-                localStorage.setItem(BOOTSTRAP_CACHE_KEY, JSON.stringify({
-                    dataVersion:        data.dataVersion || '',
-                    users:              Array.isArray(data.users)              ? data.users              : [],
-                    projects:           Array.isArray(data.projects)           ? data.projects           : [],
-                    activities:         Array.isArray(data.activities)         ? data.activities         : [],
-                    materials:          Array.isArray(data.materials)          ? data.materials          : [],
-                    recentDprs:         Array.isArray(data.recentDprs)         ? data.recentDprs         : [],
-                    recentMaterialLogs: Array.isArray(data.recentMaterialLogs) ? data.recentMaterialLogs : [],
-                    ts: Date.now()
-                }));
-            } catch (e) { /* storage full/unavailable — non-fatal, network stays source of truth */ }
-        }
+            async function dbGet(key) {
+                const db = await openDb();
+                if (!db) return undefined;
+                return new Promise((resolve) => {
+                    try {
+                        const rq = db.transaction(STORE, 'readonly').objectStore(STORE).get(key);
+                        rq.onsuccess = () => resolve(rq.result);
+                        rq.onerror   = () => resolve(undefined);
+                    } catch (e) { resolve(undefined); }
+                });
+            }
 
-        // Partial merge — called by the admin Projects/Activities/Materials
-        // panels after their own full-refresh fetch, so the cache stays warm
-        // without clobbering the dataVersion/users/history fields it doesn't
-        // have fresh values for (kept under its old name to avoid touching
-        // every admin-panel call site).
+            async function dbPut(key, value) {
+                const db = await openDb();
+                if (!db) return;
+                return new Promise((resolve) => {
+                    try {
+                        const tx = db.transaction(STORE, 'readwrite');
+                        tx.objectStore(STORE).put(value, key);
+                        tx.oncomplete = () => resolve();
+                        tx.onerror    = () => resolve(); // best-effort — a failed persist never breaks the caller
+                    } catch (e) { resolve(); }
+                });
+            }
+
+            function notify(key, value) {
+                (subs.get(key) || new Set()).forEach((cb) => {
+                    try { cb(value); } catch (e) { /* one bad subscriber shouldn't break the rest */ }
+                });
+            }
+
+            function getSnapshot(key) {
+                return memory.get(key);
+            }
+
+            function subscribe(key, callback) {
+                if (!subs.has(key)) subs.set(key, new Set());
+                subs.get(key).add(callback);
+                return () => { const s = subs.get(key); if (s) s.delete(callback); };
+            }
+
+            function set(key, value) {
+                memory.set(key, value);
+                notify(key, value);
+                return dbPut(key, value);
+            }
+
+            async function hydrate(key) {
+                if (hydrated.has(key)) return memory.get(key);
+                hydrated.add(key);
+                const cached = await dbGet(key);
+                if (cached !== undefined) {
+                    memory.set(key, cached);
+                    notify(key, cached);
+                }
+                return cached;
+            }
+
+            async function revalidate(key, fetcher) {
+                const value = await fetcher();
+                set(key, value);
+                return value;
+            }
+
+            return { getSnapshot, subscribe, hydrate, set, revalidate };
+        })();
+
+        // ── View subscriptions ──────────────────────────────────────
+        // Each of these is the SINGLE place that reacts to its key's data
+        // changing, whether that change came from an IndexedDB hydrate()
+        // at boot or a live revalidate() afterwards — every caller that
+        // used to fetch-then-render inline now just triggers a
+        // revalidate() and lets the subscriber do the rendering, so two
+        // different call sites can never render the same data two
+        // different ways.
+        DataStore.subscribe('dprHistory', (value) => {
+            _history = Array.isArray(value) ? value : [];
+            updateHistoryCount();
+            populateSupervisorDropdown();
+            renderAdminAnalytics();
+            resetHistoryPageAndRender();
+            window.dispatchEvent(new CustomEvent('dpr:historyUpdated'));
+        });
+
+        DataStore.subscribe('materialLogs', (value) => {
+            _materialLogs = Array.isArray(value) ? value : [];
+            populateMaterialLogFilters();
+            renderMaterialConsumptionTab();
+        });
+
+        DataStore.subscribe('bootstrap', (data) => {
+            if (!data) return;
+            _users      = [SUPER_ADMIN, ...(Array.isArray(data.users) ? data.users : [])];
+            _projects   = Array.isArray(data.projects)   ? data.projects   : _projects;
+            _activities = Array.isArray(data.activities) ? data.activities : _activities;
+            _materials  = Array.isArray(data.materials)  ? data.materials  : _materials;
+            populateSiteDropdown();
+            renderLoginChips();
+        });
+
+        // Merges _projects/_activities/_materials into the cached bootstrap
+        // snapshot without a network round-trip — called by the admin
+        // Projects/Activities/Materials panels after their own
+        // full-refresh fetch, so the cache stays warm without clobbering
+        // the dataVersion/users fields it doesn't have fresh values for.
+        // (Kept under its old name to avoid touching every admin-panel
+        // call site — it's fire-and-forget there, same as before.)
         function saveMasterCacheToStorage() {
-            try {
-                const prev = loadBootstrapCacheFromStorage() || {};
-                localStorage.setItem(BOOTSTRAP_CACHE_KEY, JSON.stringify({
-                    dataVersion:        prev.dataVersion || '',
-                    users:              prev.users              || [],
-                    projects:           _projects,
-                    activities:         _activities,
-                    materials:          _materials,
-                    recentDprs:         prev.recentDprs         || [],
-                    recentMaterialLogs: prev.recentMaterialLogs || [],
-                    ts: Date.now()
-                }));
-            } catch (e) { /* storage full/unavailable — non-fatal, network stays source of truth */ }
+            const prev = DataStore.getSnapshot('bootstrap') || {};
+            return DataStore.set('bootstrap', {
+                dataVersion: prev.dataVersion || '',
+                users:       prev.users || [],
+                projects:    _projects,
+                activities:  _activities,
+                materials:   _materials
+            });
         }
 
         /* ═══════════════════════════════════════════════════════════
@@ -1856,24 +1975,20 @@ footer {
             const aaList = document.getElementById('adminActivityList');
             if (aaList) aaList.innerHTML = getSkeletonLoader();
 
-            // Instant paint from cache — site dropdown, admin lists, and a
-            // first cut of History/Materials are all usable immediately,
-            // with no network round-trip on the critical path. If there's
-            // nothing cached yet, fall back to the old "loading" toast for
-            // this one-time cold start.
-            const cached = loadBootstrapCacheFromStorage();
-            if (cached) {
-                _users        = [SUPER_ADMIN, ...(cached.users || [])];
-                _projects     = cached.projects || [];
-                _activities   = cached.activities || [];
-                _materials    = cached.materials || [];
-                _history      = cached.recentDprs || [];          // instant paint only — loadHistory() below always supersedes with the full dataset
-                _materialLogs = cached.recentMaterialLogs || [];   // instant paint only — loadMaterialLogs() supersedes when the Materials tab opens
-                populateSiteDropdown();
-                renderLoginChips();
-            } else {
-                showToast('⏳ Loading data...');
-            }
+            // Hydrate every key from IndexedDB in parallel. Each one that
+            // finds cached data fires the subscribers registered above
+            // immediately — painting the site dropdown, admin lists, and
+            // History/Materials tabs from the LAST successful fetch of
+            // any prior session, with no network round-trip on the
+            // critical path and no skeleton loader if there's anything
+            // at all to show.
+            await Promise.all([
+                DataStore.hydrate('bootstrap'),
+                DataStore.hydrate('dprHistory'),
+                DataStore.hydrate('materialLogs')
+            ]);
+            const cachedBootstrap = DataStore.getSnapshot('bootstrap');
+            if (!cachedBootstrap) showToast('⏳ Loading data...');
 
             if (localStorage.getItem('dpr_form_draft')) {
                 loadFormDraft();
@@ -1888,24 +2003,21 @@ footer {
             // { unchanged: true } (no full sheet reads) when nothing has
             // changed since the last boot.
             try {
-                const res = await apiGetBootstrap(cached ? cached.dataVersion : '');
+                const res = await apiGetBootstrap(cachedBootstrap ? cachedBootstrap.dataVersion : '');
                 if (res && !res.unchanged) {
-                    _users        = [SUPER_ADMIN, ...(Array.isArray(res.users) ? res.users : [])];
-                    _projects     = Array.isArray(res.projects)   ? res.projects   : _projects;
-                    _activities   = Array.isArray(res.activities) ? res.activities : _activities;
-                    _materials    = Array.isArray(res.materials)  ? res.materials  : _materials;
-                    // _history intentionally left alone here — loadHistory()'s
-                    // full fetch is already in flight and is the authority;
-                    // applying the 45-day recentDprs window here could race it
-                    // and silently truncate older records from the UI.
-                    _materialLogs = Array.isArray(res.recentMaterialLogs) ? res.recentMaterialLogs : _materialLogs;
-                    saveBootstrapCacheToStorage(res);
+                    await DataStore.revalidate('bootstrap', () => res);
+                    // A first-ever visit (nothing hydrated from IndexedDB
+                    // yet) gets the Materials tab's 45-day window as a
+                    // head start. Once a real materialLogs snapshot
+                    // exists, this never overwrites it — loadMaterialLogs()
+                    // (tab-open, or already in flight) is the authority.
+                    if (Array.isArray(res.recentMaterialLogs) && !DataStore.getSnapshot('materialLogs')) {
+                        DataStore.set('materialLogs', res.recentMaterialLogs);
+                    }
                 }
             } catch (e) {
-                if (!cached) showToast('⚠️ Could not reach server');
+                if (!cachedBootstrap) showToast('⚠️ Could not reach server');
             }
-            renderLoginChips();
-            populateSiteDropdown();
         }
 
         /* ═══════════════════════════════════════════════════════════
@@ -2341,21 +2453,13 @@ footer {
 
         function loadMaterialLogs() {
             const el = document.getElementById('materialConsumptionLog');
-            // Instant paint from whatever's already in memory (e.g. the
-            // bootstrap cache's 45-day window) while the full fetch below
-            // is in flight.
-            if (_materialLogs.length) {
-                populateMaterialLogFilters();
-                renderMaterialConsumptionTab();
-            } else if (el) {
-                el.innerHTML = getSkeletonLoader();
-            }
-            apiFetch('getMaterialLogs')
-                .then(d => {
-                    _materialLogs = Array.isArray(d) ? d : [];
-                    populateMaterialLogFilters();
-                    renderMaterialConsumptionTab();
-                })
+            // Instant paint: the 'materialLogs' subscriber (registered
+            // above, next to DataStore's definition) already ran if
+            // IndexedDB or the bootstrap response had anything cached, so
+            // _materialLogs may already be populated by the time we get
+            // here — only show a skeleton if there's truly nothing yet.
+            if (!_materialLogs.length && el) el.innerHTML = getSkeletonLoader();
+            DataStore.revalidate('materialLogs', () => apiFetch('getMaterialLogs'))
                 .catch(() => {
                     if (!_materialLogs.length && el) el.innerHTML = '<p style="color:#e57373;text-align:center;padding:10px;">⚠️ Failed to load material logs.</p>';
                 });
@@ -2589,26 +2693,13 @@ footer {
         ═══════════════════════════════════════════════════════════ */
         function loadHistory() {
             const el = document.getElementById('historyList');
-            // Instant paint from whatever's already in memory (e.g. the
-            // bootstrap cache's 45-day window) while the full, authoritative
-            // fetch below is in flight — avoids a blank skeleton on every boot.
-            if (_history.length) {
-                updateHistoryCount();
-                populateSupervisorDropdown();
-                renderAdminAnalytics();
-                resetHistoryPageAndRender();
-            } else if (el) {
-                el.innerHTML = getSkeletonLoader();
-            }
-            apiFetch('')
-                .then(d => {
-                    _history = Array.isArray(d) ? d : [];
-                    updateHistoryCount();
-                    populateSupervisorDropdown();
-                    renderAdminAnalytics();
-                    resetHistoryPageAndRender();
-                    window.dispatchEvent(new CustomEvent('dpr:historyUpdated'));
-                })
+            // Instant paint: the 'dprHistory' subscriber (registered above,
+            // next to DataStore's definition) already ran if IndexedDB had
+            // a prior session's full history cached, so _history may
+            // already be populated by the time we get here — only show a
+            // skeleton if there's truly nothing yet.
+            if (!_history.length && el) el.innerHTML = getSkeletonLoader();
+            DataStore.revalidate('dprHistory', () => apiFetch(''))
                 .catch(() => {
                     if (!_history.length && el) el.innerHTML = '<p style="color:#e57373;text-align:center;padding:10px;">⚠️ Failed to load records.</p>';
                 });
