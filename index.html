@@ -868,6 +868,30 @@ button:hover {
   transform: translateX(-50%) translateY(0);
 }
 
+#toast.with-action {
+  pointer-events: auto;
+  white-space: normal;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-radius: 12px;
+  padding: 12px 16px;
+  text-align: left;
+}
+
+.toast-action-btn {
+  flex-shrink: 0;
+  background: var(--primary, #3b82f6);
+  color: white;
+  border: none;
+  border-radius: 16px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
 footer {
   text-align: center;
   padding: 18px 0;
@@ -1732,10 +1756,32 @@ footer {
         function showToast(msg) {
             const t = document.getElementById('toast');
             if (!t) return;
+            t.classList.remove('with-action');
             t.textContent = msg;
             t.classList.add('show');
             clearTimeout(t._tid);
             t._tid = setTimeout(() => t.classList.remove('show'), 2800);
+        }
+
+        // Warning/error toast with a clickable action button (e.g. "Edit
+        // existing DPR" on a duplicate-save conflict). Stays up longer than a
+        // plain toast since it requires a decision, not just a glance.
+        function showActionToast(msg, actionLabel, onAction) {
+            const t = document.getElementById('toast');
+            if (!t) return;
+            clearTimeout(t._tid);
+            t.innerHTML = '';
+            const span = document.createElement('span');
+            span.textContent = msg;
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'toast-action-btn';
+            btn.textContent = actionLabel;
+            btn.onclick = () => { t.classList.remove('show', 'with-action'); onAction(); };
+            t.appendChild(span);
+            t.appendChild(btn);
+            t.classList.add('show', 'with-action');
+            t._tid = setTimeout(() => t.classList.remove('show', 'with-action'), 6000);
         }
 
         /* ═══════════════════════════════════════════════════════════
@@ -1856,8 +1902,6 @@ footer {
                 }
                 if (res && res.success && res.user) {
                     _currentUser = res.user;
-                } else if (uname === 'tpd-admin' && pass === 'tpd@2026') {
-                    _currentUser = SUPER_ADMIN;
                 } else {
                     err.style.color = '#e53e3e';
                     err.textContent = '❌ Invalid username or password.';
@@ -1905,7 +1949,7 @@ footer {
                 '👤 ' + _currentUser.username + (_currentUser.role === 'admin' ? ' · Admin' : '');
             document.getElementById('adminTabBtn').style.display =
                 _currentUser.role === 'admin' ? 'block' : 'none';
-            document.getElementById('date').value = new Date().toISOString().split('T')[0];
+            document.getElementById('date').value = getLocalTodayYMD();
             bootApp();
         }
 
@@ -2048,7 +2092,6 @@ footer {
         function resetForm() {
             document.getElementById('activityRowsContainer').innerHTML = '';
             _rowCounter = 0;
-            document.getElementById('report').style.display = 'none';
             selectSiteConditionSilently('');
             addActivityRow();
         }
@@ -2449,12 +2492,29 @@ footer {
             }
             showToast('☁️ Saving to cloud...');
             apiPost(payload)
-                .then(() => {
+                .then(res => {
+                    // Inspect the response before touching the form/draft — a
+                    // duplicate or error must never look like a successful save.
+                    if (res && res.status === 'duplicate') {
+                        showActionToast('⚠️ A DPR already exists for this date & site.', 'Edit existing DPR', () => {
+                            const idx = _history.findIndex(h => toYMD(h.date) === dateVal && String(h.site || '').trim() === String(siteVal || '').trim());
+                            if (idx > -1) editDPR(idx);
+                            else showToast('⚠️ Could not find it — try reloading History.');
+                        });
+                        return;
+                    }
+                    if (res && res.error) {
+                        showToast('⚠️ Save failed: ' + res.error);
+                        return;
+                    }
+                    // Confirmed success — clear the draft/editing state and reset
+                    // the input rows for the next entry, but leave the generated
+                    // #report visible (persistent success state) so Share
+                    // PDF/Image/WhatsApp keep working against it.
                     showToast(isEdit ? '✅ DPR Updated!' : '✅ Saved!');
                     _editingKey = null;
                     localStorage.removeItem('dpr_form_draft');
-                    document.getElementById('date').value = new Date().toISOString().split('T')[0];
-                    document.getElementById('report').style.display = 'none';
+                    document.getElementById('date').value = getLocalTodayYMD();
                     resetForm();
                     loadHistory();
                 })
@@ -4004,7 +4064,7 @@ footer {
 
                 // Set Date cleanly
                 const dateEl = document.getElementById('date');
-                if (dateEl) dateEl.value = new Date().toISOString().split('T')[0];
+                if (dateEl) dateEl.value = getLocalTodayYMD();
 
                 window.addEventListener('offline', () => { document.getElementById('offlineBadge').style.display = 'block'; });
                 window.addEventListener('online', () => { document.getElementById('offlineBadge').style.display = 'none'; syncOfflineQueue(); });

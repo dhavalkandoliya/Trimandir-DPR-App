@@ -123,7 +123,6 @@ function doGet_(e) {
   // requested (or when run directly from the Apps Script editor), never as
   // a side effect of a read/login/save call.
   if (action === 'migrateMaterials') return jsonResponse(migrateExistingMaterialRecords());
-  if (action === 'debug')            return handleDebug();
   return handleGetDPRs();
 }
 
@@ -713,6 +712,17 @@ function handleGetDPRs() {
 // ── SAVE DPR ─────────────────────────────────────────────────────
 
 function handleSaveDPR(body) {
+  var lock = LockService.getScriptLock();
+  try { lock.waitLock(10000); }
+  catch (e) { return jsonResponse({ error: 'Server busy, please retry.' }); }
+  try {
+    return handleSaveDPR_(body);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function handleSaveDPR_(body) {
   var recSheet = getOrCreateSheet(SHEET_RECORDS, RECORDS_HEADERS);
   var d        = normDate(body.date);
   var s        = String(body.site || '').trim();
@@ -789,6 +799,17 @@ function handleSaveDPR(body) {
 // ── EDIT DPR ─────────────────────────────────────────────────────
 
 function handleEditDPR(body) {
+  var lock = LockService.getScriptLock();
+  try { lock.waitLock(10000); }
+  catch (e) { return jsonResponse({ error: 'Server busy, please retry.' }); }
+  try {
+    return handleEditDPR_(body);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function handleEditDPR_(body) {
   var recSheet = getOrCreateSheet(SHEET_RECORDS, RECORDS_HEADERS);
   var d        = normDate(body.date);
   var s        = String(body.site || '').trim();
@@ -918,23 +939,22 @@ function handleApproveEditDPR(body) {
   return jsonResponse({ error: 'Not found' });
 }
 
-// ── DEBUG ENDPOINT ───────────────────────────────────────────────
+// ── USERS ─────────────────────────────────────────────────────────
 
-function handleDebug() {
-  var ss      = SpreadsheetApp.getActiveSpreadsheet();
-  var sheets  = ss.getSheets().map(function(sh) {
-    var data = sh.getDataRange().getValues();
-    return {
-      name:    sh.getName(),
-      rows:    data.length,
-      headers: data.length > 0 ? data[0] : [],
-      sample:  sh.getName() === 'Users' ? data : (data.length > 1 ? data[1] : [])
-    };
-  });
-  return jsonResponse({ sheets: sheets });
+// SHA-256 hex digest — used so passwords are never stored or compared
+// in plaintext. Legacy plaintext rows are transparently upgraded to a
+// hash the first time that user logs in successfully (see handleLogin).
+function hashPassword(raw) {
+  var bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(raw || ''), Utilities.Charset.UTF_8);
+  return bytes.map(function(b) {
+    var v = (b < 0 ? b + 256 : b).toString(16);
+    return v.length === 1 ? '0' + v : v;
+  }).join('');
 }
 
-// ── USERS ─────────────────────────────────────────────────────────
+function isHashed(v) {
+  return /^[a-f0-9]{64}$/.test(String(v || ''));
+}
 
 function handleGetUsers() {
   var sheet = getSheet(SHEET_USERS);
@@ -996,23 +1016,34 @@ function handleLogin(body) {
   if (pIdx === -1) pIdx = 2;
   if (rIdx === -1) rIdx = 3;
 
+  var inputPass  = String(body.password || '').trim();
+  var inputHash  = hashPassword(inputPass);
+
   for (var i = 1; i < data.length; i++) {
     var rowUser = String(data[i][uIdx] || '').trim();
-    var rowPass = String(data[i][pIdx] || '').trim();
-    if (rowUser.toLowerCase().trim() === String(body.username || '').toLowerCase().trim() && rowPass.trim() === String(body.password || '').trim()) {
-      return jsonResponse({ success: true, user: {
-        username:    rowUser,
-        displayName: String(data[i][dIdx] || rowUser).trim() || rowUser,
-        role:        String(data[i][rIdx] || 'user').trim() || 'user'
-      }});
-    }
+    if (rowUser.toLowerCase() !== String(body.username || '').toLowerCase().trim()) continue;
+
+    var rowPass  = String(data[i][pIdx] || '').trim();
+    var storedIsHashed = isHashed(rowPass);
+    var matches = storedIsHashed ? (rowPass === inputHash) : (rowPass === inputPass);
+    if (!matches) return jsonResponse({ success: false });
+
+    // Transparently upgrade legacy plaintext rows to a hash on first
+    // successful login — never leaves a plaintext password at rest.
+    if (!storedIsHashed) sheet.getRange(i + 1, pIdx + 1).setValue(inputHash);
+
+    return jsonResponse({ success: true, user: {
+      username:    rowUser,
+      displayName: String(data[i][dIdx] || rowUser).trim() || rowUser,
+      role:        String(data[i][rIdx] || 'user').trim() || 'user'
+    }});
   }
   return jsonResponse({ success: false });
 }
 
 function handleCreateUser(body) {
   var sheet = getOrCreateSheet(SHEET_USERS, USER_HEADERS);
-  sheet.appendRow([body.username, body.displayName || body.username, body.password, body.role || 'user']);
+  sheet.appendRow([body.username, body.displayName || body.username, hashPassword(body.password), body.role || 'user']);
   return jsonResponse({ status: 'ok' });
 }
 
@@ -1038,7 +1069,7 @@ function handleResetPassword(body) {
   var uIdx  = hdrs.indexOf('username'), pIdx = hdrs.indexOf('password');
   for (var i = 1; i < data.length; i++) {
     if (String(data[i][uIdx]).toLowerCase() === String(body.username || '').toLowerCase()) {
-      sheet.getRange(i + 1, pIdx + 1).setValue(body.password || '');
+      sheet.getRange(i + 1, pIdx + 1).setValue(hashPassword(body.password || ''));
       return jsonResponse({ status: 'ok' });
     }
   }
@@ -1353,6 +1384,17 @@ function migrateExistingMaterialRecords() {
 // Appends one Material_Logs row per material item — called from the
 // Material Consumption tab's "Save Material Consumption" action.
 function handleSaveMaterialLog(body) {
+  var lock = LockService.getScriptLock();
+  try { lock.waitLock(10000); }
+  catch (e) { return jsonResponse({ error: 'Server busy, please retry.' }); }
+  try {
+    return handleSaveMaterialLog_(body);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function handleSaveMaterialLog_(body) {
   var d = normDate(body.date);
   var s = String(body.site || '').trim();
   if (!d || !s) return jsonResponse({ error: 'Missing date or site' });
