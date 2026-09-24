@@ -42,6 +42,7 @@ const legacy = {
   history: () => window.__getHistory?.() || [],
   status: () => window.__getHistoryStatus?.() || 'idle',
   projects: () => window.__getProjects?.() || [],
+  materialLogs: () => window.__getMaterialLogs?.() || [],
   users: () => window.__getUsers?.() || [],
   user: () => window.__getCurrentUser?.() || null,
   toast: (msg) => window.showToast?.(msg),
@@ -51,9 +52,9 @@ const legacy = {
   remove: (idx) => window.deleteDPR?.(idx),
 };
 
-function DprViewModal({ item, projects, autoOpenShare, onClose }) {
+function DprViewModal({ item, projects, materialLogs, autoOpenShare, onClose }) {
   const boxRef = useRef(null);
-  const report = useMemo(() => reportFromRecord(item, projects), [item, projects]);
+  const report = useMemo(() => reportFromRecord(item, projects, materialLogs), [item, projects, materialLogs]);
 
   useEffect(() => {
     const trigger = document.activeElement;
@@ -172,10 +173,12 @@ export default function HistoryScreen() {
     const bump = () => setDataVersion(v => v + 1);
     window.addEventListener('dpr:historyUpdated', bump);
     window.addEventListener('dpr:masterDataUpdated', bump);
+    window.addEventListener('dpr:materialLogsUpdated', bump);
     window.addEventListener('dpr:closeDprModal', closeViewer);
     return () => {
       window.removeEventListener('dpr:historyUpdated', bump);
       window.removeEventListener('dpr:masterDataUpdated', bump);
+      window.removeEventListener('dpr:materialLogsUpdated', bump);
       window.removeEventListener('dpr:closeDprModal', closeViewer);
     };
   }, [closeViewer]);
@@ -195,8 +198,8 @@ export default function HistoryScreen() {
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const data = useMemo(() => {
-    if (typeof window === 'undefined') return { history: [], projects: [], users: [], status: 'idle', user: null };
-    return { history: legacy.history(), projects: legacy.projects(), users: legacy.users(), status: legacy.status(), user: legacy.user() };
+    if (typeof window === 'undefined') return { history: [], projects: [], users: [], materialLogs: [], status: 'idle', user: null };
+    return { history: legacy.history(), projects: legacy.projects(), users: legacy.users(), materialLogs: legacy.materialLogs(), status: legacy.status(), user: legacy.user() };
   }, [dataVersion]);
 
   const siteOptions = useMemo(() => {
@@ -246,7 +249,7 @@ export default function HistoryScreen() {
     // Share needs its JPG/PDF chooser, which lives in the View modal's action bar.
     if (kind === 'share') { setViewing({ item, autoOpenShare: true }); return; }
     if (REPORT_ACTIONS.some(a => a.kind === kind)) {
-      runReportAction(kind, reportFromRecord(item, data.projects), legacy.toast);
+      runReportAction(kind, reportFromRecord(item, data.projects, data.materialLogs), legacy.toast);
       return;
     }
     const idx = legacy.history().indexOf(item);
@@ -342,7 +345,7 @@ export default function HistoryScreen() {
       </div>
 
       {viewing && (
-        <DprViewModal item={viewing.item} autoOpenShare={viewing.autoOpenShare} projects={data.projects} onClose={closeViewer} />
+        <DprViewModal item={viewing.item} autoOpenShare={viewing.autoOpenShare} projects={data.projects} materialLogs={data.materialLogs} onClose={closeViewer} />
       )}
     </ErrorBoundary>,
     mountNode

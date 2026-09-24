@@ -3,15 +3,17 @@
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import ErrorBoundary from '../ui/ErrorBoundary';
+import ConsumptionEntryRow from './ConsumptionEntryRow';
 import { siteDisplayName } from '../../lib/report/reportModel';
 import {
-  budgetStatus, buildBudgetRows, filterLogs, formatQty, sortLogsNewestFirst, usageTotals,
-} from '../../lib/materials/materialUsage';
+  OWNERSHIP_OPTIONS, emptyEntryRow, entryRowHasContent, filterLogs, formatOutput, formatQty,
+  normalizeOwnership, ownershipCounts, serializeEntryRows, sortLogsNewestFirst, trustTotals, validateEntryRows,
+} from '../../lib/materials/consumption';
 
 const API = '/api/proxy';
 const OFFLINE_QUEUE_KEY = 'dprOfflineQ';
 const LOG_PAGE = 50;
-const EMPTY_FILTERS = { start: '', end: '', site: '', material: '' };
+const EMPTY_FILTERS = { start: '', end: '', site: '', material: '', ownership: '' };
 
 function getLocalTodayYMD() {
   const d = new Date();
@@ -23,9 +25,6 @@ function formatDate(ymd) {
   return m ? `${m[3]}-${m[2]}-${m[1]}` : String(ymd || '');
 }
 
-let _keySeq = 0;
-const emptyRow = () => ({ key: `m${++_keySeq}`, name: '', qty: '' });
-const toQty = (v) => Math.max(0, Number(v) || 0);
 const isTopLevel = (p) => !p.parent_id || String(p.parent_id).trim() === '';
 
 function enqueueOffline(payload) {
@@ -50,124 +49,19 @@ const legacy = {
   reload: () => window.loadMaterialLogs?.(),
 };
 
-// ── Presentational pieces ─────────────────────────────────────────────
-
-function BudgetBar({ used, budget, pending = 0, label }) {
-  const st = budgetStatus(used + pending, budget);
-  if (st.level === 'none') return null;
-  const usedPct = Math.min(100, (used / budget) * 100);
-  const pendingPct = Math.max(0, Math.min(100, ((used + pending) / budget) * 100) - usedPct);
-  return (
-    <div
-      className={`mat-bar is-${st.level}`}
-      role="progressbar"
-      aria-label={label}
-      aria-valuemin={0}
-      aria-valuemax={100}
-      aria-valuenow={Math.min(st.pct, 100)}
-      aria-valuetext={`${st.pct}% of budget`}
-    >
-      <div className="mat-bar-fill" style={{ width: `${usedPct}%` }} />
-      {pendingPct > 0 && <div className="mat-bar-pending" style={{ left: `${usedPct}%`, width: `${pendingPct}%` }} />}
-    </div>
-  );
+export function OwnershipBadge({ ownership }) {
+  const o = normalizeOwnership(ownership);
+  return <span className={`ce-badge is-${o.toLowerCase()}`}>{o}</span>;
 }
 
-function remainingText(remaining, unit) {
-  const u = unit ? ` ${unit}` : '';
-  return remaining >= 0 ? `${formatQty(remaining)}${u} left` : `Over by ${formatQty(-remaining)}${u}`;
-}
-
-// Inline "remaining budget" hint under a log-form row, projecting the
-// quantities being entered (all rows of this material in the form).
-function RowBudgetHint({ material, used, pendingForMaterial }) {
-  if (!material) return null;
-  const unit = material.unit || '';
-  const budget = Number(material.budget_qty) || 0;
-  if (!budget) {
-    return <div className="mat-hint">No budget set · {formatQty(used)}{unit ? ` ${unit}` : ''} used so far</div>;
-  }
-  const before = budgetStatus(used, budget);
-  const after = budgetStatus(used + pendingForMaterial, budget);
-  return (
-    <div className={`mat-hint is-${after.level}`}>
-      <BudgetBar used={used} pending={pendingForMaterial} budget={budget} label={`${material.material_name} budget`} />
-      <div className="mat-hint-text">
-        <span>{remainingText(before.remaining, unit)} of {formatQty(budget)}{unit ? ` ${unit}` : ''}</span>
-        {pendingForMaterial > 0 && (
-          <span className="mat-hint-after">
-            {after.level === 'over'
-              ? `⚠️ This entry goes over budget by ${formatQty(-after.remaining)}${unit ? ` ${unit}` : ''}`
-              : `→ ${remainingText(after.remaining, unit)} after this entry`}
-          </span>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function LogRow({ index, row, materials, usage, pendingByName, onChange, onRemove, canRemove }) {
-  const material = materials.find(m => m.material_name === row.name);
-  const k = row.name.trim().toLowerCase();
-  return (
-    <div className="activitybox mat-log-row">
-      <div className="entry-row-head">
-        <span className="entry-row-title">Entry {index + 1}</span>
-        {canRemove && <button type="button" className="delete-btn entry-row-remove" onClick={onRemove} aria-label="Remove material">✕</button>}
-      </div>
-      <div className="mat-log-fields">
-        <div>
-          <label>Material</label>
-          <select value={row.name} onChange={(e) => onChange({ ...row, name: e.target.value })}>
-            <option value="">— Select Material —</option>
-            {materials.map(m => <option key={m.id} value={m.material_name}>{m.material_name}{m.unit ? ` (${m.unit})` : ''}</option>)}
-          </select>
-        </div>
-        <div>
-          <label>Quantity Used{material && material.unit ? ` (${material.unit})` : ''}</label>
-          <input type="number" min="0" step="any" inputMode="decimal" value={row.qty} onChange={(e) => onChange({ ...row, qty: e.target.value })} placeholder="e.g. 25" />
-        </div>
-      </div>
-      <RowBudgetHint material={material} used={usage.get(k) || 0} pendingForMaterial={pendingByName.get(k) || 0} />
-    </div>
-  );
-}
-
-function BudgetRow({ row, showPeriod }) {
-  const { status: st, unit } = row;
-  const u = unit ? ` ${unit}` : '';
-  return (
-    <div className={`mat-budget-row is-${st.level}`}>
-      <div className="mat-budget-head">
-        <span className="mat-budget-name">
-          {row.name}
-          {row.inactive && <span className="mat-tag">inactive</span>}
-          {row.untracked && <span className="mat-tag">not in material list</span>}
-        </span>
-        <span className={`mat-budget-pct is-${st.level}`}>
-          {st.level === 'none' ? 'No budget' : st.level === 'over' ? `⚠️ ${st.pct}%` : `${st.pct}%`}
-        </span>
-      </div>
-      <BudgetBar used={row.used} budget={row.budget} label={`${row.name} budget used`} />
-      <div className="mat-budget-meta">
-        <span>{formatQty(row.used)}{st.level === 'none' ? `${u} used` : ` / ${formatQty(row.budget)}${u}`}</span>
-        {st.level !== 'none' && <span className={`mat-remaining is-${st.level}`}>{remainingText(st.remaining, unit)}</span>}
-      </div>
-      {showPeriod && <div className="mat-budget-period">In selected period: {formatQty(row.periodUsed)}{u}</div>}
-    </div>
-  );
-}
-
-// ── Screen ────────────────────────────────────────────────────────────
-
-// Portal-mounted React replacement for the legacy Material Consumption tab
-// (addMaterialRow/saveMaterialsUsed/renderMaterialConsumptionTab in index.html).
+// Portal-mounted React Materials tab: consumption-entry form, Trust-only
+// Total Material Summary, and the filtered Consumption Entries list.
 export default function MaterialsScreen() {
   const [mountNode, setMountNode] = useState(null);
   const [dataVersion, setDataVersion] = useState(0);
   const [date, setDate] = useState(getLocalTodayYMD);
   const [site, setSite] = useState('');
-  const [rows, setRows] = useState(() => [emptyRow()]);
+  const [rows, setRows] = useState(() => [emptyEntryRow()]);
   const [saving, setSaving] = useState(false);
   const [filters, setFilters] = useState(EMPTY_FILTERS);
   const [visibleLogs, setVisibleLogs] = useState(LOG_PAGE);
@@ -214,33 +108,23 @@ export default function MaterialsScreen() {
     ]);
   }, [data.projects]);
 
-  const usage = useMemo(() => usageTotals(data.logs), [data.logs]);
-
-  // Quantities currently typed into the form, per material — drives the
-  // inline "after this entry" projection.
-  const pendingByName = useMemo(() => {
-    const m = new Map();
-    rows.forEach(r => {
-      const k = r.name.trim().toLowerCase();
-      if (k) m.set(k, (m.get(k) || 0) + toQty(r.qty));
-    });
-    return m;
-  }, [rows]);
-
-  const isFiltered = !!(filters.start || filters.end || filters.site || filters.material);
-  const filteredLogs = useMemo(() => sortLogsNewestFirst(filterLogs(data.logs, filters)), [data.logs, filters]);
-  const budgetRows = useMemo(
-    () => buildBudgetRows(data.materials, data.logs, isFiltered ? filteredLogs : null),
-    [data.materials, data.logs, filteredLogs, isFiltered]
+  const contractorSuggestions = useMemo(
+    () => [...new Set(data.logs.map(l => String(l.contractor || '').trim()).filter(Boolean))].sort(),
+    [data.logs]
   );
-  const overCount = budgetRows.filter(r => r.status.level === 'over').length;
-  const warnCount = budgetRows.filter(r => r.status.level === 'warn').length;
+
+  const isFiltered = Object.values(filters).some(Boolean);
+  const filteredLogs = useMemo(() => sortLogsNewestFirst(filterLogs(data.logs, filters)), [data.logs, filters]);
+  // Summary follows the filters (except ownership, which can only ever
+  // narrow it to Trust or empty it) — totals are always Trust-only.
+  const summaryLogs = useMemo(() => filterLogs(data.logs, { ...filters, ownership: '' }), [data.logs, filters]);
+  const totals = useMemo(() => trustTotals(summaryLogs), [summaryLogs]);
+  const counts = useMemo(() => ownershipCounts(summaryLogs), [summaryLogs]);
 
   const logSites = useMemo(() => [...new Set(data.logs.map(l => l.site).filter(Boolean))].sort(), [data.logs]);
   const logMaterials = useMemo(() => [...new Set(data.logs.map(l => l.material_name).filter(Boolean))].sort(), [data.logs]);
 
   const setFilter = (field) => (e) => { setFilters(f => ({ ...f, [field]: e.target.value })); setVisibleLogs(LOG_PAGE); };
-
   const updateRow = (k, next) => setRows(rs => rs.map(r => (r.key === k ? next : r)));
   const removeRow = (k) => setRows(rs => (rs.length > 1 ? rs.filter(r => r.key !== k) : rs));
 
@@ -250,12 +134,10 @@ export default function MaterialsScreen() {
     if (!user) { legacy.toast('⚠️ Please sign in first'); return; }
     if (!date) { legacy.toast('⚠️ Select a date'); return; }
     if (!site) { legacy.toast('⚠️ Select a site'); return; }
-    const missingName = rows.find(r => !r.name && toQty(r.qty) > 0);
-    if (missingName) { legacy.toast('⚠️ Select a material for each quantity'); return; }
-    const missingQty = rows.find(r => r.name && toQty(r.qty) <= 0);
-    if (missingQty) { legacy.toast(`⚠️ Enter a quantity for ${missingQty.name}`); return; }
-    const materialsUsed = rows.filter(r => r.name).map(r => ({ material_name: r.name, qty: toQty(r.qty) }));
-    if (!materialsUsed.length) { legacy.toast('⚠️ Add at least one material with a quantity'); return; }
+    const invalid = validateEntryRows(rows);
+    if (invalid) { legacy.toast(invalid); return; }
+    const materialsUsed = serializeEntryRows(rows);
+    if (!materialsUsed.length) { legacy.toast('⚠️ Add at least one consumption entry'); return; }
 
     const payload = { action: 'saveMaterialLog', date, site, by: user.username, materialsUsed };
 
@@ -265,7 +147,7 @@ export default function MaterialsScreen() {
     }
 
     setSaving(true);
-    legacy.toast('☁️ Saving material consumption...');
+    legacy.toast('☁️ Saving consumption entries...');
     try {
       const res = await fetch(API, {
         method: 'POST',
@@ -273,8 +155,8 @@ export default function MaterialsScreen() {
         body: JSON.stringify(payload),
       }).then(r => r.json());
       if (res && res.error) { legacy.toast('⚠️ Save failed: ' + res.error); return; }
-      legacy.toast(`✅ Saved ${materialsUsed.length} material entr${materialsUsed.length === 1 ? 'y' : 'ies'}`);
-      setRows([emptyRow()]); // keep date + site for the next entry
+      legacy.toast(`✅ Saved ${materialsUsed.length} consumption entr${materialsUsed.length === 1 ? 'y' : 'ies'}`);
+      setRows([emptyEntryRow()]); // keep date + site for the next entry
       legacy.reload();
     } catch (e) {
       legacy.toast('⚠️ Save failed — check connection');
@@ -285,26 +167,41 @@ export default function MaterialsScreen() {
 
   if (!mountNode) return null;
 
+  const excluded = counts.Contractor + counts.Other;
+  const loading = !data.logs.length && (data.status === 'loading' || data.status === 'idle');
+
   let logBody;
   if (!data.logs.length) {
-    if (data.status === 'loading' || data.status === 'idle') logBody = <p className="history-empty">⏳ Loading...</p>;
-    else if (data.status === 'error') logBody = <p className="history-empty is-error">⚠️ Failed to load material logs.</p>;
-    else logBody = <p className="history-empty">No material consumption logged yet.</p>;
+    if (loading) logBody = <p className="history-empty">⏳ Loading...</p>;
+    else if (data.status === 'error') logBody = <p className="history-empty is-error">⚠️ Failed to load consumption entries.</p>;
+    else logBody = <p className="history-empty">No consumption entries logged yet.</p>;
   } else if (!filteredLogs.length) {
     logBody = <p className="history-empty">No entries match the current filter.</p>;
   } else {
     logBody = (
       <>
         <ul className="mat-log-list">
-          {filteredLogs.slice(0, visibleLogs).map((l, i) => (
-            <li key={`${l.createdAt || ''}-${l.material_name}-${i}`} className="mat-log-item">
-              <div>
-                <div className="mat-log-name">{l.material_name}</div>
-                <div className="mat-log-meta">{formatDate(l.date)} · {siteDisplayName(l.site, data.projects)}{l.loggedBy ? ` · ${l.loggedBy}` : ''}</div>
-              </div>
-              <div className="mat-log-qty">{formatQty(l.qty)}{l.unit ? ` ${l.unit}` : ''}</div>
-            </li>
-          ))}
+          {filteredLogs.slice(0, visibleLogs).map((l, i) => {
+            const output = formatOutput(l.outputQty, l.outputUnit);
+            return (
+              <li key={l.id || `${l.createdAt}-${i}`} className={`mat-log-item ce-log-item${normalizeOwnership(l.ownership) === 'Trust' ? '' : ' is-reference'}`}>
+                <div className="ce-log-main">
+                  <div className="mat-log-name">
+                    {l.material_name} <OwnershipBadge ownership={l.ownership} />
+                  </div>
+                  <div className="mat-log-meta">{formatDate(l.date)} · {siteDisplayName(l.site, data.projects)}{l.loggedBy ? ` · ${l.loggedBy}` : ''}</div>
+                  {(l.contractor || output || l.remarks) && (
+                    <div className="ce-log-details">
+                      {l.contractor && <span>👷 {l.contractor}</span>}
+                      {output && <span>🧱 Output: {output}</span>}
+                      {l.remarks && <span className="ce-log-remarks">“{l.remarks}”</span>}
+                    </div>
+                  )}
+                </div>
+                <div className="mat-log-qty">{formatQty(l.qty)}{l.unit ? ` ${l.unit}` : ''}</div>
+              </li>
+            );
+          })}
         </ul>
         {filteredLogs.length > visibleLogs && (
           <button type="button" className="btn-gray btn-sm mat-show-more" onClick={() => setVisibleLogs(v => v + LOG_PAGE)}>
@@ -318,7 +215,7 @@ export default function MaterialsScreen() {
   return createPortal(
     <ErrorBoundary>
       <div className="card">
-        <div className="section-title">📦 Log Material Consumption</div>
+        <div className="section-title">📦 Log Consumption Entries</div>
         <div className="history-filter-grid">
           <div>
             <label htmlFor="matDate">Date</label>
@@ -333,40 +230,25 @@ export default function MaterialsScreen() {
           </div>
         </div>
         {rows.map((r, i) => (
-          <LogRow
+          <ConsumptionEntryRow
             key={r.key}
             index={i}
             row={r}
             materials={activeMaterials}
-            usage={usage}
-            pendingByName={pendingByName}
+            contractorSuggestions={contractorSuggestions}
             onChange={(next) => updateRow(r.key, next)}
             onRemove={() => removeRow(r.key)}
             canRemove={rows.length > 1}
           />
         ))}
-        <button type="button" className="btn-add" onClick={() => setRows(rs => [...rs, emptyRow()])}>+ Add Material</button>
-        <button type="button" className="btn-green mat-save-btn" onClick={save} disabled={saving}>
-          {saving ? '⏳ Saving...' : '✅ Save Material Consumption'}
+        <button type="button" className="btn-add" onClick={() => setRows(rs => [...rs, emptyEntryRow()])}>+ Add Entry</button>
+        <button type="button" className="btn-green mat-save-btn" onClick={save} disabled={saving || !rows.some(entryRowHasContent)}>
+          {saving ? '⏳ Saving...' : '✅ Save Consumption Entries'}
         </button>
       </div>
 
       <div className="card">
-        <div className="section-title">📊 Usage vs Budget</div>
-        {(overCount > 0 || warnCount > 0) && (
-          <div className="mat-alerts">
-            {overCount > 0 && <span className="mat-alert is-over">⚠️ {overCount} over budget</span>}
-            {warnCount > 0 && <span className="mat-alert is-warn">{warnCount} near limit (≥80%)</span>}
-          </div>
-        )}
-        {budgetRows.length
-          ? budgetRows.map(r => <BudgetRow key={r.name} row={r} showPeriod={isFiltered} />)
-          : <p className="history-empty">{data.status === 'loading' ? '⏳ Loading...' : 'No material usage or budgets recorded yet.'}</p>}
-        <p className="mat-footnote">Budget progress uses all logged consumption, not just the filtered period.</p>
-      </div>
-
-      <div className="card">
-        <div className="section-title">🧾 Consumption Log</div>
+        <div className="section-title">🔍 Filter</div>
         <div className="history-filter-grid">
           <div>
             <label htmlFor="matStart">Start Date</label>
@@ -390,6 +272,13 @@ export default function MaterialsScreen() {
               {logMaterials.map(n => <option key={n} value={n}>{n}</option>)}
             </select>
           </div>
+          <div>
+            <label htmlFor="matFOwn">Ownership</label>
+            <select id="matFOwn" value={filters.ownership} onChange={setFilter('ownership')}>
+              <option value="">— All —</option>
+              {OWNERSHIP_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+            </select>
+          </div>
         </div>
         <div className="history-toolbar">
           <button type="button" className="btn-blue btn-sm" onClick={legacy.reload} disabled={data.status === 'loading'}>
@@ -397,8 +286,41 @@ export default function MaterialsScreen() {
           </button>
           <button type="button" className="btn-gray btn-sm" onClick={() => { setFilters(EMPTY_FILTERS); setVisibleLogs(LOG_PAGE); }} disabled={!isFiltered}>❌ Clear Filter</button>
         </div>
+      </div>
+
+      <div className="card">
+        <div className="section-title">📊 Total Material Summary <span className="ce-trust-tag">Trust only</span></div>
+        {totals.length ? (
+          <div className="ce-summary-wrap">
+            <table className="ce-summary">
+              <thead><tr><th>Material</th><th className="c-n">Total Qty</th><th>Unit</th><th className="c-n">Entries</th></tr></thead>
+              <tbody>
+                {totals.map(t => (
+                  <tr key={`${t.material}|${t.unit}`}>
+                    <td>{t.material}</td>
+                    <td className="c-n"><b>{formatQty(t.qty)}</b></td>
+                    <td>{t.unit || '—'}</td>
+                    <td className="c-n">{t.entries}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="history-empty">{loading ? '⏳ Loading...' : 'No Trust-supplied consumption in this selection.'}</p>
+        )}
+        <p className="mat-footnote">
+          {filters.start || filters.end || filters.site || filters.material ? 'Cumulative for the filtered selection. ' : 'Cumulative for all logged entries. '}
+          {excluded > 0
+            ? `${excluded} Contractor/Other entr${excluded === 1 ? 'y is' : 'ies are'} listed below for reference and excluded from these totals.`
+            : 'Contractor/Other entries are excluded from these totals.'}
+        </p>
+      </div>
+
+      <div className="card">
+        <div className="section-title">🧾 Consumption Entries</div>
         <div className="history-count" aria-live="polite">
-          📊 {filteredLogs.length} log entr{filteredLogs.length === 1 ? 'y' : 'ies'}{isFiltered ? ` (of ${data.logs.length})` : ''}
+          📊 {filteredLogs.length} entr{filteredLogs.length === 1 ? 'y' : 'ies'}{isFiltered ? ` (of ${data.logs.length})` : ''}
         </div>
         {logBody}
       </div>

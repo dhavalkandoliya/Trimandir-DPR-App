@@ -1,6 +1,76 @@
 'use client';
 
 import { CONDITION_EMOJI, ORG_NAME, REPORT_TITLE } from '../../lib/report/reportModel';
+import { TRUST, formatOutput, formatQty } from '../../lib/materials/consumption';
+
+// Materials annex: every consumption entry for the DPR's site/day, then the
+// Trust-only totals. Contractor/Other rows are shown for reference but are
+// visibly marked and never counted.
+function ConsumptionAnnex({ consumption }) {
+  if (!consumption || !consumption.entries.length) return null;
+  const { entries, trustTotals, counts } = consumption;
+  const excluded = counts.Contractor + counts.Other;
+  return (
+    <section className="exec-annex" aria-label="Consumption entries">
+      <h3 className="exec-section-title">Consumption Entries</h3>
+      <div className="exec-table-wrap">
+        <table className="exec-table exec-ce-table">
+          <thead>
+            <tr>
+              <th className="c-num">#</th>
+              <th>Material</th>
+              <th className="c-n">Qty</th>
+              <th>Unit</th>
+              <th>Ownership</th>
+              <th>Contractor</th>
+              <th>Output / Work Done</th>
+              <th>Remarks</th>
+            </tr>
+          </thead>
+          <tbody>
+            {entries.map((e, i) => (
+              <tr key={i} className={e.ownership === TRUST ? '' : 'is-reference'}>
+                <td className="c-num">{i + 1}</td>
+                <td><b>{e.material}</b></td>
+                <td className="c-n">{formatQty(e.qty)}</td>
+                <td>{e.unit}</td>
+                <td><span className={`exec-own is-${e.ownership.toLowerCase()}`}>{e.ownership}</span></td>
+                <td>{e.contractor}</td>
+                <td>{formatOutput(e.outputQty, e.outputUnit)}</td>
+                <td className="c-note">{e.remarks}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <h4 className="exec-subsection-title">Trust Material Total</h4>
+      {trustTotals.length ? (
+        <div className="exec-table-wrap">
+          <table className="exec-table exec-ce-totals">
+            <thead><tr><th>Material</th><th className="c-n">Total Qty</th><th>Unit</th></tr></thead>
+            <tbody>
+              {trustTotals.map(t => (
+                <tr key={`${t.material}|${t.unit}`}>
+                  <td>{t.material}</td>
+                  <td className="c-n"><b>{formatQty(t.qty)}</b></td>
+                  <td>{t.unit}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <p className="exec-empty">No Trust-supplied material in this DPR.</p>
+      )}
+      {excluded > 0 && (
+        <p className="exec-note">
+          {excluded} Contractor/Other entr{excluded === 1 ? 'y is' : 'ies are'} listed for reference and excluded from the Trust total.
+        </p>
+      )}
+    </section>
+  );
+}
 
 // Executive DPR layout — rendered on screen (Entry preview, History View
 // modal) and, off-screen at a fixed width, as the source for the JPG export.
@@ -126,6 +196,8 @@ export default function ExecutiveReport({ report }) {
       ) : (
         <p className="exec-empty">No manpower recorded for this DPR.</p>
       )}
+
+      <ConsumptionAnnex consumption={report.consumption} />
 
       <footer className="exec-foot">
         <span>{report.dprNo}</span>

@@ -5,7 +5,11 @@ import { createPortal } from 'react-dom';
 import ErrorBoundary from '../ui/ErrorBoundary';
 import ExecutiveReport from '../report/ExecutiveReport';
 import ReportActionBar from '../report/ReportActionBar';
-import { buildReport, recordActivities } from '../../lib/report/reportModel';
+import { buildReport, consumptionForRecord, recordActivities } from '../../lib/report/reportModel';
+import ConsumptionEntryRow from '../materials/ConsumptionEntryRow';
+import {
+  emptyEntryRow, entryRowFrom, entryRowHasContent, serializeEntryRows, validateEntryRows,
+} from '../../lib/materials/consumption';
 
 const API = '/api/proxy';
 const DRAFT_KEY = 'dpr_form_draft';
@@ -46,10 +50,6 @@ const nextKey = () => `r${++_keySeq}`;
 
 function emptyActivityRow() {
   return { key: nextKey(), main: '', sub: '', skilled: '0', unskilled: '0', plannedQty: '', note: '' };
-}
-
-function emptyMaterialRow() {
-  return { key: nextKey(), name: '', qty: '' };
 }
 
 // Accepts both the draft shape ({main_activity, sub_activity, ...}) and the
@@ -129,6 +129,7 @@ const legacy = {
   projects: () => window.__getProjects?.() || [],
   activities: () => window.__getActivities?.() || [],
   materials: () => window.__getMaterials?.() || [],
+  materialLogs: () => window.__getMaterialLogs?.() || [],
   history: () => window.__getHistory?.() || [],
   reloadHistory: () => window.loadHistory?.(),
   reloadMaterialLogs: () => window.loadMaterialLogs?.(),
@@ -214,28 +215,6 @@ function ActivityRow({ index, row, mains, subsFor, onChange, onRemove }) {
   );
 }
 
-function MaterialRow({ row, materials, onChange, onRemove }) {
-  const mat = materials.find(m => m.material_name === row.name);
-  const known = !!mat;
-  return (
-    <div className="activitybox">
-      <div className="entry-row-head">
-        <span className="entry-row-title">Material</span>
-        <button type="button" className="delete-btn entry-row-remove" onClick={onRemove} aria-label="Remove material">✕</button>
-      </div>
-      <select value={row.name} onChange={(e) => onChange({ ...row, name: e.target.value })}>
-        <option value="">— Select Material —</option>
-        {materials.map(m => (
-          <option key={m.id} value={m.material_name}>{m.material_name}{m.unit ? ` (${m.unit})` : ''}</option>
-        ))}
-        {row.name && !known && <option value={row.name}>{row.name}</option>}
-      </select>
-      <label>Quantity Used{mat && mat.unit ? ` (${mat.unit})` : ''}</label>
-      <input type="number" min="0" value={row.qty} onChange={(e) => onChange({ ...row, qty: e.target.value })} placeholder="e.g. 25" />
-    </div>
-  );
-}
-
 // ── Main component ────────────────────────────────────────────────────
 
 // Portal-mounted React replacement for the legacy New DPR form
@@ -275,9 +254,11 @@ export default function DprEntryForm() {
     const bump = () => setDataVersion(v => v + 1);
     window.addEventListener('dpr:masterDataUpdated', bump);
     window.addEventListener('dpr:historyUpdated', bump);
+    window.addEventListener('dpr:materialLogsUpdated', bump);
     return () => {
       window.removeEventListener('dpr:masterDataUpdated', bump);
       window.removeEventListener('dpr:historyUpdated', bump);
+      window.removeEventListener('dpr:materialLogsUpdated', bump);
     };
   }, []);
 
@@ -301,6 +282,13 @@ export default function DprEntryForm() {
         .map(s => ({ value: s.project_name, label: `  ↳ ${s.project_name}` })),
     ]);
   }, [master.projects]);
+
+  const contractorSuggestions = useMemo(
+    // Guarded like `master` above: this also runs during the server prerender.
+    () => (typeof window === 'undefined' ? [] : [...new Set(legacy.materialLogs().map(l => String(l.contractor || '').trim()).filter(Boolean))].sort()),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [dataVersion]
+  );
 
   const mains = useMemo(
     () => master.activities.filter(a => isTopLevel(a) && a.status === 'active'),
@@ -334,7 +322,7 @@ export default function DprEntryForm() {
     const acts = Array.isArray(draft.activities) ? draft.activities : [];
     setRows(acts.length ? acts.map(activityRowFrom) : [emptyActivityRow()]);
     const mats = Array.isArray(draft.materials) ? draft.materials : [];
-    setMaterialRows(mats.map(m => ({ key: nextKey(), name: m.material_name || '', qty: m.qty != null ? String(m.qty) : '' })));
+    setMaterialRows(mats.map(entryRowFrom)); // older drafts ({material_name, qty}) load too
     setEditingKey(null);
   }, [resetForm]);
 
@@ -370,9 +358,11 @@ export default function DprEntryForm() {
   useEffect(() => {
     if (!readyRef.current || editingKey) return;
     const activities = rows.map(serializeActivity);
-    const materials = materialRows
-      .filter(m => m.name || m.qty)
-      .map(m => ({ material_name: m.name, qty: toCount(m.qty) }));
+    // Draft keeps partially-filled entries too (the save path validates).
+    const materials = materialRows.filter(entryRowHasContent).map(m => ({
+      material_name: m.name, qty: m.qty, unit: m.unit, ownership: m.ownership, contractor: m.contractor,
+      output_qty: m.outputQty, output_unit: m.outputUnit, remarks: m.remarks,
+    }));
     const isEmpty = !site && !condition && !materials.length &&
       activities.every(a => !a.main_activity && !a.skilled && !a.unskilled && !a.note && !a.plannedQty);
     try {
@@ -395,7 +385,7 @@ export default function DprEntryForm() {
       t.unskilled += toCount(r.unskilled);
     });
     t.total = t.skilled + t.unskilled;
-    t.materials = materialRows.filter(m => m.name && toCount(m.qty) > 0).length;
+    t.materials = serializeEntryRows(materialRows).length;
     return t;
   }, [rows, materialRows]);
 
@@ -405,7 +395,7 @@ export default function DprEntryForm() {
   const addRow = () => setRows(rs => [...rs, emptyActivityRow()]);
   const updateMaterial = (key, next) => setMaterialRows(ms => ms.map(m => (m.key === key ? next : m)));
   const removeMaterial = (key) => setMaterialRows(ms => ms.filter(m => m.key !== key));
-  const addMaterial = () => setMaterialRows(ms => [...ms, emptyMaterialRow()]);
+  const addMaterial = () => setMaterialRows(ms => [...ms, emptyEntryRow()]);
 
   // ── Quick actions ──
   const quickNewToday = () => {
@@ -438,10 +428,9 @@ export default function DprEntryForm() {
     const activeActs = activities.filter(a => a.skilled > 0 || a.unskilled > 0);
     if (!activeActs.length) { legacy.toast('⚠️ Enter at least one activity with workers'); return; }
 
-    const pickedMaterials = editingKey ? [] : materialRows.filter(m => m.name);
-    const missingQty = pickedMaterials.find(m => toCount(m.qty) <= 0);
-    if (missingQty) { legacy.toast(`⚠️ Enter a quantity for ${missingQty.name}`); return; }
-    const materialsUsed = pickedMaterials.map(m => ({ material_name: m.name, qty: toCount(m.qty) }));
+    const invalidMaterial = editingKey ? null : validateEntryRows(materialRows);
+    if (invalidMaterial) { legacy.toast(invalidMaterial); return; }
+    const materialsUsed = editingKey ? [] : serializeEntryRows(materialRows);
 
     const total = activities.reduce((s, a) => s + a.skilled + a.unskilled, 0);
     const existing = master.history.find(h => toYMD(h.date) === date && String(h.site).trim() === site.trim());
@@ -452,6 +441,8 @@ export default function DprEntryForm() {
     // JPG/PDF/Share actions keep working against what was submitted.
     setGeneratedReport(buildReport({
       date, site, activities: activeActs, preparedBy: prepBy, editedBy, condition, projects: master.projects,
+      // New DPR: the entries on this form. Edit: what's already logged for this site/day.
+      materials: editingKey ? consumptionForRecord({ date, site }, legacy.materialLogs()) : materialsUsed,
     }));
 
     const isEdit = !!editingKey;
@@ -502,7 +493,7 @@ export default function DprEntryForm() {
 
       // Confirmed success — reset for the next entry but leave the generated
       // #report visible so Download/Share keep working against it.
-      if (materialError) legacy.toast(`⚠️ DPR saved, but materials failed (${materialError}) — log them from Material Consumption`);
+      if (materialError) legacy.toast(`⚠️ DPR saved, but materials failed (${materialError}) — log them from the Materials tab`);
       else legacy.toast(isEdit ? '✅ DPR Updated!' : '✅ Saved!');
       try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}
       resetForm();
@@ -577,22 +568,24 @@ export default function DprEntryForm() {
         </div>
 
         <div className="card">
-          <div className="section-title">📦 Materials Used <span className="entry-optional">(Optional)</span></div>
+          <div className="section-title">📦 Consumption Entries <span className="entry-optional">(Optional)</span></div>
           {editingKey ? (
-            <p className="entry-hint">Materials aren&apos;t changed when editing a DPR — log extra usage from the Material Consumption tab.</p>
+            <p className="entry-hint">Consumption entries aren&apos;t changed when editing a DPR — log extra entries from the Materials tab.</p>
           ) : (
             <>
-              {materialRows.map(m => (
-                <MaterialRow
+              {materialRows.map((m, i) => (
+                <ConsumptionEntryRow
                   key={m.key}
+                  index={i}
                   row={m}
                   materials={master.materials}
+                  contractorSuggestions={contractorSuggestions}
                   onChange={(next) => updateMaterial(m.key, next)}
                   onRemove={() => removeMaterial(m.key)}
                 />
               ))}
-              {!materialRows.length && <p className="entry-hint">No materials added for this DPR.</p>}
-              <button type="button" className="btn-add" onClick={addMaterial}>+ Add Material</button>
+              {!materialRows.length && <p className="entry-hint">No consumption entries added for this DPR.</p>}
+              <button type="button" className="btn-add" onClick={addMaterial}>+ Add Entry</button>
             </>
           )}
         </div>

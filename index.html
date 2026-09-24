@@ -1334,16 +1334,14 @@ footer {
         </div>
         <div class="admin-acc-body">
             <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">
-                Set a budgeted quantity per material — the Material Consumption tab flags any material whose total usage across DPRs exceeds its budget.
+                The materials offered when logging consumption entries. The unit is only a default — each entry records its own unit.
             </p>
             <div style="background:var(--surface-subtle);border:1.5px solid var(--border);border-radius:8px;padding:14px;margin-bottom:14px;">
                 <div style="font-weight:700;font-size:14px;color:var(--primary);margin-bottom:10px;">&#10133; Add Material</div>
                 <label>Material Name</label>
                 <input type="text" id="newMaterialName" placeholder="e.g. Cement">
-                <label>Unit <span style="font-weight:400;text-transform:none;">(Optional)</span></label>
-                <input type="text" id="newMaterialUnit" placeholder="e.g. bags, cum, kg">
-                <label>Budget Quantity <span style="font-weight:400;text-transform:none;">(Optional)</span></label>
-                <input type="number" id="newMaterialBudget" min="0" placeholder="e.g. 500">
+                <label>Default Unit <span style="font-weight:400;text-transform:none;">(Optional)</span></label>
+                <input type="text" id="newMaterialUnit" placeholder="e.g. Bags, Nos, Brass, Kg">
                 <button class="btn-green" onclick="adminAddMaterial()">&#9989; Add Material</button>
             </div>
             <div style="font-weight:700;font-size:14px;color:var(--primary);margin-bottom:4px;">&#128202; All Materials</div>
@@ -1369,7 +1367,7 @@ footer {
         let _users      = [SUPER_ADMIN];
         let _projects   = [];   // { id, project_name, parent_id, status } (synced with 5-column nested Projects/Activities database)
         let _activities = [];   // { id, activity_name, parent_id, status } (synced with 5-column nested schema)
-        let _materials  = [];   // { id, material_name, unit, budget_qty, status }
+        let _materials  = [];   // { id, material_name, unit, status }
         let _history    = [];   // see handleGetDPRs schema below
         let _materialLogs = []; // { date, site, material_name, qty, unit, loggedBy, createdAt } — see Material_Logs sheet
         let _materialLogsStatus = 'idle'; // 'idle' | 'loading' | 'ok' | 'error' — read by MaterialsScreen
@@ -1704,6 +1702,7 @@ footer {
 
             sendEntryCommand({ type: 'init' }); // form restores the saved draft, if any
             loadHistory(); // full, unwindowed DPR history — the authoritative source; never overwritten by the bootstrap response below
+            loadMaterialLogs(); // consumption entries — the Executive Report annex needs them in Entry and History too
 
             // Single consolidated round-trip — replaces four separate
             // getUsers/getProjects/getActivities/getMaterials calls. Sends
@@ -1883,9 +1882,9 @@ footer {
         /* ═══════════════════════════════════════════════════════════
            MATERIALS — now a real React component, see
            /components/materials/MaterialsScreen.jsx, portal-mounted into
-           #__materials_mount__. It owns the log form (with inline remaining
-           budget), Usage vs Budget progress, filters and the log list, and
-           posts saveMaterialLog itself. Interop bridge:
+           #__materials_mount__. It owns the consumption-entry form, the
+           Trust-only Total Material Summary, filters and the entries list,
+           and posts saveMaterialLog itself. Interop bridge:
              React → legacy: window.__getMaterialLogs/__getMaterialLogsStatus/
                              __getMaterials/__getProjects/__getCurrentUser,
                              and loadMaterialLogs() below.
@@ -2571,15 +2570,13 @@ footer {
         async function adminAddMaterial() {
             const name = document.getElementById('newMaterialName').value.trim();
             const unit = document.getElementById('newMaterialUnit').value.trim();
-            const budget = Number(document.getElementById('newMaterialBudget').value) || 0;
             if (!name) { showToast('⚠️ Enter material name'); return; }
             showToast('⏳ Adding...');
             try {
-                const res = await apiPost({ action: 'addMaterial', material_name: name, unit, budget_qty: budget });
+                const res = await apiPost({ action: 'addMaterial', material_name: name, unit });
                 if (res && res.status === 'ok') {
                     document.getElementById('newMaterialName').value = '';
                     document.getElementById('newMaterialUnit').value = '';
-                    document.getElementById('newMaterialBudget').value = '';
                     showToast('✅ Material added!');
                     const d = await apiFetch('getMaterials').catch(() => _materials);
                     if (Array.isArray(d)) _materials = d;
@@ -2604,14 +2601,12 @@ footer {
         }
         window.toggleMaterial = toggleMaterial;
 
-        async function editMaterial(id, cur, curUnit, curBudget) {
+        async function editMaterial(id, cur, curUnit) {
             const n = prompt('Edit material name:', cur);
             if (n === null) return;
-            const u = prompt('Edit unit:', curUnit || '');
+            const u = prompt('Edit default unit:', curUnit || '');
             if (u === null) return;
-            const b = prompt('Edit budget quantity:', curBudget || 0);
-            if (b === null) return;
-            await apiPost({ action: 'updateMaterial', id, material_name: n.trim(), unit: u.trim(), budget_qty: Number(b) || 0 });
+            await apiPost({ action: 'updateMaterial', id, material_name: n.trim(), unit: u.trim() });
             const d = await apiFetch('getMaterials').catch(() => _materials);
             if (Array.isArray(d)) _materials = d;
             renderAdminMaterials();
@@ -2646,11 +2641,11 @@ footer {
                 <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">
                     <div>
                         <span style="font-size:13px;font-weight:600;${!act ? 'color:var(--muted);text-decoration:line-through;' : ''}">${escHtml(m.material_name)}</span>
-                        <div style="font-size:11px;color:var(--muted);">${m.unit ? escHtml(m.unit) + ' · ' : ''}Budget: ${m.budget_qty || 0}</div>
+                        <div style="font-size:11px;color:var(--muted);">${m.unit ? 'Default unit: ' + escHtml(m.unit) : 'No default unit'}</div>
                     </div>
                     <div style="display:flex;gap:5px;">
                         <button class="btn-blue btn-sm" style="width:auto;padding:2px 7px;font-size:11px;"
-                                onclick="editMaterial('${m.id}','${esc(m.material_name)}','${esc(m.unit || '')}',${Number(m.budget_qty) || 0})">✏️</button>
+                                onclick="editMaterial('${m.id}','${esc(m.material_name)}','${esc(m.unit || '')}')">✏️</button>
                         <button class="btn-red btn-sm" style="width:auto;padding:2px 7px;font-size:11px;background:#e53e3e;border-color:#e53e3e;"
                                 onclick="deleteMaterial('${m.id}','${esc(m.material_name)}')">🗑️</button>
                         <button class="${act ? 'btn-red' : 'btn-green'} btn-sm" style="width:auto;padding:2px 8px;font-size:11px;"

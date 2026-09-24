@@ -215,7 +215,6 @@ async function migrateMaterials() {
     id:            Number(m.id),
     material_name: m.material_name,
     unit:          m.unit || null,
-    budget_qty:    Number(m.budget_qty) || 0,
     status:        m.status || 'active'
   })), 'materials');
   await upsertInBatches('materials', rows, 'id');
