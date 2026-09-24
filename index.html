@@ -1183,59 +1183,8 @@ footer {
      MATERIAL CONSUMPTION TAB
 ═══════════════════════════════════════════════════════════════ -->
 <div class="tab-page" id="tabMaterials" style="display:none;">
-    <div class="card">
-        <div class="section-title">&#128230; Log Material Consumption</div>
-        <label>Date</label>
-        <input type="date" id="matDate">
-        <label>Site / Project</label>
-        <select id="matSite"><option value="">&#8987; Loading projects...</option></select>
-        <div id="materialsUsedContainer" style="margin-top:10px;"></div>
-        <button class="btn-add" onclick="addMaterialRow()" style="margin-top:6px;">&#43; Add Material</button>
-        <button class="btn-green" onclick="saveMaterialsUsed()" style="margin-top:14px;">&#9989; Save Material Consumption</button>
-    </div>
-
-    <div class="card">
-        <div class="section-title">&#128269; Filter Consumption Log</div>
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
-            <div>
-                <label>Start Date</label>
-                <input type="date" id="matLogStartDate" onchange="renderMaterialConsumptionTab()" style="margin-bottom:0;">
-            </div>
-            <div>
-                <label>End Date</label>
-                <input type="date" id="matLogEndDate" onchange="renderMaterialConsumptionTab()" style="margin-bottom:0;">
-            </div>
-        </div>
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-            <div>
-                <label>Site / Project</label>
-                <select id="matLogSiteFilter" onchange="renderMaterialConsumptionTab()" style="margin-bottom:0;">
-                    <option value="">&#8212; All Sites &#8212;</option>
-                </select>
-            </div>
-            <div>
-                <label>Material</label>
-                <select id="matLogMaterialFilter" onchange="renderMaterialConsumptionTab()" style="margin-bottom:0;">
-                    <option value="">&#8212; All Materials &#8212;</option>
-                </select>
-            </div>
-        </div>
-        <div style="display:flex;gap:8px;margin-top:12px;">
-            <button class="btn-blue btn-sm" style="flex:1;margin:0;" onclick="loadMaterialLogs()">&#128260; Refresh</button>
-            <button class="btn-gray btn-sm" style="flex:1;margin:0;" onclick="clearMaterialLogFilter()">&#10060; Clear Filter</button>
-        </div>
-    </div>
-
-    <div class="card">
-        <div class="section-title">&#128202; Usage vs Budget</div>
-        <div id="materialBudgetSummary"><p style="color:var(--muted);font-size:13px;text-align:center;padding:12px;">Loading...</p></div>
-    </div>
-
-    <div class="card">
-        <div class="section-title">&#129534; Consumption Log</div>
-        <div id="materialLogCount" style="font-size:12px;color:var(--muted);text-align:center;margin-bottom:8px;"></div>
-        <div id="materialConsumptionLog"><p style="color:var(--muted);font-size:13px;text-align:center;padding:12px;">Loading...</p></div>
-    </div>
+    <!-- React: components/materials/MaterialsScreen.jsx, portal-mounted here -->
+    <div id="__materials_mount__"></div>
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════════
@@ -1423,6 +1372,7 @@ footer {
         let _materials  = [];   // { id, material_name, unit, budget_qty, status }
         let _history    = [];   // see handleGetDPRs schema below
         let _materialLogs = []; // { date, site, material_name, qty, unit, loggedBy, createdAt } — see Material_Logs sheet
+        let _materialLogsStatus = 'idle'; // 'idle' | 'loading' | 'ok' | 'error' — read by MaterialsScreen
         let _currentUser    = null;
 
         function conditionEmoji(val) {
@@ -1503,18 +1453,6 @@ footer {
                      .replace(/\bAc\b/g, 'AC')
                      .replace(/\bDpr\b/g, 'DPR');
             return val;
-        }
-
-        function getSiteDisplayName(siteName) {
-            if (!siteName) return '—';
-            const currentProj = _projects.find(p => String(p.project_name).trim().toLowerCase() === String(siteName).trim().toLowerCase());
-            if (currentProj && currentProj.parent_id && String(currentProj.parent_id).trim() !== '') {
-                const parentProj = _projects.find(p => String(p.id).trim() === String(currentProj.parent_id).trim());
-                if (parentProj) {
-                    return `${escHtml(parentProj.project_name)} ➔ ${escHtml(currentProj.project_name)}`;
-                }
-            }
-            return escHtml(siteName);
         }
 
         /* ═══════════════════════════════════════════════════════════
@@ -1708,8 +1646,7 @@ footer {
 
         DataStore.subscribe('materialLogs', (value) => {
             _materialLogs = Array.isArray(value) ? value : [];
-            populateMaterialLogFilters();
-            renderMaterialConsumptionTab();
+            window.dispatchEvent(new CustomEvent('dpr:materialLogsUpdated'));
         });
 
         DataStore.subscribe('bootstrap', (data) => {
@@ -1936,234 +1873,38 @@ footer {
             return `${y}-${m}-${day}`;
         }
 
+        // Every site/project <select> is rendered by a React component now
+        // (Entry, History, Materials). Kept under its old name because the
+        // admin project handlers call it after changing _projects.
         function populateSiteDropdown() {
-            const tops = _projects.filter(p => (!p.parent_id || String(p.parent_id).trim() === '') && p.status === 'active');
-            const html = tops.length
-                ? tops.map(proj => {
-                    const subs = _projects.filter(p => String(p.parent_id).trim() === String(proj.id).trim() && p.status === 'active');
-                    return `<option value="${esc(proj.project_name)}">${escHtml(proj.project_name)}</option>` +
-                        subs.map(s => `<option value="${esc(s.project_name)}">  ↳ ${escHtml(s.project_name)}</option>`).join('');
-                  }).join('')
-                : '<option value="">No active projects</option>';
-
-            ['matSite'].forEach(id => {
-                const sel = document.getElementById(id);
-                if (!sel) return;
-                const prev = sel.value;
-                sel.innerHTML = html;
-                if (prev && Array.from(sel.options).find(o => o.value === prev)) sel.value = prev;
-            });
-
-        }
-
-        let _matRowCounter = 0;
-
-        function addMaterialRow(data) {
-            _matRowCounter++;
-            const rowId = 'matrow_' + _matRowCounter;
-            const div = document.createElement('div');
-            div.className = 'activitybox';
-            div.id = rowId;
-            const options = _materials
-                .filter(m => m.status !== 'inactive')
-                .map(m => `<option value="${esc(m.material_name)}" data-unit="${esc(m.unit || '')}">${escHtml(m.material_name)}${m.unit ? ` (${escHtml(m.unit)})` : ''}</option>`)
-                .join('');
-            div.innerHTML = `
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                    <span style="font-weight:700;font-size:11px;color:var(--primary);text-transform:uppercase;letter-spacing:.7px;">Material</span>
-                    <button class="delete-btn" style="width:auto;padding:4px 8px;margin:0;" onclick="removeMaterialRow('${rowId}')">&#10005;</button>
-                </div>
-                <select class="material-sel">
-                    <option value="">— Select Material —</option>
-                    ${options}
-                </select>
-                <label>Quantity Used</label>
-                <input type="number" class="material-qty-inp" min="0" placeholder="e.g. 25">`;
-            document.getElementById('materialsUsedContainer').appendChild(div);
-            if (data) {
-                const sel = div.querySelector('.material-sel');
-                if (data.material_name) sel.value = data.material_name;
-                div.querySelector('.material-qty-inp').value = data.qty != null ? data.qty : '';
-            }
-        }
-        window.addMaterialRow = addMaterialRow;
-
-        function removeMaterialRow(id) {
-            const el = document.getElementById(id);
-            if (el) el.remove();
-        }
-        window.removeMaterialRow = removeMaterialRow;
-
-        function collectMaterialsUsed() {
-            const rows = [];
-            document.querySelectorAll('#materialsUsedContainer .activitybox').forEach(el => {
-                const sel = el.querySelector('.material-sel');
-                const name = sel ? sel.value.trim() : '';
-                const qty = Math.max(0, Number((el.querySelector('.material-qty-inp') || {}).value) || 0);
-                if (name && qty > 0) rows.push({ material_name: name, qty });
-            });
-            return rows;
+            window.dispatchEvent(new CustomEvent('dpr:masterDataUpdated'));
         }
 
         /* ═══════════════════════════════════════════════════════════
-           MATERIAL CONSUMPTION TAB — backed by the Material_Logs sheet
-           (one row per material per log, independent of DPR_Records)
+           MATERIALS — now a real React component, see
+           /components/materials/MaterialsScreen.jsx, portal-mounted into
+           #__materials_mount__. It owns the log form (with inline remaining
+           budget), Usage vs Budget progress, filters and the log list, and
+           posts saveMaterialLog itself. Interop bridge:
+             React → legacy: window.__getMaterialLogs/__getMaterialLogsStatus/
+                             __getMaterials/__getProjects/__getCurrentUser,
+                             and loadMaterialLogs() below.
+             legacy → React: 'dpr:materialLogsUpdated' (data or load status
+                             changed) and 'dpr:masterDataUpdated'.
         ═══════════════════════════════════════════════════════════ */
-        async function saveMaterialsUsed() {
-            if (!_currentUser) { showToast('⚠️ Please sign in first'); return; }
-            const dateVal = document.getElementById('matDate').value;
-            const siteVal = document.getElementById('matSite').value;
-            if (!dateVal) { showToast('⚠️ Select a date'); return; }
-            if (!siteVal) { showToast('⚠️ Select a site'); return; }
-
-            const materialsUsed = collectMaterialsUsed();
-            if (!materialsUsed.length) { showToast('⚠️ Add at least one material with a quantity'); return; }
-
-            const payload = {
-                action: 'saveMaterialLog',
-                date:   dateVal,
-                site:   siteVal,
-                by:     _currentUser.username,
-                materialsUsed
-            };
-
-            if (!navigator.onLine) {
-                const q = JSON.parse(localStorage.getItem('dprOfflineQ') || '[]');
-                q.push(payload);
-                localStorage.setItem('dprOfflineQ', JSON.stringify(q));
-                showToast('💾 Offline — will sync on reconnect');
-                return;
-            }
-
-            showToast('☁️ Saving material consumption...');
-            try {
-                const res = await apiPost(payload);
-                if (res && res.error) { showToast('⚠️ Save failed: ' + res.error); return; }
-                showToast('✅ Material consumption saved!');
-                document.getElementById('materialsUsedContainer').innerHTML = '';
-                _matRowCounter = 0;
-                loadMaterialLogs();
-            } catch (e) {
-                showToast('⚠️ Save failed — check connection');
-            }
-        }
-        window.saveMaterialsUsed = saveMaterialsUsed;
-
         function loadMaterialLogs() {
-            const el = document.getElementById('materialConsumptionLog');
-            // Instant paint: the 'materialLogs' subscriber (registered
-            // above, next to DataStore's definition) already ran if
-            // IndexedDB or the bootstrap response had anything cached, so
-            // _materialLogs may already be populated by the time we get
-            // here — only show a skeleton if there's truly nothing yet.
-            if (!_materialLogs.length && el) el.innerHTML = getSkeletonLoader();
+            // Instant paint: the 'materialLogs' subscriber already ran if
+            // IndexedDB or the bootstrap response had anything cached — the
+            // status only decides whether MaterialsScreen shows a loading/
+            // error state when there's nothing cached to show.
+            _materialLogsStatus = 'loading';
+            window.dispatchEvent(new CustomEvent('dpr:materialLogsUpdated'));
             DataStore.revalidate('materialLogs', () => apiFetch('getMaterialLogs'))
-                .catch(() => {
-                    if (!_materialLogs.length && el) el.innerHTML = '<p style="color:#e57373;text-align:center;padding:10px;">⚠️ Failed to load material logs.</p>';
-                });
+                .then(() => { _materialLogsStatus = 'ok'; })
+                .catch(() => { _materialLogsStatus = 'error'; })
+                .finally(() => window.dispatchEvent(new CustomEvent('dpr:materialLogsUpdated')));
         }
         window.loadMaterialLogs = loadMaterialLogs;
-
-        function populateMaterialLogFilters() {
-            const siteSel = document.getElementById('matLogSiteFilter');
-            if (siteSel) {
-                const prev = siteSel.value;
-                const sites = Array.from(new Set(_materialLogs.map(l => l.site).filter(Boolean))).sort();
-                siteSel.innerHTML = '<option value="">— All Sites —</option>' +
-                    sites.map(s => `<option value="${esc(s)}">${escHtml(getSiteDisplayName(s))}</option>`).join('');
-                if (prev && Array.from(siteSel.options).some(o => o.value === prev)) siteSel.value = prev;
-            }
-            const matSel = document.getElementById('matLogMaterialFilter');
-            if (matSel) {
-                const prev = matSel.value;
-                const names = Array.from(new Set(_materialLogs.map(l => l.material_name).filter(Boolean))).sort();
-                matSel.innerHTML = '<option value="">— All Materials —</option>' +
-                    names.map(n => `<option value="${esc(n)}">${escHtml(n)}</option>`).join('');
-                if (prev && Array.from(matSel.options).some(o => o.value === prev)) matSel.value = prev;
-            }
-        }
-
-        function getFilteredMaterialLogs() {
-            const start = (document.getElementById('matLogStartDate')?.value || '').trim();
-            const end   = (document.getElementById('matLogEndDate')?.value   || '').trim();
-            const site  = (document.getElementById('matLogSiteFilter')?.value || '').trim();
-            const mat   = (document.getElementById('matLogMaterialFilter')?.value || '').trim();
-            return _materialLogs.filter(l => {
-                if (start && l.date < start) return false;
-                if (end && l.date > end) return false;
-                if (site && String(l.site || '').trim() !== site) return false;
-                if (mat && String(l.material_name || '').trim() !== mat) return false;
-                return true;
-            });
-        }
-
-        function clearMaterialLogFilter() {
-            ['matLogStartDate', 'matLogEndDate', 'matLogSiteFilter', 'matLogMaterialFilter'].forEach(id => {
-                const el = document.getElementById(id);
-                if (el) el.value = '';
-            });
-            renderMaterialConsumptionTab();
-        }
-        window.clearMaterialLogFilter = clearMaterialLogFilter;
-
-        function computeMaterialUsageFromLogs(logs) {
-            const used = {};
-            logs.forEach(l => {
-                const name = l.material_name;
-                if (!name) return;
-                used[name] = (used[name] || 0) + (Number(l.qty) || 0);
-            });
-            return _materials
-                .filter(m => m.status !== 'inactive')
-                .map(m => {
-                    const usedQty = used[m.material_name] || 0;
-                    const budget  = Number(m.budget_qty) || 0;
-                    return { name: m.material_name, unit: m.unit || '', used: usedQty, budget, overBudget: budget > 0 && usedQty > budget };
-                })
-                .filter(m => m.used > 0 || m.budget > 0)
-                .sort((a, b) => (b.overBudget ? 1 : 0) - (a.overBudget ? 1 : 0) || b.used - a.used);
-        }
-
-        function renderMaterialBudgetSummary(logs) {
-            const el = document.getElementById('materialBudgetSummary');
-            if (!el) return;
-            const rows = computeMaterialUsageFromLogs(logs);
-            if (!rows.length) { el.innerHTML = '<p style="color:var(--muted);font-size:13px;text-align:center;padding:12px;">No material usage recorded yet.</p>'; return; }
-            el.innerHTML = rows.map(m => `
-                <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);${m.overBudget ? 'background:#fef2f2;' : ''}">
-                    <div>
-                        <span style="font-size:13px;font-weight:600;">${escHtml(m.name)}</span>
-                        <div style="font-size:11px;color:var(--muted);">Used: ${m.used}${m.unit ? ' ' + escHtml(m.unit) : ''} / Budget: ${m.budget || '—'}</div>
-                    </div>
-                    ${m.overBudget ? '<span style="font-size:11px;font-weight:700;color:#e53e3e;">⚠️ Over budget</span>' : ''}
-                </div>`).join('');
-        }
-
-        function renderMaterialConsumptionLog(logs) {
-            const el      = document.getElementById('materialConsumptionLog');
-            const countEl = document.getElementById('materialLogCount');
-            if (countEl) countEl.textContent = `📊 ${logs.length} log entr${logs.length !== 1 ? 'ies' : 'y'}`;
-            if (!el) return;
-            if (!logs.length) { el.innerHTML = '<p style="color:var(--muted);font-size:13px;text-align:center;padding:12px;">No material consumption logged yet.</p>'; return; }
-            const sorted = logs.slice().sort((a, b) => b.date.localeCompare(a.date) || String(b.createdAt).localeCompare(String(a.createdAt)));
-            el.innerHTML = sorted.map(l => `
-                <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">
-                    <div>
-                        <span style="font-size:13px;font-weight:600;">${escHtml(l.material_name)}</span>
-                        <div style="font-size:11px;color:var(--muted);">${formatDate(l.date)} · ${escHtml(getSiteDisplayName(l.site))}${l.loggedBy ? ' · ' + escHtml(l.loggedBy) : ''}</div>
-                    </div>
-                    <div style="font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;">${l.qty}${l.unit ? ' ' + escHtml(l.unit) : ''}</div>
-                </div>`).join('');
-        }
-
-        function renderMaterialConsumptionTab() {
-            const matDateEl = document.getElementById('matDate');
-            if (matDateEl && !matDateEl.value) matDateEl.value = new Date().toISOString().split('T')[0];
-            const logs = getFilteredMaterialLogs();
-            renderMaterialBudgetSummary(logs);
-            renderMaterialConsumptionLog(logs);
-        }
-        window.renderMaterialConsumptionTab = renderMaterialConsumptionTab;
 
         function syncOfflineQueue() {
             const q = JSON.parse(localStorage.getItem('dprOfflineQ') || '[]');
@@ -3104,7 +2845,7 @@ footer {
         }
 
         // Read-only accessors for the portal-mounted React components
-        // (AnalyticsDashboard, DprEntryForm, HistoryScreen) to read the same in-memory arrays without duplicating fetch logic.
+        // (AnalyticsDashboard, DprEntryForm, HistoryScreen, MaterialsScreen) to read the same in-memory arrays without duplicating fetch logic.
         window.__getHistory  = function() { return _history; };
         window.__getProjects = function() { return _projects; };
         window.__getMaterials = function() { return _materials; };
@@ -3112,6 +2853,8 @@ footer {
         window.__getCurrentUser = function() { return _currentUser; };
         window.__getUsers = function() { return _users; };
         window.__getHistoryStatus = function() { return _historyStatus; };
+        window.__getMaterialLogs = function() { return _materialLogs; };
+        window.__getMaterialLogsStatus = function() { return _materialLogsStatus; };
 
         // ── Data Maintenance ────────────────────────────────────────
         async function runDataCleanup() {

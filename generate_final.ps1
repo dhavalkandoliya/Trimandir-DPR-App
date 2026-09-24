@@ -116,6 +116,7 @@ $part1 = "'use client';" + "`n" +
           "import AnalyticsDashboard from '../components/dashboard/AnalyticsDashboard';" + "`n" +
           "import DprEntryForm from '../components/dpr/DprEntryForm';" + "`n" +
           "import HistoryScreen from '../components/history/HistoryScreen';" + "`n" +
+          "import MaterialsScreen from '../components/materials/MaterialsScreen';" + "`n" +
           "" + "`n" +
           "export default function Page() {" + "`n" +
           "  useEffect(() => {" + "`n" +
@@ -164,7 +165,7 @@ $part3 = '";' + "`n" +
           "" + "`n" +
           "  }, []);" + "`n" +
           "" + "`n" +
-          "  return (<><div id=""__dpr_root__"" /><AnalyticsDashboard /><DprEntryForm /><HistoryScreen /></>);" + "`n" +
+          "  return (<><div id=""__dpr_root__"" /><AnalyticsDashboard /><DprEntryForm /><HistoryScreen /><MaterialsScreen /></>);" + "`n" +
           "}" + "`n"
 
 # Concatenate — all parts remain .NET Unicode strings, no code-page conversion
