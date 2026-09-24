@@ -1186,49 +1186,8 @@ footer {
      HISTORY TAB
 ═══════════════════════════════════════════════════════════════ -->
 <div class="tab-page" id="tabHistory" style="display:none;">
-    <div class="card">
-        <div class="section-title">&#128194; DPR History</div>
-        
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
-            <div>
-                <label>Start Date</label>
-                <input type="date" id="searchStartDate" onchange="resetHistoryPageAndRender()" style="margin-bottom:0;">
-            </div>
-            <div>
-                <label>End Date</label>
-                <input type="date" id="searchEndDate" onchange="resetHistoryPageAndRender()" style="margin-bottom:0;">
-            </div>
-        </div>
-        
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px;">
-            <div>
-                <label>Site / Project</label>
-                <select id="searchSite" onchange="resetHistoryPageAndRender()" style="margin-bottom:0;">
-                    <option value="">— Show All Sites —</option>
-                </select>
-            </div>
-            <div>
-                <label>Supervisor</label>
-                <select id="searchSupervisor" onchange="resetHistoryPageAndRender()" style="margin-bottom:0;">
-                    <option value="">— Show All Supervisors —</option>
-                </select>
-            </div>
-        </div>
-
-        <div style="display:flex;gap:8px;margin-bottom:12px;">
-            <button class="btn-blue btn-sm" onclick="loadHistory()" style="flex:1;">🔄 Refresh</button>
-            <button class="btn-gray btn-sm" onclick="clearHistoryFilter()" style="flex:1;">❌ Clear Filter</button>
-        </div>
-        
-        <div id="historyCount" style="font-size:12px;color:var(--muted);text-align:center;margin-bottom:8px;"></div>
-        <div id="historyList"><p style="color:#aaa;text-align:center;padding:16px;">⏳ Loading...</p></div>
-        
-        <div id="historyPagination" style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;border-top:1px solid var(--border);padding-top:12px;">
-            <button id="btnPrevPage" class="btn-blue btn-sm" style="width:auto;margin:0;" onclick="changeHistoryPage(-1)">◀ Previous</button>
-            <span id="historyPageIndicator" style="font-size:12.5px;font-weight:600;color:var(--text);">Page 1 of 1</span>
-            <button id="btnNextPage" class="btn-blue btn-sm" style="width:auto;margin:0;" onclick="changeHistoryPage(1)">Next ▶</button>
-        </div>
-    </div>
+    <!-- React: components/history/HistoryScreen.jsx, portal-mounted here -->
+    <div id="__history_mount__"></div>
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════════
@@ -1464,19 +1423,6 @@ footer {
     </div>
 </div>
 
-<!-- ═══════════════════════════════════════════════════════════════
-     DPR VIEW MODAL
-═══════════════════════════════════════════════════════════════ -->
-<div id="dprModal" role="presentation" onclick="if(event.target===this)closeDPRModal()">
-    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="dprModalTitle">
-        <div class="modal-header">
-            <h3 id="dprModalTitle">&#128202; DPR &#8212; Man Power Report</h3>
-            <button class="modal-close" aria-label="Close" onclick="closeDPRModal()">&#10005;</button>
-        </div>
-        <div class="modal-body" id="dprModalBody"></div>
-    </div>
-</div>
-
 <div id="toast"></div>
 <footer>&#169; 2026 Trimandir Construction Project &nbsp;|&nbsp; Trimandir Site DPR</footer>
 
@@ -1503,12 +1449,7 @@ footer {
             return map[val] || '';
         }
 
-        // Pagination state � attached to window so dynamic script injection keeps global access
-        window._historyPage    = window._historyPage    || 1;
-        window._itemsPerPage   = window._itemsPerPage   || 10;
-        // convenience aliases for rest of script
-        let _historyPage    = window._historyPage;
-        const _itemsPerPage = window._itemsPerPage;
+        let _historyStatus = 'idle'; // 'idle' | 'loading' | 'ok' | 'error' — read by HistoryScreen
 
         /* ═══════════════════════════════════════════════════════════
            UTILITY: Robust date normaliser — always returns YYYY-MM-DD
@@ -1626,7 +1567,8 @@ footer {
         /* ═══════════════════════════════════════════════════════════
            SHARED ACTIVITY REPORT BUILDER
            Used by renderDprReport() (live submission preview), getReportHtmlForRecord()
-           (History download image/PDF) and openDPR() (View modal). Each caller
+           (History download image/PDF). The History View modal is a React port
+           (HistoryScreen's ActivityReport). Each caller
            passes its own childNameOrder to preserve its verified current
            child/sub-activity name resolution behavior exactly.
         ═══════════════════════════════════════════════════════════ */
@@ -1886,10 +1828,7 @@ footer {
         // different ways.
         DataStore.subscribe('dprHistory', (value) => {
             _history = Array.isArray(value) ? value : [];
-            updateHistoryCount();
-            populateSupervisorDropdown();
             renderAdminAnalytics();
-            resetHistoryPageAndRender();
             window.dispatchEvent(new CustomEvent('dpr:historyUpdated'));
         });
 
@@ -2072,7 +2011,7 @@ footer {
            TABS
         ═══════════════════════════════════════════════════════════ */
         function switchTab(tab, btn) {
-            document.getElementById('dprModal').classList.remove('open');
+            closeDPRModal();
             document.getElementById('report').style.display = 'none';
             document.querySelectorAll('.tab-page').forEach(p => { p.classList.remove('active'); p.style.display = 'none'; });
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -2081,13 +2020,12 @@ footer {
             const ab = btn || document.getElementById('tabBtn' + tab);
             if (ab) ab.classList.add('active');
             if (tab === 'Dashboard') window.dispatchEvent(new CustomEvent('dpr:historyUpdated'));
-            if (tab === 'History')   renderHistory();
             if (tab === 'Admin')     renderAdminPanel();
             if (tab === 'Materials') loadMaterialLogs();
         }
 
         function resetAndSwitchToForm(btn, forceNew) {
-            document.getElementById('dprModal').classList.remove('open');
+            closeDPRModal();
             document.getElementById('report').style.display = 'none';
             document.querySelectorAll('.tab-page').forEach(p => { p.classList.remove('active'); p.style.display = 'none'; });
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -2127,30 +2065,6 @@ footer {
             return `${y}-${m}-${day}`;
         }
 
-        function populateSearchSiteDropdown() {
-            const sel = document.getElementById('searchSite');
-            if (!sel) return;
-            const prev = sel.value;
-            const tops = _projects.filter(p => (!p.parent_id || String(p.parent_id).trim() === ''));
-            let html = '<option value="">— Show All Sites —</option>';
-            if (tops.length) {
-                html += tops.map(proj => {
-                    const subs = _projects.filter(p => String(p.parent_id) === String(proj.id));
-                    const suffix = proj.status === 'inactive' ? ' (Inactive)' : '';
-                    let inner = `<option value="${esc(proj.project_name)}">${escHtml(proj.project_name)}${suffix}</option>`;
-                    if (subs.length) {
-                        inner += subs.map(s => {
-                            const sSuffix = s.status === 'inactive' ? ' (Inactive)' : '';
-                            return `<option value="${esc(s.project_name)}">\u00a0\u00a0↳ ${escHtml(s.project_name)}${sSuffix}</option>`;
-                        }).join('');
-                    }
-                    return inner;
-                }).join('');
-            }
-            sel.innerHTML = html;
-            if (prev && Array.from(sel.options).find(o => o.value === prev)) sel.value = prev;
-        }
-
         function populateSiteDropdown() {
             const tops = _projects.filter(p => (!p.parent_id || String(p.parent_id).trim() === '') && p.status === 'active');
             const html = tops.length
@@ -2169,7 +2083,6 @@ footer {
                 if (prev && Array.from(sel.options).find(o => o.value === prev)) sel.value = prev;
             });
 
-            populateSearchSiteDropdown();
         }
 
         let _matRowCounter = 0;
@@ -2412,40 +2325,16 @@ footer {
            HISTORY  (no default date filter — shows ALL records)
         ═══════════════════════════════════════════════════════════ */
         function loadHistory() {
-            const el = document.getElementById('historyList');
-            // Instant paint: the 'dprHistory' subscriber (registered above,
-            // next to DataStore's definition) already ran if IndexedDB had
-            // a prior session's full history cached, so _history may
-            // already be populated by the time we get here — only show a
-            // skeleton if there's truly nothing yet.
-            if (!_history.length && el) el.innerHTML = getSkeletonLoader();
+            // Instant paint: the 'dprHistory' subscriber already ran if
+            // IndexedDB had a prior session's history cached — the status
+            // only decides whether HistoryScreen shows a skeleton/error
+            // when there's nothing cached to show.
+            _historyStatus = 'loading';
+            window.dispatchEvent(new CustomEvent('dpr:historyUpdated'));
             DataStore.revalidate('dprHistory', () => apiFetch(''))
-                .catch(() => {
-                    if (!_history.length && el) el.innerHTML = '<p style="color:#e57373;text-align:center;padding:10px;">⚠️ Failed to load records.</p>';
-                });
-        }
-
-        function updateHistoryCount() {
-            const el = document.getElementById('historyCount');
-            if (el) el.textContent = `📊 ${_history.length} total record${_history.length !== 1 ? 's' : ''} loaded`;
-        }
-
-        function toggleHistoryDropdown(event, idx) {
-            event.stopPropagation();
-            const dropdown = document.getElementById(`dropdown_${idx}`);
-            const wasShowing = dropdown ? dropdown.classList.contains('show') : false;
-            
-            closeAllHistoryDropdowns();
-            
-            if (dropdown && !wasShowing) {
-                dropdown.classList.add('show');
-            }
-        }
-        
-        function closeAllHistoryDropdowns() {
-            document.querySelectorAll('.history-dropdown').forEach(d => {
-                d.classList.remove('show');
-            });
+                .then(() => { _historyStatus = 'ok'; })
+                .catch(() => { _historyStatus = 'error'; })
+                .finally(() => window.dispatchEvent(new CustomEvent('dpr:historyUpdated')));
         }
 
         function getReportHtmlForRecord(item) {
@@ -2706,31 +2595,6 @@ footer {
         }
         window.exportMasterLogPDF = exportMasterLogPDF;
 
-        function populateSupervisorDropdown() {
-            const sel = document.getElementById('searchSupervisor');
-            if (!sel) return;
-            const prev = sel.value;
-            const supervisors = new Set();
-            _users.forEach(u => supervisors.add(u.username));
-            _history.forEach(h => { if (h.by) supervisors.add(h.by); });
-            let html = '<option value="">— Show All —</option>';
-            Array.from(supervisors).sort().forEach(sup => {
-                html += `<option value="${esc(sup)}">${escHtml(sup)}</option>`;
-            });
-            sel.innerHTML = html;
-            if (prev && Array.from(sel.options).find(o => o.value === prev)) sel.value = prev;
-        }
-
-        function resetHistoryPageAndRender() {
-            _historyPage = 1;
-            renderHistory();
-        }
-
-        function changeHistoryPage(dir) {
-            _historyPage += dir;
-            renderHistory();
-        }
-
         function renderAdminAnalytics() {
             const todayYMD = getLocalTodayYMD();
             const todayDPRs = _history.filter(h => toYMD(h.date) === todayYMD);
@@ -2759,188 +2623,21 @@ footer {
             if (prEl) prEl.textContent = `${activeCount}/${totalCount}`;
         }
 
-        function renderHistory() {
-            const sStart = (document.getElementById('searchStartDate')?.value || '').trim();
-            const sEnd   = (document.getElementById('searchEndDate')?.value || '').trim();
-            const sSite  = ((document.getElementById('searchSite') || {}).value || '').toLowerCase().trim();
-            const sSup   = ((document.getElementById('searchSupervisor') || {}).value || '').toLowerCase().trim();
-
-            const filtered = _history.filter(item => {
-                if (sStart) {
-                    const itemDate = toYMD(item.date);
-                    if (itemDate < sStart) return false;
-                }
-                if (sEnd) {
-                    const itemDate = toYMD(item.date);
-                    if (itemDate > sEnd) return false;
-                }
-                if (sSite && !String(item.site || '').toLowerCase().includes(sSite)) return false;
-                if (sSup && String(item.by || '').toLowerCase() !== sSup) return false;
-                return true;
-            });
-
-            updateHistoryCount();
-            
-            // Sort filtered: latest date first, then latest submittedAt
-            filtered.sort((a, b) => {
-                const dateA = toYMD(a.date);
-                const dateB = toYMD(b.date);
-                if (dateA !== dateB) {
-                    return dateB.localeCompare(dateA);
-                }
-                const timeA = a.submittedAt ? new Date(a.submittedAt).getTime() : 0;
-                const timeB = b.submittedAt ? new Date(b.submittedAt).getTime() : 0;
-                return timeB - timeA;
-            });
-
-            const totalItems = filtered.length;
-            const totalPages = Math.max(1, Math.ceil(totalItems / _itemsPerPage));
-            
-            if (_historyPage > totalPages) _historyPage = totalPages;
-            if (_historyPage < 1) _historyPage = 1;
-            
-            const startIdx = (_historyPage - 1) * _itemsPerPage;
-            const endIdx   = startIdx + _itemsPerPage;
-            const pagedItems = filtered.slice(startIdx, endIdx);
-
-            const el = document.getElementById('historyList');
-            if (!el) return;
-
-            // Update pagination UI
-            const btnPrev = document.getElementById('btnPrevPage');
-            const btnNext = document.getElementById('btnNextPage');
-            const indicator = document.getElementById('historyPageIndicator');
-            const paginationWrap = document.getElementById('historyPagination');
-            
-            if (paginationWrap) {
-                if (totalItems === 0) {
-                    paginationWrap.style.display = 'none';
-                } else {
-                    paginationWrap.style.display = 'flex';
-                    if (indicator) indicator.textContent = `Page ${_historyPage} of ${totalPages}`;
-                    if (btnPrev) btnPrev.disabled = (_historyPage === 1);
-                    if (btnNext) btnNext.disabled = (_historyPage === totalPages);
-                    
-                    if (btnPrev) {
-                        btnPrev.style.opacity = (_historyPage === 1) ? '0.5' : '1';
-                        btnPrev.style.pointerEvents = (_historyPage === 1) ? 'none' : 'auto';
-                    }
-                    if (btnNext) {
-                        btnNext.style.opacity = (_historyPage === totalPages) ? '0.5' : '1';
-                        btnNext.style.pointerEvents = (_historyPage === totalPages) ? 'none' : 'auto';
-                    }
-                }
-            }
-
-            if (!_history.length) {
-                el.innerHTML = '<p style="color:#aaa;text-align:center;padding:16px;">No records loaded. Click Refresh.</p>';
-                return;
-            }
-            if (!filtered.length) {
-                el.innerHTML = '<p style="color:#aaa;text-align:center;padding:16px;">No records match the current filter.</p>';
-                return;
-            }
-
-            const isAdmin = _currentUser && _currentUser.role === 'admin';
-            el.innerHTML  = pagedItems.map(item => {
-                const realIdx  = _history.indexOf(item);
-                const d        = toYMD(item.date);
-                const byLine   = item.by
-                    ? (item.editedBy && item.editedBy !== item.by
-                        ? `By: <b>${item.by}</b> (Edited)`
-                        : `By: <b>${item.by}</b>`)
-                    : '';
-                const isOwn    = _currentUser && item.by === _currentUser.username;
-                const sub      = Number(item.submittedAt) || (item.submittedAt ? new Date(item.submittedAt).getTime() : 0);
-                const within15 = sub && (Date.now() - sub) < 15 * 60 * 1000;
-                const granted  = item.editPermission === 'granted';
-                const pending  = item.editPermission === 'pending';
-
-                let editActionLabel = '✏️ Edit';
-                let editActionOnClick = `editDPR(${realIdx})`;
-                if (!isAdmin && isOwn && !within15 && !granted && !pending) {
-                    editActionLabel = '🔑 Request Edit';
-                    editActionOnClick = `requestEditDPR(${realIdx})`;
-                } else if (!isAdmin && isOwn && pending) {
-                    editActionLabel = '⏳ Edit Pending';
-                    editActionOnClick = `showToast("⏳ Edit request is pending Admin approval")`;
-                } else if (!isAdmin && !isOwn) {
-                    editActionLabel = '✏️ Edit (Disabled)';
-                    editActionOnClick = `showToast("❌ You can only edit your own DPRs")`;
-                }
-
-                const dropdownHtml = `
-                <button class="history-options-btn" onclick="toggleHistoryDropdown(event, ${realIdx})">&#8942;</button>
-                <div class="history-dropdown" id="dropdown_${realIdx}">
-                    <button class="history-dropdown-item" onclick="closeAllHistoryDropdowns(); ${editActionOnClick}">${editActionLabel}</button>
-                    <button class="history-dropdown-item delete-item" onclick="closeAllHistoryDropdowns(); deleteDPR(${realIdx})">❌ Delete</button>
-                    <button class="history-dropdown-item" onclick="closeAllHistoryDropdowns(); downloadHistoryDPR(${realIdx}, 'image')">📸 Download Image</button>
-                    <button class="history-dropdown-item" onclick="closeAllHistoryDropdowns(); downloadHistoryDPR(${realIdx}, 'pdf')">📄 Download PDF</button>
-                    <button class="history-dropdown-item" onclick="closeAllHistoryDropdowns(); downloadHistoryDPR(${realIdx}, 'share')">📤 Share (WhatsApp / Email)</button>
-                </div>
-                `;
-
-                return `
-                <div class="history-item">
-                    ${dropdownHtml}
-                    <div style="font-size:14px;font-weight:700;padding-right:30px;">
-                        📅 ${formatDate(d) || '—'}
-                        <span style="font-size:12px;font-weight:400;color:var(--muted);margin-left:6px;">${byLine}</span>
-                    </div>
-                    <div style="font-size:12px;color:var(--muted);margin-top:3px;padding-right:30px;">
-                        📍 ${getSiteDisplayName(item.site) || '—'} &nbsp;·&nbsp; 👷 <b>${item.total || 0}</b> workers${item.siteCondition ? ` &nbsp;·&nbsp; ${escHtml(conditionEmoji(item.siteCondition))} ${escHtml(item.siteCondition)}` : ''}
-                    </div>
-                    <div class="hbtn-group">
-                        <button class="btn-blue btn-sm" onclick="openDPR(${realIdx})" style="width:auto;padding:6px 10px;">📂 View</button>
-                    </div>
-                </div>`;
-            }).join('');
-        }
-
-        function clearHistoryFilter() {
-            const ssd = document.getElementById('searchStartDate'); if (ssd) ssd.value = '';
-            const sed = document.getElementById('searchEndDate'); if (sed) sed.value = '';
-            const ss = document.getElementById('searchSite'); if (ss) ss.value = '';
-            const sSup = document.getElementById('searchSupervisor'); if (sSup) sSup.value = '';
-            resetHistoryPageAndRender();
-        }
-
         /* ═══════════════════════════════════════════════════════════
-           VIEW DPR MODAL — uses civilActivities + interiorActivities
-           from DPR_Records (JSON), falling back to DPR_Detail rows
+           HISTORY — now a real React component, see
+           /components/history/HistoryScreen.jsx, portal-mounted into
+           #__history_mount__. It owns filters, sorting, pagination, the
+           per-record ⋮ menu and the View modal. Interop bridge:
+             React → legacy: window.__getHistory/__getHistoryStatus/
+                             __getProjects/__getUsers/__getCurrentUser, and
+                             the index-based editDPR/requestEditDPR/deleteDPR/
+                             downloadHistoryDPR globals below.
+             legacy → React: 'dpr:historyUpdated' (data or load status
+                             changed), 'dpr:masterDataUpdated', and
+                             'dpr:closeDprModal' (via closeDPRModal()).
         ═══════════════════════════════════════════════════════════ */
-        function openDPR(i) {
-            const item = _history[i];
-            if (!item) return;
-
-            const activeActs = poolRecordActivities(item);
-            const bodyHtml = activeActs.length
-                ? buildActivityReportHtml(activeActs, { childNameOrder: ['activity'] })
-                : '<p style="color:var(--muted);text-align:center;padding:20px;">No activity detail available for this record.</p>';
-
-            const d      = toYMD(item.date);
-            const byLine = item.editedBy && item.editedBy !== item.by
-                ? `${item.by} (Edited by: ${item.editedBy})`
-                : (item.by || '—');
-
-            document.getElementById('dprModalBody').innerHTML = `
-                <div class="report-meta">
-                    <b>📅 Date :</b> ${formatDate(d) || '—'}<br>
-                    <b>📍 Site :</b> ${getSiteDisplayName(item.site)}<br>
-                    <b>👤 Filled by :</b> ${byLine}<br>
-                    <b>👷 Total :</b> ${item.total || 0} workers
-                </div>
-                ${bodyHtml}
-                <div class="report-total" style="margin-top:14px;">👷 Total Manpower : ${item.total || 0}</div>`;
-            window._dprModalTriggerEl = document.activeElement;
-            document.getElementById('dprModal').classList.add('open');
-            document.querySelector('#dprModal .modal-close')?.focus();
-        }
-
         function closeDPRModal() {
-            document.getElementById('dprModal').classList.remove('open');
-            if (window._dprModalTriggerEl && document.body.contains(window._dprModalTriggerEl)) window._dprModalTriggerEl.focus();
-            window._dprModalTriggerEl = null;
+            window.dispatchEvent(new CustomEvent('dpr:closeDprModal'));
         }
 
         function deleteDPR(i) {
@@ -2949,7 +2646,10 @@ footer {
             const item = _history[i];
             const key  = toYMD(item.date) + '||' + String(item.site).trim();
             apiPost({ action: 'delete', id: key })
-                .then(() => { showToast('🗑️ Deleted!'); loadHistory(); })
+                .then(res => {
+                    if (res && res.error) { showToast('⚠️ Delete failed: ' + res.error); return; }
+                    showToast('🗑️ Deleted!'); loadHistory();
+                })
                 .catch(() => showToast('⚠️ Delete failed'));
         }
 
@@ -2980,7 +2680,8 @@ footer {
             if (!confirm('Request edit permission from Admin for this DPR?')) return;
             showToast('📤 Sending request...');
             try {
-                await apiPost({ action: 'requestEditDPR', key: toYMD(item.date) + '||' + String(item.site).trim(), requestedBy: _currentUser.username });
+                const res = await apiPost({ action: 'requestEditDPR', key: toYMD(item.date) + '||' + String(item.site).trim(), requestedBy: _currentUser.username });
+                if (res && res.error) { showToast('⚠️ Request failed: ' + res.error); return; }
                 showToast('✅ Request sent!');
                 loadHistory();
             } catch (e) { showToast('⚠️ Request failed'); }
@@ -2990,7 +2691,8 @@ footer {
             if (!confirm('Approve edit access for this DPR?')) return;
             showToast('⏳ Approving...');
             try {
-                await apiPost({ action: 'approveEditDPR', key });
+                const res = await apiPost({ action: 'approveEditDPR', key });
+                if (res && res.error) { showToast('⚠️ Approval failed: ' + res.error); return; }
                 showToast('✅ Edit access granted!');
                 loadHistory();
             } catch (e) { showToast('⚠️ Approval failed'); }
@@ -3661,12 +3363,14 @@ footer {
         }
 
         // Read-only accessors for the portal-mounted React components
-        // (AnalyticsDashboard, DprEntryForm) to read the same in-memory arrays without duplicating fetch logic.
+        // (AnalyticsDashboard, DprEntryForm, HistoryScreen) to read the same in-memory arrays without duplicating fetch logic.
         window.__getHistory  = function() { return _history; };
         window.__getProjects = function() { return _projects; };
         window.__getMaterials = function() { return _materials; };
         window.__getActivities = function() { return _activities; };
         window.__getCurrentUser = function() { return _currentUser; };
+        window.__getUsers = function() { return _users; };
+        window.__getHistoryStatus = function() { return _historyStatus; };
 
         // ── Data Maintenance ────────────────────────────────────────
         async function runDataCleanup() {
@@ -3851,27 +3555,6 @@ footer {
             } else {
                 window.addEventListener('load', runInit);
             }
-
-            // Delegate listeners
-            document.addEventListener('click', () => {
-                if (window.closeAllHistoryDropdowns) {
-                    window.closeAllHistoryDropdowns();
-                }
-            });
-            
-            document.addEventListener('keydown', (e) => {
-                const modal = document.getElementById('dprModal');
-                if (!modal || !modal.classList.contains('open')) return;
-                if (e.key === 'Escape') { closeDPRModal(); return; }
-                if (e.key === 'Tab') {
-                    const focusables = modal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
-                    if (!focusables.length) return;
-                    const first = focusables[0], last = focusables[focusables.length - 1];
-                    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
-                    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
-                }
-            });
-
 
         }
     </script>
