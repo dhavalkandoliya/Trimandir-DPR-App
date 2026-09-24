@@ -26,7 +26,14 @@
  *                                everything else still migrates.
  *
  * Usage:
- *   node scripts/migrate-sheets-to-supabase.js
+ *   node scripts/migrate-sheets-to-supabase.js --only=users     (npm run migrate:users)
+ *   node scripts/migrate-sheets-to-supabase.js --all             (initial full seed only)
+ *
+ * ⚠️ Since the Supabase cutover (2026-09), DPRs, projects, activities,
+ * materials and consumption entries are created in Supabase directly — the
+ * Sheets copies are stale. A full re-run would overwrite newer Supabase
+ * rows and duplicate material logs, so running without --only requires an
+ * explicit --all.
  */
 
 loadDotEnvLocal();
@@ -57,10 +64,11 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
 async function fetchJson(params) {
   const qs  = new URLSearchParams(params || {}).toString();
   const url = qs ? `${GOOGLE_SCRIPT_URL}?${qs}` : GOOGLE_SCRIPT_URL;
+  const shown = url.replace(/([?&]secret=)[^&]*/, '$1[redacted]'); // never print the export secret
   const res = await fetch(url);
-  if (!res.ok) throw new Error(`GET ${url}: HTTP ${res.status}`);
+  if (!res.ok) throw new Error(`GET ${shown}: HTTP ${res.status}`);
   const data = await res.json();
-  if (data && data.error) throw new Error(`GET ${url}: ${data.error}`);
+  if (data && data.error) throw new Error(`GET ${shown}: ${data.error}`);
   return data;
 }
 
@@ -235,13 +243,18 @@ async function migrateUsers() {
     return;
   }
   const users = await fetchJson({ action: 'exportUsersForMigration', secret: MIGRATION_EXPORT_SECRET });
-  const rows = users.map(u => ({
+  if (!Array.isArray(users)) throw new Error('exportUsersForMigration did not return a list');
+  const withoutHash = users.filter(u => !u.passwordHash).map(u => u.username);
+  if (withoutHash.length) console.warn(`  users: skipping ${withoutHash.length} account(s) with no password set: ${withoutHash.join(', ')}`);
+  const rows = users.filter(u => u.passwordHash).map(u => ({
     username:      u.username,
     display_name:  u.displayName || u.username,
-    password_hash: u.passwordHash || '',
-    role:          u.role || 'user'
+    password_hash: u.passwordHash,   // SHA-256 hex from Code.gs — upgraded to scrypt on next login (lib/authSupabaseApi.js)
+    role:          u.role === 'admin' ? 'admin' : 'user'
   }));
+  if (!rows.length) throw new Error('No user accounts to import — refusing to leave the users table empty-by-accident');
   await upsertInBatches('users', rows, 'username');
+  console.log(`  users: imported ${rows.length} account(s) (${rows.filter(r => r.role === 'admin').length} admin)`);
 }
 
 // ── DPR_RECORDS + DPR_MANPOWER_ENTRIES ──────────────────────────────
@@ -402,6 +415,20 @@ function loadDotEnvLocal() {
 // ── MAIN ─────────────────────────────────────────────────────────────
 
 async function main() {
+  const onlyArg = (process.argv.find(a => a.startsWith('--only=')) || '').slice('--only='.length);
+  if (onlyArg) {
+    const only = onlyArg.split(',').map(x => x.trim()).filter(Boolean);
+    const unsupported = only.filter(x => x !== 'users');
+    if (unsupported.length) throw new Error(`--only supports "users" (got: ${unsupported.join(', ')})`);
+    if (!MIGRATION_EXPORT_SECRET) throw new Error('--only=users needs MIGRATION_EXPORT_SECRET (see the header comment)');
+    console.log('Importing user accounts from Google Sheets -> Supabase...');
+    await migrateUsers();
+    console.log('Done. Login switches to Supabase automatically now that the users table has rows.');
+    return;
+  }
+  if (!process.argv.includes('--all')) {
+    throw new Error('Refusing a full re-import: Supabase now holds newer data than the Sheets (see header). Use --only=users, or --all for an initial seed.');
+  }
   console.log('Migrating Google Sheets -> Supabase...');
   await migrateProjects();
   await migrateActivities();

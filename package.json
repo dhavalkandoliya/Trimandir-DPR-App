@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "migrate:supabase": "node --use-system-ca scripts/migrate-sheets-to-supabase.js"
+    "migrate:supabase": "node --use-system-ca scripts/migrate-sheets-to-supabase.js",
+    "migrate:users": "node --use-system-ca scripts/migrate-sheets-to-supabase.js --only=users"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.0",
