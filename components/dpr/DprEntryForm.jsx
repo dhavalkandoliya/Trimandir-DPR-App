@@ -114,6 +114,9 @@ async function apiPost(body) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
+  // Session expired/revoked: index.html shows the login screen. The form
+  // (and its draft) stays as-is, so nothing typed is lost.
+  if (res.status === 401) window.__onAuthRequired?.();
   return res.json();
 }
 

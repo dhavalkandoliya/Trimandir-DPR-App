@@ -124,7 +124,6 @@ function doGet_(e) {
   // requested (or when run directly from the Apps Script editor), never as
   // a side effect of a read/login/save call.
   if (action === 'migrateMaterials') return jsonResponse(migrateExistingMaterialRecords());
-  if (action === 'exportUsersForMigration') return handleExportUsersForMigration(e);
   return handleGetDPRs();
 }
 
@@ -1078,51 +1077,6 @@ function migratePasswordsToHash() {
 
   Logger.log('migratePasswordsToHash: ' + migrated + ' password(s) hashed.');
   return { status: 'ok', migrated: migrated };
-}
-
-// One-off, secret-gated export for the Supabase migration script ONLY —
-// this is the one place password hashes ever leave the sheet, which is why
-// it's not on by default: it refuses every request until you set a
-// MIGRATION_EXPORT_SECRET Script Property yourself (Apps Script editor →
-// Project Settings → Script Properties), and the migration script must be
-// given that same value via its own MIGRATION_EXPORT_SECRET env var.
-// Returns hashes (never plaintext, given handleLogin's lazy-hash upgrade
-// and migratePasswordsToHash), but a hash is still a credential — delete
-// this action and the Script Property once the Supabase migration is done.
-function handleExportUsersForMigration(e) {
-  var expectedSecret = PropertiesService.getScriptProperties().getProperty('MIGRATION_EXPORT_SECRET');
-  var suppliedSecret = (e && e.parameter && e.parameter.secret) ? String(e.parameter.secret) : '';
-  if (!expectedSecret || suppliedSecret !== expectedSecret) {
-    return jsonResponse({ error: 'Not found' }); // deliberately vague — don't confirm this action exists
-  }
-
-  var sheet = getSheet(SHEET_USERS);
-  if (!sheet) return jsonResponse([]);
-  var data = sheet.getDataRange().getValues();
-  if (data.length < 2) return jsonResponse([]);
-
-  var hdrs = data[0].map(function(h) { return normalizeKey(h); });
-  var uIdx = hdrs.indexOf('username');
-  var dIdx = hdrs.indexOf('displayName');
-  var pIdx = hdrs.indexOf('password');
-  var rIdx = hdrs.indexOf('role');
-  if (uIdx === -1) uIdx = 0;
-  if (dIdx === -1) dIdx = 1;
-  if (pIdx === -1) pIdx = 2;
-  if (rIdx === -1) rIdx = 3;
-
-  var out = [];
-  for (var i = 1; i < data.length; i++) {
-    var u = String(data[i][uIdx] || '').trim();
-    if (!u) continue;
-    out.push({
-      username:     u,
-      displayName:  String(data[i][dIdx] || u).trim() || u,
-      passwordHash: String(data[i][pIdx] || '').trim(),
-      role:         String(data[i][rIdx] || 'user').trim() || 'user'
-    });
-  }
-  return jsonResponse(out);
 }
 
 // Read-only — never provisions the sheet or writes headers as a side

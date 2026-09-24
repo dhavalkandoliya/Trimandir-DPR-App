@@ -53,7 +53,8 @@ $newUsersLogic = @'
              if (_usersCache.find(u => u.username.toLowerCase() === username.toLowerCase())) { showToast('Username exists'); return; }
              showToast('Creating User in Cloud...');
              const payload = { action: 'createUser', username, displayName: displayName || username, password, role };
-             await fetch(SHEET_URL, { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+             const res = await apiPost(payload).catch(() => ({ error: 'connection error' })); // apiPost handles an expired session (401)
+             if (res && res.error) { showToast('⚠️ ' + res.error); return; }
              await fetchUsersFromCloud();
              document.getElementById('newUsername').value = '';
              document.getElementById('newDisplayName').value = '';
@@ -66,7 +67,8 @@ $newUsersLogic = @'
              if (!confirm(`Delete user "${username}"?`)) return;
              showToast('Deleting User...');
              const payload = { action: 'deleteUser', username };
-             await fetch(SHEET_URL, { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+             const res = await apiPost(payload).catch(() => ({ error: 'connection error' })); // apiPost handles an expired session (401)
+             if (res && res.error) { showToast('⚠️ ' + res.error); return; }
              await fetchUsersFromCloud();
              showToast('User deleted across network');
          }
@@ -76,7 +78,8 @@ $newUsersLogic = @'
              if (!newPass || !newPass.trim()) return;
              showToast('Updating network password...');
              const payload = { action: 'resetPassword', username, password: newPass.trim() };
-             await fetch(SHEET_URL, { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+             const res = await apiPost(payload).catch(() => ({ error: 'connection error' })); // apiPost handles an expired session (401)
+             if (res && res.error) { showToast('⚠️ ' + res.error); return; }
              await fetchUsersFromCloud();
              showToast('Password changed instantly on network');
          }
@@ -151,16 +154,10 @@ $part2 = '";' + "`n" +
 $part3 = '";' + "`n" +
           "    document.body.appendChild(appScript);" + "`n" +
           "" + "`n" +
-          "    // -- Bootstrap: restore session and fetch users --" + "`n" +
+          "    // -- Bootstrap: login-screen name chips. The session itself is" + "`n" +
+          "    //    restored by the app script's restoreSession() (cookie-based). --" + "`n" +
           "    setTimeout(() => {" + "`n" +
           "      if (typeof fetchUsersFromCloud === 'function') fetchUsersFromCloud();" + "`n" +
-          "      try {" + "`n" +
-          "        const s = sessionStorage.getItem('dprUser');" + "`n" +
-          "        if (s && typeof showApp === 'function') {" + "`n" +
-          "          window._currentUser = JSON.parse(s);" + "`n" +
-          "          showApp();" + "`n" +
-          "        }" + "`n" +
-          "      } catch (e) {}" + "`n" +
           "    }, 600);" + "`n" +
           "" + "`n" +
           "  }, []);" + "`n" +

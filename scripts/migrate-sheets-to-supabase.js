@@ -22,6 +22,10 @@
  *                                same name (Apps Script editor → Project
  *                                Settings → Script Properties) that gates
  *                                Code.gs's handleExportUsersForMigration.
+ *                                NOTE: that export was removed from Code.gs
+ *                                on 2026-09-24 once all 5 accounts were
+ *                                imported; restore it from git history
+ *                                (commit a711c85) if a re-import is needed.
  *                                Without it, user accounts are skipped —
  *                                everything else still migrates.
  *

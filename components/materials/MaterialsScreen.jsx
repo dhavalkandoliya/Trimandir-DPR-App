@@ -153,7 +153,10 @@ export default function MaterialsScreen() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
-      }).then(r => r.json());
+      }).then(r => {
+        if (r.status === 401) window.__onAuthRequired?.(); // back to login; the entered rows stay
+        return r.json();
+      });
       if (res && res.error) { legacy.toast('⚠️ Save failed: ' + res.error); return; }
       legacy.toast(`✅ Saved ${materialsUsed.length} consumption entr${materialsUsed.length === 1 ? 'y' : 'ies'}`);
       setRows([emptyEntryRow()]); // keep date + site for the next entry

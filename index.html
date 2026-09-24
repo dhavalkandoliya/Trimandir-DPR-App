@@ -1228,21 +1228,6 @@ footer {
         <div id="pendingEditRequests"><p style="color:var(--muted);font-size:13px;text-align:center;padding:10px;">&#9989; No pending requests.</p></div>
     </div>
 
-    <!-- Data Maintenance -->
-    <div class="admin-acc-card">
-        <div class="admin-acc-header"
-             onclick="this.nextElementSibling.classList.toggle('open');this.querySelector('.aci').textContent=this.nextElementSibling.classList.contains('open')?'&#9660;':'&#9654;';">
-            <span>&#128295; Data Maintenance</span><span class="aci admin-acc-icon">&#9654;</span>
-        </div>
-        <div class="admin-acc-body">
-            <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">
-                Remove rows with corrupted or shifted column data from DPR_Records and DPR_Detail.
-                This targets rows where the Date column (Col A) is blank or contains a non-date value.
-            </p>
-            <button class="btn-red" onclick="runDataCleanup()" style="margin-bottom:0;">&#129529; Clean Corrupted Rows</button>
-        </div>
-    </div>
-
     <!-- Users -->
     <div class="admin-acc-card">
         <div class="admin-acc-header"
@@ -1456,18 +1441,21 @@ footer {
         /* ═══════════════════════════════════════════════════════════
            API HELPERS
         ═══════════════════════════════════════════════════════════ */
-        const apiFetch = (action) => fetch(`${SHEET_URL}?action=${action}`).then(r => r.json());
-        // text/plain avoids a CORS preflight (OPTIONS) round-trip that
-        // application/json triggers on cross-origin requests to the Apps
-        // Script web app — the body is still JSON text; doPost_ parses it
-        // the same way regardless of the declared Content-Type.
+        // The session lives in an HttpOnly cookie set by /api/proxy on login
+        // (lib/session.js) — same-origin fetches send it automatically. A 401
+        // means it expired or was revoked: drop back to the login screen.
+        function checkAuth(r) {
+            if (r.status === 401) handleAuthExpired();
+            return r.json();
+        }
+        const apiFetch = (action) => fetch(`${SHEET_URL}?action=${action}`).then(checkAuth);
         const apiPost  = (body)   => fetch(SHEET_URL, {
             method: 'POST',
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body)
-        }).then(r => r.json());
+        }).then(checkAuth);
         const apiGetBootstrap = (dataVersion) =>
-            fetch(`${SHEET_URL}?action=getBootstrapData&dataVersion=${encodeURIComponent(dataVersion || '')}`).then(r => r.json());
+            fetch(`${SHEET_URL}?action=getBootstrapData&dataVersion=${encodeURIComponent(dataVersion || '')}`).then(checkAuth);
 
         /* ═══════════════════════════════════════════════════════════
            TOAST
@@ -1772,7 +1760,6 @@ footer {
                     err.textContent = '❌ Invalid username or password.';
                     return;
                 }
-                sessionStorage.setItem('dprUser', JSON.stringify(_currentUser));
             } catch (e) {
                 err.style.color = '#e53e3e';
                 err.textContent = '⚠️ Connection error. Try again.';
@@ -1799,9 +1786,34 @@ footer {
         }
         window.toggleTheme = toggleTheme;
 
-        function doLogout() {
+        function showLoginScreen() {
             _currentUser = null;
-            sessionStorage.removeItem('dprUser');
+            document.getElementById('loginOverlay').style.display = 'flex';
+            document.getElementById('loginPass').value = '';
+            renderLoginChips();
+        }
+
+        let _authExpiredShown = false;
+        function handleAuthExpired() {
+            if (!_currentUser || _authExpiredShown) return;
+            _authExpiredShown = true;
+            showLoginScreen();
+            const err = document.getElementById('loginErr');
+            if (err) { err.style.color = '#e53e3e'; err.textContent = '🔒 Your session expired — please sign in again.'; }
+            setTimeout(() => { _authExpiredShown = false; }, 3000);
+        }
+        window.__onAuthRequired = handleAuthExpired; // React components call this on a 401
+
+        async function restoreSession() {
+            try {
+                const res = await fetch(`${SHEET_URL}?action=session`).then(r => r.json());
+                if (res && res.user) { _currentUser = res.user; showApp(); }
+            } catch (e) { /* offline or server down — stay on the login screen */ }
+        }
+
+        function doLogout() {
+            fetch(SHEET_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'logout' }) }).catch(() => {});
+            _currentUser = null;
             document.getElementById('loginOverlay').style.display = 'flex';
             document.getElementById('loginPass').value = '';
             document.getElementById('loginErr').textContent = '';
@@ -2851,20 +2863,6 @@ footer {
         window.__getMaterialLogs = function() { return _materialLogs; };
         window.__getMaterialLogsStatus = function() { return _materialLogsStatus; };
 
-        // ── Data Maintenance ────────────────────────────────────────
-        async function runDataCleanup() {
-            if (!confirm('This will delete rows with corrupted/shifted column data from DPR_Records and DPR_Detail. Proceed?')) return;
-            showToast('🧹 Running cleanup...');
-            try {
-                const res = await apiPost({ action: 'cleanCorrupted' });
-                const r   = res.cleaned || {};
-                const rDel = (r.records || []).length;
-                const dDel = (r.detail  || []).length;
-                showToast(`✅ Cleaned ${rDel} Records + ${dDel} Detail rows`);
-                loadHistory();
-            } catch (e) { showToast('⚠️ Cleanup failed'); }
-        }
-
         /* ═══════════════════════════════════════════════════════════
            DASHBOARD — now a real React component, see
            /components/dashboard/AnalyticsDashboard.jsx, portal-mounted
@@ -2882,10 +2880,7 @@ footer {
             const runInit = () => {
                 updateThemeToggleIcon();
                 renderLoginChips();
-                try {
-                    const s = sessionStorage.getItem('dprUser');
-                    if (s) { _currentUser = JSON.parse(s); showApp(); }
-                } catch (e) { }
+                restoreSession();
 
                 window.addEventListener('offline', () => { document.getElementById('offlineBadge').style.display = 'block'; });
                 window.addEventListener('online', () => { document.getElementById('offlineBadge').style.display = 'none'; syncOfflineQueue(); });
