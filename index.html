@@ -1160,34 +1160,9 @@ footer {
      NEW DPR FORM
 ═══════════════════════════════════════════════════════════════ -->
 <div class="tab-page active" id="tabForm">
-    <div class="btn-group" style="margin-bottom:14px;">
-        <button class="btn-gray btn-sm" style="width:auto;" onclick="quickNewDprToday()">&#127807; New DPR (Today)</button>
-        <button class="btn-gray btn-sm" style="width:auto;" onclick="quickDuplicateYesterday()">&#128203; Duplicate Last DPR</button>
-    </div>
+    <!-- React: components/dpr/DprEntryForm.jsx, portal-mounted here -->
+    <div id="__entry_mount__"></div>
 
-    <div class="card">
-        <div class="section-title">&#128197; Date &amp; Site</div>
-        <label>Date</label>
-        <input type="date" id="date">
-        <label>Site / Project</label>
-        <select id="site"><option value="">&#8987; Loading projects...</option></select>
-        <label>Site Condition <span style="font-weight:400;text-transform:none;">(Optional)</span></label>
-        <div class="condition-chips" id="conditionChips">
-            <button type="button" class="condition-chip" data-val="Sunny" onclick="selectSiteCondition('Sunny')">&#9728;&#65039; Sunny</button>
-            <button type="button" class="condition-chip" data-val="Rainy" onclick="selectSiteCondition('Rainy')">&#127783;&#65039; Rainy</button>
-            <button type="button" class="condition-chip" data-val="Cloudy" onclick="selectSiteCondition('Cloudy')">&#9729;&#65039; Cloudy</button>
-            <button type="button" class="condition-chip" data-val="Site Closed" onclick="selectSiteCondition('Site Closed')">&#128679; Site Closed</button>
-            <button type="button" class="condition-chip" data-val="Holiday" onclick="selectSiteCondition('Holiday')">&#127881; Holiday</button>
-        </div>
-    </div>
-
-    <div class="card">
-        <div class="section-title">&#128203; Work Activities</div>
-        <div id="activityRowsContainer"></div>
-        <button class="btn-add" onclick="addActivityRow()" style="margin-top:6px;">&#43; Add Activity Row</button>
-    </div>
-
-    <button class="btn-green" onclick="generate()">&#9989; Generate DPR</button>
     <div class="btn-group">
         <button class="btn-blue" onclick="downloadImage()">&#128247; Download Image</button>
         <button class="btn-blue" onclick="downloadPDF()">&#128196; Download PDF</button>
@@ -1521,27 +1496,13 @@ footer {
         let _history    = [];   // see handleGetDPRs schema below
         let _materialLogs = []; // { date, site, material_name, qty, unit, loggedBy, createdAt } — see Material_Logs sheet
         let _currentUser    = null;
-        let _editingKey     = null;
-        let _rowCounter     = 0;
-        let _selectedCondition = '';
+        let _reportDate     = '';   // date of the DPR last rendered into #report — used for download/share file names
 
         function conditionEmoji(val) {
             const map = { 'Sunny': '☀️', 'Rainy': '🌧️', 'Cloudy': '☁️', 'Site Closed': '🚧', 'Holiday': '🎉' };
             return map[val] || '';
         }
 
-        function selectSiteConditionSilently(val) {
-            _selectedCondition = val || '';
-            document.querySelectorAll('#conditionChips .condition-chip').forEach(btn => {
-                btn.classList.toggle('selected', btn.getAttribute('data-val') === _selectedCondition);
-            });
-        }
-
-        function selectSiteCondition(val) {
-            selectSiteConditionSilently(_selectedCondition === val ? '' : val);
-            saveFormDraft();
-        }
-        window.selectSiteCondition = selectSiteCondition;
         // Pagination state � attached to window so dynamic script injection keeps global access
         window._historyPage    = window._historyPage    || 1;
         window._itemsPerPage   = window._itemsPerPage   || 10;
@@ -1664,7 +1625,7 @@ footer {
 
         /* ═══════════════════════════════════════════════════════════
            SHARED ACTIVITY REPORT BUILDER
-           Used by generate() (live submission preview), getReportHtmlForRecord()
+           Used by renderDprReport() (live submission preview), getReportHtmlForRecord()
            (History download image/PDF) and openDPR() (View modal). Each caller
            passes its own childNameOrder to preserve its verified current
            child/sub-activity name resolution behavior exactly.
@@ -1946,6 +1907,7 @@ footer {
             _materials  = Array.isArray(data.materials)  ? data.materials  : _materials;
             populateSiteDropdown();
             renderLoginChips();
+            window.dispatchEvent(new CustomEvent('dpr:masterDataUpdated'));
         });
 
         // Merges _projects/_activities/_materials into the cached bootstrap
@@ -1990,11 +1952,7 @@ footer {
             const cachedBootstrap = DataStore.getSnapshot('bootstrap');
             if (!cachedBootstrap) showToast('⏳ Loading data...');
 
-            if (localStorage.getItem('dpr_form_draft')) {
-                loadFormDraft();
-            } else {
-                resetForm();
-            }
+            sendEntryCommand({ type: 'init' }); // form restores the saved draft, if any
             loadHistory(); // full, unwindowed DPR history — the authoritative source; never overwritten by the bootstrap response below
 
             // Single consolidated round-trip — replaces four separate
@@ -2107,7 +2065,6 @@ footer {
                 '👤 ' + _currentUser.username + (_currentUser.role === 'admin' ? ' · Admin' : '');
             document.getElementById('adminTabBtn').style.display =
                 _currentUser.role === 'admin' ? 'block' : 'none';
-            document.getElementById('date').value = getLocalTodayYMD();
             bootApp();
         }
 
@@ -2137,48 +2094,27 @@ footer {
             const fp = document.getElementById('tabForm');
             if (fp) { fp.classList.add('active'); fp.style.display = 'block'; }
             (btn || document.getElementById('tabBtnForm')).classList.add('active');
-            _editingKey = null;
-            if (!forceNew && localStorage.getItem('dpr_form_draft')) {
-                loadFormDraft();
-            } else {
-                document.getElementById('date').value = new Date().toISOString().split('T')[0];
-                resetForm();
-            }
+            sendEntryCommand({ type: forceNew ? 'reset' : 'init' });
         }
 
-        // Quick action: start a brand-new DPR for today, pre-filling the site
-        // from the most recent history entry (ignores any lingering draft).
-        function quickNewDprToday() {
-            resetAndSwitchToForm(null, true);
-            const lastSite = (_history && _history[0]) ? _history[0].site : '';
-            const siteSel = document.getElementById('site');
-            if (siteSel && lastSite && Array.from(siteSel.options).some(o => o.value === lastSite)) {
-                siteSel.value = lastSite;
-            }
-            saveFormDraft();
-            showToast('🆕 New DPR ready for today');
+        /* ═══════════════════════════════════════════════════════════
+           DPR ENTRY FORM — now a real React component, see
+           /components/dpr/DprEntryForm.jsx, portal-mounted into
+           #__entry_mount__. It owns the form state, validation, draft
+           (localStorage 'dpr_form_draft') and saveDPR/editDPR/saveMaterialLog
+           submission. Interop bridge:
+             legacy → React: sendEntryCommand({ type: 'init' | 'reset' | 'edit', record })
+             React → legacy: window.__get*() accessors, __renderDprReport(),
+                             and the showToast/showActionToast/editDPR/
+                             loadHistory/loadMaterialLogs globals.
+           'dpr:masterDataUpdated' fires whenever projects/activities/
+           materials change. Commands sent before the component mounts are
+           queued and replayed on mount.
+        ═══════════════════════════════════════════════════════════ */
+        function sendEntryCommand(cmd) {
+            if (typeof window.__dprEntryHandler === 'function') { window.__dprEntryHandler(cmd); return; }
+            (window.__dprEntryQueue = window.__dprEntryQueue || []).push(cmd);
         }
-        window.quickNewDprToday = quickNewDprToday;
-
-        // Quick action: duplicate the most recent history entry's activity rows
-        // for the currently-selected site into the form (as a starting point).
-        function quickDuplicateYesterday() {
-            const siteSel = document.getElementById('site');
-            const site = siteSel ? siteSel.value : '';
-            if (!site) { showToast('⚠️ Select a site first'); return; }
-            const prior = (_history || []).find(h => String(h.site || '').trim() === String(site).trim());
-            if (!prior) { showToast('⚠️ No previous DPR found for this site'); return; }
-            const acts = Array.isArray(prior.civilActivities) && prior.civilActivities.length
-                ? prior.civilActivities
-                : (Array.isArray(prior.details) ? prior.details : []);
-            if (!acts.length) { showToast('⚠️ Previous DPR has no activity rows'); return; }
-            document.getElementById('activityRowsContainer').innerHTML = '';
-            _rowCounter = 0;
-            acts.forEach(a => addActivityRow(a));
-            saveFormDraft();
-            showToast(`📋 Duplicated ${acts.length} activity row(s) from last DPR`);
-        }
-        window.quickDuplicateYesterday = quickDuplicateYesterday;
 
         /* ═══════════════════════════════════════════════════════════
            SITE DROPDOWN — with sub-project indentation
@@ -2225,7 +2161,7 @@ footer {
                   }).join('')
                 : '<option value="">No active projects</option>';
 
-            ['site', 'matSite'].forEach(id => {
+            ['matSite'].forEach(id => {
                 const sel = document.getElementById(id);
                 if (!sel) return;
                 const prev = sel.value;
@@ -2234,128 +2170,6 @@ footer {
             });
 
             populateSearchSiteDropdown();
-        }
-
-        /* ═══════════════════════════════════════════════════════════
-           ACTIVITY ROWS — Main → Sub dependent dropdowns
-        ═══════════════════════════════════════════════════════════ */
-        function mainActivities() {
-            return _activities.filter(a => (!a.parent_id || String(a.parent_id).trim() === '') && a.status === 'active');
-        }
-        function subActivitiesOf(parentId) {
-            if (!parentId || String(parentId).trim() === '') return [];
-            return _activities.filter(a => String(a.parent_id).trim() === String(parentId).trim() && a.status === 'active');
-        }
-
-        function resetForm() {
-            document.getElementById('activityRowsContainer').innerHTML = '';
-            _rowCounter = 0;
-            selectSiteConditionSilently('');
-            addActivityRow();
-        }
-
-        function addActivityRow(data) {
-            _rowCounter++;
-            const rowId = 'arow_' + _rowCounter;
-            const subId = 'sub_'  + _rowCounter;
-            const mains = mainActivities();
-
-            const div     = document.createElement('div');
-            div.className = 'activitybox';
-            div.id        = rowId;
-            div.innerHTML = `
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-                    <span style="font-weight:700;font-size:11px;color:var(--primary);text-transform:uppercase;letter-spacing:.7px;">Activity ${_rowCounter}</span>
-                    <div style="display:flex; align-items:center; gap:8px;">
-                        <span class="row-total-badge" style="font-size:11.5px; font-weight:700; color:var(--text); background:var(--primary-light); padding:3px 8px; border-radius:4px;">Total: <b class="row-total-val">0</b></span>
-                        <button class="delete-btn" onclick="removeActivityRow('${rowId}')"
-                                style="width:auto;padding:4px 10px;margin-top:0;font-size:11px;">🗑️ Remove</button>
-                    </div>
-                </div>
-                <label>Main Activity</label>
-                <select class="main-act-sel" onchange="onMainActChange(this,'${subId}')">
-                    <option value="">— Select Main Activity —</option>
-                    ${mains.map(m => `<option value="${esc(m.activity_name)}" data-id="${m.id}">${escHtml(m.activity_name)}</option>`).join('')}
-                </select>
-                <label id="lbl_${subId}" style="display:none;">Sub-Activity</label>
-                <select class="sub-act-sel" id="${subId}" style="display:none;opacity:0.45;" disabled>
-                    <option value="">— N/A —</option>
-                </select>
-                <div class="row2">
-                    <div><label>Skilled</label>
-                        <div class="counter-wrap">
-                            <button type="button" class="counter-btn" onclick="adjustCounter(this,-1)" aria-label="Decrease skilled">−</button>
-                            <input type="number" class="skill" value="0" min="0">
-                            <button type="button" class="counter-btn" onclick="adjustCounter(this,1)" aria-label="Increase skilled">+</button>
-                        </div>
-                    </div>
-                    <div><label>Unskilled</label>
-                        <div class="counter-wrap">
-                            <button type="button" class="counter-btn" onclick="adjustCounter(this,-1)" aria-label="Decrease unskilled">−</button>
-                            <input type="number" class="unskill" value="0" min="0">
-                            <button type="button" class="counter-btn" onclick="adjustCounter(this,1)" aria-label="Increase unskilled">+</button>
-                        </div>
-                    </div>
-                </div>
-                <label>Planned Qty <span style="font-weight:400;text-transform:none;">(Optional — for % complete)</span></label>
-                <input type="number" class="planned-qty-inp" min="0" placeholder="e.g. total units planned for this activity">
-                <label>Note <span style="font-weight:400;text-transform:none;">(Optional)</span></label>
-                <input type="text" class="note-inp" placeholder="Work location or note...">`;
-
-            document.getElementById('activityRowsContainer').appendChild(div);
-
-            // Pre-fill for edit mode
-            if (data) {
-                // data can have: main_activity (from new saves) or activity (from DPR_Detail)
-                const mainName = data.main_activity || data.activity || '';
-                const subName  = data.sub_activity  || '';
-                const mainSel  = div.querySelector('.main-act-sel');
-                if (mainName) {
-                    const found = mains.find(m => m.activity_name === mainName);
-                    if (found) {
-                        mainSel.value = mainName;
-                    } else {
-                        // Activity may be deactivated — add ephemeral option
-                        const opt = document.createElement('option');
-                        opt.value = mainName; opt.textContent = mainName; opt.setAttribute('data-id','');
-                        mainSel.appendChild(opt); mainSel.value = mainName;
-                    }
-                    onMainActChange(mainSel, subId, subName);
-                }
-                div.querySelector('.skill').value    = data.skilled   != null ? data.skilled   : 0;
-                div.querySelector('.unskill').value  = data.unskilled != null ? data.unskilled : 0;
-                div.querySelector('.note-inp').value = data.note || '';
-                div.querySelector('.planned-qty-inp').value = data.plannedQty ? data.plannedQty : '';
-            }
-            updateFormTotals();
-        }
-
-        function removeActivityRow(rowId) {
-            const el = document.getElementById(rowId);
-            if (el) el.remove();
-            updateFormTotals();
-            saveFormDraft();
-        }
-
-        function onMainActChange(sel, subSelId, preselectSub) {
-            const subSel  = document.getElementById(subSelId);
-            const label   = document.getElementById('lbl_' + subSelId);
-            const selOpt  = sel.options[sel.selectedIndex];
-            const mainId  = selOpt ? selOpt.getAttribute('data-id') : null;
-            const subs    = mainId ? subActivitiesOf(mainId) : [];
-
-            if (!subs.length) {
-                if (subSel)  { subSel.innerHTML = '<option value="">— N/A —</option>'; subSel.disabled = true; subSel.style.opacity = '0.45'; subSel.style.display = 'none'; }
-                if (label)   label.style.display = 'none';
-            } else {
-                if (subSel) {
-                    subSel.disabled = false; subSel.style.opacity = '1'; subSel.style.display = '';
-                    subSel.innerHTML = '<option value="">— Select Sub-Activity —</option>' +
-                        subs.map(s => `<option value="${esc(s.activity_name)}">${escHtml(s.activity_name)}</option>`).join('');
-                    if (preselectSub) subSel.value = preselectSub;
-                }
-                if (label) label.style.display = '';
-            }
         }
 
         let _matRowCounter = 0;
@@ -2567,117 +2381,23 @@ footer {
         }
         window.renderMaterialConsumptionTab = renderMaterialConsumptionTab;
 
-        function collectActivityRows() {
-            const rows = [];
-            document.querySelectorAll('.activitybox').forEach(el => {
-                const mainSel   = el.querySelector('.main-act-sel');
-                const mainAct   = mainSel ? mainSel.value.trim() : '';
-                const subSelEl  = el.querySelector('.sub-act-sel');
-                const subAct    = subSelEl && !subSelEl.disabled && subSelEl.value ? subSelEl.value.trim() : '';
-                const skilled   = Math.max(0, Number((el.querySelector('.skill')   || {}).value) || 0);
-                const unskilled = Math.max(0, Number((el.querySelector('.unskill') || {}).value) || 0);
-                const note      = ((el.querySelector('.note-inp') || {}).value || '').trim();
-                const plannedQty = Math.max(0, Number((el.querySelector('.planned-qty-inp') || {}).value) || 0);
-                if (mainAct) {
-                    const section = detectSection(mainAct, subAct);
-                    rows.push({ main_activity: mainAct, sub_activity: subAct, section, skilled, unskilled, note, plannedQty });
-                }
-            });
-            return rows;
-        }
-
         /* ═══════════════════════════════════════════════════════════
-           GENERATE & SAVE
+           GENERATED REPORT PREVIEW — called by DprEntryForm after it
+           validates, so the #report markup that Download/Share/Copy
+           capture is still built by the shared report builder above.
         ═══════════════════════════════════════════════════════════ */
-        function generate() {
-            if (!_currentUser) { showToast('⚠️ Please sign in first'); return; }
-            const dateVal = document.getElementById('date').value;
-            const siteVal = document.getElementById('site').value;
-            if (!dateVal) { showToast('⚠️ Select a date'); return; }
-            if (!siteVal) { showToast('⚠️ Select a site'); return; }
-
-            const activities = collectActivityRows();
-            if (!activities.some(a => a.skilled > 0 || a.unskilled > 0))
-                { showToast('⚠️ Enter at least one activity with workers'); return; }
-
-            const total    = activities.reduce((s, a) => s + a.skilled + a.unskilled, 0);
-            const existing = _history.find(h => toYMD(h.date) === dateVal && String(h.site).trim() === siteVal.trim());
-            const prepBy   = existing ? (existing.by || _currentUser.username) : _currentUser.username;
-            const editedBy = (existing && existing.by !== _currentUser.username) ? _currentUser.username : null;
-
-            // Build report HTML
-            const activeActs = [];
-            activities.forEach(a => {
-                if (a.skilled > 0 || a.unskilled > 0) {
-                    activeActs.push(a);
-                }
-            });
-
-            const sectionHtml = buildActivityReportHtml(activeActs, { childNameOrder: ['sub_activity', 'activity'] });
-
+        function renderDprReport({ date, site, prepBy, editedBy, activities, total }) {
+            _reportDate = date;
             document.getElementById('rdate').innerHTML =
-                `<b>📅 Date :</b> ${formatDate(dateVal)}<br>
-                 <b>📍 Site :</b> ${getSiteDisplayName(siteVal)}<br>
-                 <b>👤 Filled by :</b> ${prepBy}${editedBy ? ` (Edited by: ${editedBy})` : ''}`;
-            document.getElementById('rcivil').innerHTML    = sectionHtml;
+                `<b>📅 Date :</b> ${formatDate(date)}<br>
+                 <b>📍 Site :</b> ${getSiteDisplayName(site)}<br>
+                 <b>👤 Filled by :</b> ${escHtml(prepBy)}${editedBy ? ` (Edited by: ${escHtml(editedBy)})` : ''}`;
+            document.getElementById('rcivil').innerHTML    = buildActivityReportHtml(activities, { childNameOrder: ['sub_activity', 'activity'] });
             document.getElementById('rmanpower').innerHTML = `<div class="report-total">👷 Total Manpower : ${total}</div>`;
             document.getElementById('report').style.display = 'block';
             document.getElementById('report').scrollIntoView({ behavior: 'smooth' });
-
-            saveToCloud(dateVal, siteVal, total, activities, prepBy, editedBy);
-            showToast('✅ DPR Generated!');
         }
-
-        function saveToCloud(dateVal, siteVal, total, activities, prepBy, editedBy) {
-            const isEdit  = !!_editingKey;
-            const payload = {
-                action:    isEdit ? 'editDPR' : 'saveDPR',
-                date:      dateVal,
-                site:      siteVal,
-                total,
-                activities,          // includes section field per row
-                by:        prepBy,
-                editedBy:  editedBy || '',
-                submittedAt: new Date().toISOString(),
-                siteCondition: _selectedCondition
-            };
-            if (!navigator.onLine) {
-                const q = JSON.parse(localStorage.getItem('dprOfflineQ') || '[]');
-                q.push(payload);
-                localStorage.setItem('dprOfflineQ', JSON.stringify(q));
-                showToast('💾 Offline — will sync on reconnect');
-                return;
-            }
-            showToast('☁️ Saving to cloud...');
-            apiPost(payload)
-                .then(res => {
-                    // Inspect the response before touching the form/draft — a
-                    // duplicate or error must never look like a successful save.
-                    if (res && res.status === 'duplicate') {
-                        showActionToast('⚠️ A DPR already exists for this date & site.', 'Edit existing DPR', () => {
-                            const idx = _history.findIndex(h => toYMD(h.date) === dateVal && String(h.site || '').trim() === String(siteVal || '').trim());
-                            if (idx > -1) editDPR(idx);
-                            else showToast('⚠️ Could not find it — try reloading History.');
-                        });
-                        return;
-                    }
-                    if (res && res.error) {
-                        showToast('⚠️ Save failed: ' + res.error);
-                        return;
-                    }
-                    // Confirmed success — clear the draft/editing state and reset
-                    // the input rows for the next entry, but leave the generated
-                    // #report visible (persistent success state) so Share
-                    // PDF/Image/WhatsApp keep working against it.
-                    showToast(isEdit ? '✅ DPR Updated!' : '✅ Saved!');
-                    _editingKey = null;
-                    localStorage.removeItem('dpr_form_draft');
-                    document.getElementById('date').value = getLocalTodayYMD();
-                    resetForm();
-                    loadHistory();
-                })
-                .catch(() => showToast('⚠️ Save failed — check connection'));
-        }
+        window.__renderDprReport = renderDprReport;
 
         function syncOfflineQueue() {
             const q = JSON.parse(localStorage.getItem('dprOfflineQ') || '[]');
@@ -2847,69 +2567,6 @@ footer {
                 <div class="skeleton-block" style="width: 25%; height: 26px; border-radius: 4px; margin-top: 6px;"></div>
             </div>
             `;
-        }
-
-        function adjustCounter(btn, delta) {
-            const wrap = btn.closest('.counter-wrap');
-            const input = wrap && wrap.querySelector('input[type="number"]');
-            if (!input) return;
-            input.value = Math.max(0, (Math.max(0, Number(input.value) || 0)) + delta);
-            input.dispatchEvent(new Event('input', { bubbles: true }));
-        }
-
-        function updateFormTotals() {
-            document.querySelectorAll('.activitybox').forEach(row => {
-                const sk = Math.max(0, Number(row.querySelector('.skill')?.value) || 0);
-                const un = Math.max(0, Number(row.querySelector('.unskill')?.value) || 0);
-                const valEl = row.querySelector('.row-total-val');
-                if (valEl) valEl.textContent = sk + un;
-            });
-        }
-
-        function saveFormDraft() {
-            if (_editingKey) return;
-            const dateVal = document.getElementById('date')?.value || '';
-            const siteVal = document.getElementById('site')?.value || '';
-            const activities = collectActivityRows();
-            if (!dateVal && !siteVal && activities.length <= 1 && activities.every(a => !a.main_activity && a.skilled === 0 && a.unskilled === 0 && !a.note)) {
-                localStorage.removeItem('dpr_form_draft');
-                return;
-            }
-            const draft = { date: dateVal, site: siteVal, activities, siteCondition: _selectedCondition };
-            localStorage.setItem('dpr_form_draft', JSON.stringify(draft));
-        }
-
-        function loadFormDraft() {
-            try {
-                const draftStr = localStorage.getItem('dpr_form_draft');
-                if (!draftStr) return;
-                const draft = JSON.parse(draftStr);
-                if (!draft) return;
-                
-                if (draft.date) {
-                    const dateEl = document.getElementById('date');
-                    if (dateEl) dateEl.value = draft.date;
-                }
-                if (draft.site) {
-                    const siteEl = document.getElementById('site');
-                    if (siteEl) siteEl.value = draft.site;
-                }
-                selectSiteConditionSilently(draft.siteCondition || '');
-
-                const container = document.getElementById('activityRowsContainer');
-                if (container) {
-                    container.innerHTML = '';
-                    _rowCounter = 0;
-                    if (Array.isArray(draft.activities) && draft.activities.length > 0) {
-                        draft.activities.forEach(act => addActivityRow(act));
-                    } else {
-                        addActivityRow();
-                    }
-                }
-                updateFormTotals();
-            } catch (e) {
-                console.error("Failed to load form draft", e);
-            }
         }
 
         // Flattens _history into one row per activity line item (plus a header row).
@@ -3297,7 +2954,7 @@ footer {
         }
 
         /* ═══════════════════════════════════════════════════════════
-           EDIT DPR — reconstructs activity rows from JSON arrays
+           EDIT DPR — permission gate; DprEntryForm rebuilds the rows
         ═══════════════════════════════════════════════════════════ */
         function editDPR(i) {
             const item = _history[i];
@@ -3310,46 +2967,11 @@ footer {
             if (!isAdmin && !isOwn)               { showToast('❌ You can only edit your own DPRs'); return; }
             if (!isAdmin && !within15 && !granted) { showToast('🔒 Edit window expired. Request Edit first.'); return; }
 
-            _editingKey = toYMD(item.date) + '||' + String(item.site).trim();
-
-            document.getElementById('date').value = toYMD(item.date);
-            const siteEl = document.getElementById('site');
-            siteEl.value = item.site;
-            if (!siteEl.value && item.site) {
-                const opt = document.createElement('option');
-                opt.value = item.site; opt.textContent = item.site;
-                siteEl.appendChild(opt); siteEl.value = item.site;
-            }
-
-            document.getElementById('activityRowsContainer').innerHTML = '';
-            _rowCounter = 0;
-            selectSiteConditionSilently(item.siteCondition || '');
-
-            // Reconstruct rows from civilActivities + interiorActivities (JSON columns)
-            const civArr = Array.isArray(item.civilActivities)    ? item.civilActivities    : [];
-            const intArr = Array.isArray(item.interiorActivities) ? item.interiorActivities : [];
-            const allActs = [
-                ...civArr.map(a => ({ main_activity: a.main_activity || a.activity, sub_activity: '', section: 'Civil',    skilled: a.skilled, unskilled: a.unskilled, note: a.note, plannedQty: a.plannedQty })),
-                ...intArr.map(a => ({ main_activity: a.main_activity || a.activity, sub_activity: '', section: 'Interior', skilled: a.skilled, unskilled: a.unskilled, note: a.note, plannedQty: a.plannedQty }))
-            ];
-            // Fall back to DPR_Detail rows
-            const detRows = Array.isArray(item.details) ? item.details : [];
-            const rowsToLoad = allActs.length ? allActs : detRows.map(r => ({
-                main_activity: r.activity || r.main_activity,
-                sub_activity:  r.subActivity || '',
-                section:       r.section || 'Civil',
-                skilled:       r.skilled,
-                unskilled:     r.unskilled,
-                note:          r.note,
-                plannedQty:    r.plannedQty
-            }));
-
-            if (rowsToLoad.length) rowsToLoad.forEach(r => addActivityRow(r));
-            else addActivityRow();
+            sendEntryCommand({ type: 'edit', record: item });
 
             closeDPRModal();
             switchTab('Form', document.getElementById('tabBtnForm'));
-            showToast('✏️ Loaded for editing — click Generate DPR when done');
+            showToast('✏️ Loaded for editing — click Update DPR when done');
         }
 
         async function requestEditDPR(i) {
@@ -4038,11 +3660,13 @@ footer {
             window.dragEndActivity = dragEndActivity;
         }
 
-        // Read-only accessors for the portal-mounted React AnalyticsDashboard
-        // component to read the same in-memory arrays without duplicating fetch logic.
+        // Read-only accessors for the portal-mounted React components
+        // (AnalyticsDashboard, DprEntryForm) to read the same in-memory arrays without duplicating fetch logic.
         window.__getHistory  = function() { return _history; };
         window.__getProjects = function() { return _projects; };
         window.__getMaterials = function() { return _materials; };
+        window.__getActivities = function() { return _activities; };
+        window.__getCurrentUser = function() { return _currentUser; };
 
         // ── Data Maintenance ────────────────────────────────────────
         async function runDataCleanup() {
@@ -4166,7 +3790,7 @@ footer {
             if (rep.style.display === 'none') { showToast('⚠️ Generate DPR first'); return; }
             showToast('⏳ Generating Image...');
             withReportCaptureStyles(rep, () => captureReportCanvas(rep))
-                .then(c => deliverCanvas(c, { baseName: `DPR_${document.getElementById('date').value}`, asPdf: false, share: false }))
+                .then(c => deliverCanvas(c, { baseName: `DPR_${_reportDate}`, asPdf: false, share: false }))
                 .catch(() => showToast('⚠️ Image generation failed'));
         }
 
@@ -4175,7 +3799,7 @@ footer {
             if (rep.style.display === 'none') { showToast('⚠️ Generate DPR first'); return; }
             showToast('⏳ Generating PDF...');
             withReportCaptureStyles(rep, () => captureReportCanvas(rep))
-                .then(c => deliverCanvas(c, { baseName: `DPR_${document.getElementById('date').value}`, asPdf: true, share: false }))
+                .then(c => deliverCanvas(c, { baseName: `DPR_${_reportDate}`, asPdf: true, share: false }))
                 .catch(() => showToast('⚠️ PDF generation failed'));
         }
 
@@ -4184,7 +3808,7 @@ footer {
             if (rep.style.display === 'none') { showToast('⚠️ Generate DPR first'); return; }
             showToast('⏳ Preparing to share...');
             withReportCaptureStyles(rep, () => captureReportCanvas(rep))
-                .then(c => deliverCanvas(c, { baseName: `DPR_${document.getElementById('date').value}`, asPdf: true, share: true }))
+                .then(c => deliverCanvas(c, { baseName: `DPR_${_reportDate}`, asPdf: true, share: true }))
                 .catch(() => showToast('⚠️ Share failed'));
         }
 
@@ -4217,10 +3841,6 @@ footer {
                     if (s) { _currentUser = JSON.parse(s); showApp(); }
                 } catch (e) { }
 
-                // Set Date cleanly
-                const dateEl = document.getElementById('date');
-                if (dateEl) dateEl.value = getLocalTodayYMD();
-
                 window.addEventListener('offline', () => { document.getElementById('offlineBadge').style.display = 'block'; });
                 window.addEventListener('online', () => { document.getElementById('offlineBadge').style.display = 'none'; syncOfflineQueue(); });
                 if (!navigator.onLine) document.getElementById('offlineBadge').style.display = 'block';
@@ -4239,25 +3859,6 @@ footer {
                 }
             });
             
-            document.addEventListener('input', (e) => {
-                if (!e.target.closest('#tabForm')) return;
-                if (e.target.classList.contains('skill') || e.target.classList.contains('unskill')) {
-                    const row = e.target.closest('.activitybox');
-                    if (row) {
-                        const sk = Math.max(0, Number(row.querySelector('.skill')?.value) || 0);
-                        const un = Math.max(0, Number(row.querySelector('.unskill')?.value) || 0);
-                        const valEl = row.querySelector('.row-total-val');
-                        if (valEl) valEl.textContent = sk + un;
-                    }
-                }
-                saveFormDraft();
-            });
-
-            document.addEventListener('change', (e) => {
-                if (!e.target.closest('#tabForm')) return;
-                saveFormDraft();
-            });
-
             document.addEventListener('keydown', (e) => {
                 const modal = document.getElementById('dprModal');
                 if (!modal || !modal.classList.contains('open')) return;
