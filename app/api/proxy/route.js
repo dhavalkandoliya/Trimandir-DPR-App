@@ -1,27 +1,51 @@
 import { NextResponse } from 'next/server';
+import { SUPABASE_GET_ACTIONS, SUPABASE_POST_ACTIONS, runSupabaseGetAction, runSupabasePostAction } from '../../../lib/dprSupabaseApi';
+
+// DPR/Projects/Activities/Materials operations are served from Supabase
+// (see lib/dprSupabaseApi.js). Everything else — login, user management,
+// and any action this proxy doesn't recognize — still forwards to the
+// Google Apps Script backend, since the Users sheet hasn't been migrated.
+function getGoogleScriptUrl() {
+  const url = process.env.GOOGLE_SCRIPT_URL;
+  if (!url) throw new Error('GOOGLE_SCRIPT_URL is not set.');
+  return url;
+}
+
+async function fetchUsersFromAppsScript() {
+  try {
+    const res = await fetch(`${getGoogleScriptUrl()}?action=getUsers`);
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch (error) {
+    console.error('Failed to fetch users from Apps Script for bootstrap:', error);
+    return [];
+  }
+}
 
 export async function POST(request) {
+  let body = {};
+  const reqText = await request.text();
   try {
-    let body = {};
-    const reqText = await request.text();
-    console.log('Proxy received raw request text:', reqText);
+    if (reqText) body = JSON.parse(reqText);
+  } catch (parseReqErr) {
+    console.error('Failed to parse incoming request body as JSON:', parseReqErr, 'Raw body was:', reqText);
+    return NextResponse.json({ error: 'Invalid JSON request payload.', raw: reqText }, { status: 400 });
+  }
+
+  if (SUPABASE_POST_ACTIONS.has(body.action)) {
     try {
-      if (reqText) {
-        body = JSON.parse(reqText);
-      }
-    } catch (parseReqErr) {
-      console.error('Failed to parse incoming request body as JSON:', parseReqErr, 'Raw body was:', reqText);
-      return NextResponse.json(
-        { error: 'Invalid JSON request payload.', raw: reqText },
-        { status: 400 }
-      );
+      const result = await runSupabasePostAction(body.action, body);
+      return NextResponse.json(result);
+    } catch (error) {
+      console.error(`Supabase POST action "${body.action}" failed:`, error);
+      return NextResponse.json({ error: error.message || String(error) }, { status: 500 });
     }
+  }
 
-    const targetUrl = 'https://script.google.com/macros/s/AKfycbwtlhu-5A49ECkRXijXfG0ZpVhfePHhJ6DV5N_yz2Dk-yBwhzll4N-F-k5kW99DMkqEYg/exec';
-
+  try {
+    const targetUrl = getGoogleScriptUrl();
     console.log('Forwarding POST payload to Google Script:', JSON.stringify(body));
 
-    // Forward the POST request to Google Apps Script
     const response = await fetch(targetUrl, {
       method: 'POST',
       headers: {
@@ -56,12 +80,29 @@ export async function POST(request) {
 }
 
 export async function GET(request) {
-  try {
-    const googleScriptUrl = 'https://script.google.com/macros/s/AKfycbwtlhu-5A49ECkRXijXfG0ZpVhfePHhJ6DV5N_yz2Dk-yBwhzll4N-F-k5kW99DMkqEYg/exec';
+  const url    = new URL(request.url);
+  const action = url.searchParams.get('action') || '';
 
-    // Forward the GET request with any query parameters appended
-    const url = new URL(request.url);
-    const params = url.searchParams.toString();
+  if (SUPABASE_GET_ACTIONS.has(action)) {
+    try {
+      if (action === 'getBootstrapData') {
+        const [bootstrap, users] = await Promise.all([
+          runSupabaseGetAction('getBootstrapData'),
+          fetchUsersFromAppsScript()
+        ]);
+        return NextResponse.json({ ...bootstrap, users });
+      }
+      const result = await runSupabaseGetAction(action);
+      return NextResponse.json(result);
+    } catch (error) {
+      console.error(`Supabase GET action "${action}" failed:`, error);
+      return NextResponse.json({ error: error.message || String(error) }, { status: 500 });
+    }
+  }
+
+  try {
+    const googleScriptUrl = getGoogleScriptUrl();
+    const params    = url.searchParams.toString();
     const targetUrl = params ? `${googleScriptUrl}?${params}` : googleScriptUrl;
 
     const response = await fetch(targetUrl);
