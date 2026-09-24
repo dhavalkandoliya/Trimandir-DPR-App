@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import {
   Chart,
   CategoryScale,
@@ -14,7 +13,7 @@ import {
   Filler,
   Tooltip,
 } from 'chart.js';
-import ErrorBoundary from '../ui/ErrorBoundary';
+import { useApp } from '../app/AppContext';
 
 Chart.register(
   CategoryScale, LinearScale, PointElement, LineElement, BarElement,
@@ -55,16 +54,10 @@ function hexToRgba(hex, alpha) {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
-// Portal-mounted React replacement for the legacy renderDashboard()/setPeriod()
-// vanilla-JS dashboard. Reads _history/_projects via the read-only window.*
-// accessors exposed by index.html's script, and stays in sync via the
-// 'dpr:historyUpdated'/'dpr:themeChanged' custom events dispatched there —
-// see index.html's DASHBOARD section comment for the bridge contract.
+// Summary Dashboard: period stats, trend and top-sites charts, per-site breakdown.
 export default function AnalyticsDashboard() {
-  const [mountNode, setMountNode] = useState(null);
+  const { history, projects, theme } = useApp();
   const [period, setPeriod] = useState('week');
-  const [dataVersion, setDataVersion] = useState(0);
-  const [themeVersion, setThemeVersion] = useState(0);
   const [openSites, setOpenSites] = useState(() => new Set());
   const [openSubs, setOpenSubs] = useState(() => new Set());
 
@@ -73,39 +66,6 @@ export default function AnalyticsDashboard() {
   const trendChartRef = useRef(null);
   const siteChartRef = useRef(null);
 
-  // Defensive poll for the legacy-injected mount div — app/page.js injects the
-  // compiled HTML in its own useEffect with no ordering guarantee vs. this one.
-  useEffect(() => {
-    let cancelled = false;
-    const tryFind = () => {
-      const el = document.getElementById('__dashboard_mount__');
-      if (el) { if (!cancelled) setMountNode(el); return true; }
-      return false;
-    };
-    if (tryFind()) return undefined;
-    const interval = setInterval(() => { if (tryFind()) clearInterval(interval); }, 200);
-    return () => { cancelled = true; clearInterval(interval); };
-  }, []);
-
-  useEffect(() => {
-    const onHistory = () => setDataVersion(v => v + 1);
-    const onTheme = () => setThemeVersion(v => v + 1);
-    window.addEventListener('dpr:historyUpdated', onHistory);
-    window.addEventListener('dpr:themeChanged', onTheme);
-    return () => {
-      window.removeEventListener('dpr:historyUpdated', onHistory);
-      window.removeEventListener('dpr:themeChanged', onTheme);
-    };
-  }, []);
-
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const history = useMemo(() => (
-    (typeof window !== 'undefined' && window.__getHistory) ? window.__getHistory() : []
-  ), [dataVersion]);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const projects = useMemo(() => (
-    (typeof window !== 'undefined' && window.__getProjects) ? window.__getProjects() : []
-  ), [dataVersion]);
   const periodData = useMemo(() => {
     if (!history.length) return [];
     const now = new Date();
@@ -289,7 +249,7 @@ export default function AnalyticsDashboard() {
     });
 
     return () => { if (trendChartRef.current) { trendChartRef.current.destroy(); trendChartRef.current = null; } };
-  }, [dailySeries, themeVersion]);
+  }, [dailySeries, theme]); // re-read CSS colour tokens on theme change
 
   // ── Site breakdown bar chart: magnitude comparison -> one hue, length encodes value ──
   useEffect(() => {
@@ -324,9 +284,8 @@ export default function AnalyticsDashboard() {
 
     return () => { if (siteChartRef.current) { siteChartRef.current.destroy(); siteChartRef.current = null; } };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [topSites, themeVersion]);
+  }, [topSites, theme]);
 
-  if (!mountNode) return null;
 
   const toggleSite = (name) => setOpenSites(prev => {
     const next = new Set(prev);
@@ -351,8 +310,8 @@ export default function AnalyticsDashboard() {
     .map(([cond, n]) => `${CONDITION_EMOJI[cond] || ''} ${n} ${cond} day${n === 1 ? '' : 's'}`)
     .join('  ·  ');
 
-  return createPortal(
-    <ErrorBoundary>
+  return (
+    <>
       <div className="card">
         <div className="section-title">📊 Summary Dashboard</div>
         <div className="period-tabs">
@@ -441,7 +400,6 @@ export default function AnalyticsDashboard() {
           })}
         </div>
       </div>
-    </ErrorBoundary>,
-    mountNode
+    </>
   );
 }

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import ErrorBoundary from '../ui/ErrorBoundary';
+import { useApp } from '../app/AppContext';
 import ExecutiveReport from '../report/ExecutiveReport';
 import ReportActionBar from '../report/ReportActionBar';
 import { runReportAction, REPORT_ACTIONS } from '../../lib/report/exportReport';
@@ -21,8 +21,8 @@ function formatDate(s) {
 const recordKey = (item) => toYMD(item.date) + '||' + String(item.site).trim();
 const submittedMs = (item) => Number(item.submittedAt) || (item.submittedAt ? new Date(item.submittedAt).getTime() : 0);
 
-// Same edit-permission rules as index.html's editDPR() gate, which still
-// enforces them — this only decides which menu label to show.
+// Same edit-permission rules as AppContext canEdit() and the server
+// (lib/dprSupabaseApi.js editDPR) — this only picks the menu label.
 function editAction(item, user) {
   const isAdmin = user && user.role === 'admin';
   const isOwn = user && item.by === user.username;
@@ -35,22 +35,6 @@ function editAction(item, user) {
   if (!isAdmin && !isOwn) return { kind: 'forbidden', label: '✏️ Edit (Disabled)' };
   return { kind: 'edit', label: '✏️ Edit' };
 }
-
-// ── Legacy bridge — see index.html's "HISTORY" section comment ──
-
-const legacy = {
-  history: () => window.__getHistory?.() || [],
-  status: () => window.__getHistoryStatus?.() || 'idle',
-  projects: () => window.__getProjects?.() || [],
-  materialLogs: () => window.__getMaterialLogs?.() || [],
-  users: () => window.__getUsers?.() || [],
-  user: () => window.__getCurrentUser?.() || null,
-  toast: (msg) => window.showToast?.(msg),
-  reload: () => window.loadHistory?.(),
-  edit: (idx) => window.editDPR?.(idx),
-  requestEdit: (idx) => window.requestEditDPR?.(idx),
-  remove: (idx) => window.deleteDPR?.(idx),
-};
 
 function DprViewModal({ item, projects, materialLogs, autoOpenShare, onClose }) {
   const boxRef = useRef(null);
@@ -146,42 +130,18 @@ function HistoryItem({ item, projects, user, menuOpen, onToggleMenu, onView, onA
   );
 }
 
-// Portal-mounted React replacement for the legacy History tab
-// (renderHistory/openDPR/pagination in index.html).
+// DPR History: filters, newest-first list with pagination, per-record
+// actions menu and the View modal (Executive Report + exports).
 export default function HistoryScreen() {
-  const [mountNode, setMountNode] = useState(null);
-  const [dataVersion, setDataVersion] = useState(0);
+  const app = useApp();
   const [filters, setFilters] = useState({ start: '', end: '', site: '', supervisor: '' });
   const [page, setPage] = useState(1);
   const [openMenuKey, setOpenMenuKey] = useState(null);
   const [viewing, setViewing] = useState(null); // { item, autoOpenShare }
   const closeViewer = useCallback(() => setViewing(null), []);
 
-  useEffect(() => {
-    let cancelled = false;
-    const tryFind = () => {
-      const el = document.getElementById('__history_mount__');
-      if (el) { if (!cancelled) setMountNode(el); return true; }
-      return false;
-    };
-    if (tryFind()) return undefined;
-    const interval = setInterval(() => { if (tryFind()) clearInterval(interval); }, 200);
-    return () => { cancelled = true; clearInterval(interval); };
-  }, []);
-
-  useEffect(() => {
-    const bump = () => setDataVersion(v => v + 1);
-    window.addEventListener('dpr:historyUpdated', bump);
-    window.addEventListener('dpr:masterDataUpdated', bump);
-    window.addEventListener('dpr:materialLogsUpdated', bump);
-    window.addEventListener('dpr:closeDprModal', closeViewer);
-    return () => {
-      window.removeEventListener('dpr:historyUpdated', bump);
-      window.removeEventListener('dpr:masterDataUpdated', bump);
-      window.removeEventListener('dpr:materialLogsUpdated', bump);
-      window.removeEventListener('dpr:closeDprModal', closeViewer);
-    };
-  }, [closeViewer]);
+  // Leaving the tab closes the View modal (it's portalled to <body>).
+  useEffect(() => { if (app.activeTab !== 'History') closeViewer(); }, [app.activeTab, closeViewer]);
 
   // Close the ⋮ menu on any outside click or Escape.
   useEffect(() => {
@@ -196,11 +156,10 @@ export default function HistoryScreen() {
     };
   }, [openMenuKey]);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const data = useMemo(() => {
-    if (typeof window === 'undefined') return { history: [], projects: [], users: [], materialLogs: [], status: 'idle', user: null };
-    return { history: legacy.history(), projects: legacy.projects(), users: legacy.users(), materialLogs: legacy.materialLogs(), status: legacy.status(), user: legacy.user() };
-  }, [dataVersion]);
+  const data = useMemo(() => ({
+    history: app.history, projects: app.projects, users: app.users, materialLogs: app.materialLogs,
+    status: app.historyStatus, user: app.user,
+  }), [app.history, app.projects, app.users, app.materialLogs, app.historyStatus, app.user]);
 
   const siteOptions = useMemo(() => {
     const tops = data.projects.filter(p => !p.parent_id || String(p.parent_id).trim() === '');
@@ -243,28 +202,22 @@ export default function HistoryScreen() {
   const setFilter = (field) => (e) => { setFilters(f => ({ ...f, [field]: e.target.value })); setPage(1); };
   const clearFilters = () => { setFilters({ start: '', end: '', site: '', supervisor: '' }); setPage(1); };
 
-  // Report exports work straight from the record; the remaining legacy
-  // actions still take an index into the live _history array.
   const onAction = (kind, item) => {
     // Share needs its JPG/PDF chooser, which lives in the View modal's action bar.
     if (kind === 'share') { setViewing({ item, autoOpenShare: true }); return; }
     if (REPORT_ACTIONS.some(a => a.kind === kind)) {
-      runReportAction(kind, reportFromRecord(item, data.projects, data.materialLogs), legacy.toast);
+      runReportAction(kind, reportFromRecord(item, data.projects, data.materialLogs), app.showToast);
       return;
     }
-    const idx = legacy.history().indexOf(item);
-    if (idx < 0) { legacy.toast('⚠️ Record changed — refresh and try again'); return; }
     switch (kind) {
-      case 'edit':      legacy.edit(idx); break;
-      case 'request':   legacy.requestEdit(idx); break;
-      case 'pending':   legacy.toast('⏳ Edit request is pending Admin approval'); break;
-      case 'forbidden': legacy.toast('❌ You can only edit your own DPRs'); break;
-      case 'delete':    legacy.remove(idx); break;
+      case 'edit':      closeViewer(); app.editDpr(item); break;
+      case 'request':   app.requestEdit(item); break;
+      case 'pending':   app.showToast('⏳ Edit request is pending Admin approval'); break;
+      case 'forbidden': app.showToast('❌ You can only edit your own DPRs'); break;
+      case 'delete':    app.deleteDpr(item); break;
       default: break;
     }
   };
-
-  if (!mountNode) return null;
 
   let listBody;
   if (!data.history.length) {
@@ -291,8 +244,8 @@ export default function HistoryScreen() {
     });
   }
 
-  return createPortal(
-    <ErrorBoundary>
+  return (
+    <>
       <div className="card">
         <div className="section-title">📂 DPR History</div>
 
@@ -322,7 +275,7 @@ export default function HistoryScreen() {
         </div>
 
         <div className="history-toolbar">
-          <button type="button" className="btn-blue btn-sm" onClick={legacy.reload} disabled={data.status === 'loading'}>
+          <button type="button" className="btn-blue btn-sm" onClick={app.reloadHistory} disabled={data.status === 'loading'}>
             {data.status === 'loading' ? '⏳ Refreshing...' : '🔄 Refresh'}
           </button>
           <button type="button" className="btn-gray btn-sm" onClick={clearFilters} disabled={!isFiltered}>❌ Clear Filter</button>
@@ -347,7 +300,6 @@ export default function HistoryScreen() {
       {viewing && (
         <DprViewModal item={viewing.item} autoOpenShare={viewing.autoOpenShare} projects={data.projects} materialLogs={data.materialLogs} onClose={closeViewer} />
       )}
-    </ErrorBoundary>,
-    mountNode
+    </>
   );
 }

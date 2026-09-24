@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import { createPortal } from 'react-dom';
-import ErrorBoundary from '../ui/ErrorBoundary';
+import { useMemo, useState } from 'react';
+import { apiPost } from '../../lib/client/api';
+import { enqueueOffline, useApp } from '../app/AppContext';
 import ConsumptionEntryRow from './ConsumptionEntryRow';
 import { siteDisplayName } from '../../lib/report/reportModel';
 import {
@@ -10,8 +10,6 @@ import {
   normalizeOwnership, ownershipCounts, serializeEntryRows, sortLogsNewestFirst, trustTotals, validateEntryRows,
 } from '../../lib/materials/consumption';
 
-const API = '/api/proxy';
-const OFFLINE_QUEUE_KEY = 'dprOfflineQ';
 const LOG_PAGE = 50;
 const EMPTY_FILTERS = { start: '', end: '', site: '', material: '', ownership: '' };
 
@@ -27,38 +25,15 @@ function formatDate(ymd) {
 
 const isTopLevel = (p) => !p.parent_id || String(p.parent_id).trim() === '';
 
-function enqueueOffline(payload) {
-  try {
-    const q = JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) || '[]');
-    q.push(payload);
-    localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(q));
-    return true;
-  } catch (e) {
-    return false;
-  }
-}
-
-// ── Legacy bridge — see index.html's "MATERIALS" section comment ──
-const legacy = {
-  logs: () => window.__getMaterialLogs?.() || [],
-  status: () => window.__getMaterialLogsStatus?.() || 'idle',
-  materials: () => window.__getMaterials?.() || [],
-  projects: () => window.__getProjects?.() || [],
-  user: () => window.__getCurrentUser?.() || null,
-  toast: (msg) => window.showToast?.(msg),
-  reload: () => window.loadMaterialLogs?.(),
-};
-
 export function OwnershipBadge({ ownership }) {
   const o = normalizeOwnership(ownership);
   return <span className={`ce-badge is-${o.toLowerCase()}`}>{o}</span>;
 }
 
-// Portal-mounted React Materials tab: consumption-entry form, Trust-only
+// Materials tab: consumption-entry form, Trust-only
 // Total Material Summary, and the filtered Consumption Entries list.
 export default function MaterialsScreen() {
-  const [mountNode, setMountNode] = useState(null);
-  const [dataVersion, setDataVersion] = useState(0);
+  const app = useApp();
   const [date, setDate] = useState(getLocalTodayYMD);
   const [site, setSite] = useState('');
   const [rows, setRows] = useState(() => [emptyEntryRow()]);
@@ -66,33 +41,9 @@ export default function MaterialsScreen() {
   const [filters, setFilters] = useState(EMPTY_FILTERS);
   const [visibleLogs, setVisibleLogs] = useState(LOG_PAGE);
 
-  useEffect(() => {
-    let cancelled = false;
-    const tryFind = () => {
-      const el = document.getElementById('__materials_mount__');
-      if (el) { if (!cancelled) setMountNode(el); return true; }
-      return false;
-    };
-    if (tryFind()) return undefined;
-    const interval = setInterval(() => { if (tryFind()) clearInterval(interval); }, 200);
-    return () => { cancelled = true; clearInterval(interval); };
-  }, []);
-
-  useEffect(() => {
-    const bump = () => setDataVersion(v => v + 1);
-    window.addEventListener('dpr:materialLogsUpdated', bump);
-    window.addEventListener('dpr:masterDataUpdated', bump);
-    return () => {
-      window.removeEventListener('dpr:materialLogsUpdated', bump);
-      window.removeEventListener('dpr:masterDataUpdated', bump);
-    };
-  }, []);
-
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const data = useMemo(() => {
-    if (typeof window === 'undefined') return { logs: [], status: 'idle', materials: [], projects: [] };
-    return { logs: legacy.logs(), status: legacy.status(), materials: legacy.materials(), projects: legacy.projects() };
-  }, [dataVersion]);
+  const data = useMemo(() => ({
+    logs: app.materialLogs, status: app.materialLogsStatus, materials: app.materials, projects: app.projects,
+  }), [app.materialLogs, app.materialLogsStatus, app.materials, app.projects]);
 
   const activeMaterials = useMemo(
     () => data.materials.filter(m => m.status !== 'inactive').slice().sort((a, b) => String(a.material_name).localeCompare(String(b.material_name))),
@@ -130,45 +81,36 @@ export default function MaterialsScreen() {
 
   const save = async () => {
     if (saving) return;
-    const user = legacy.user();
-    if (!user) { legacy.toast('⚠️ Please sign in first'); return; }
-    if (!date) { legacy.toast('⚠️ Select a date'); return; }
-    if (!site) { legacy.toast('⚠️ Select a site'); return; }
+    const user = app.user;
+    if (!user) { app.showToast('⚠️ Please sign in first'); return; }
+    if (!date) { app.showToast('⚠️ Select a date'); return; }
+    if (!site) { app.showToast('⚠️ Select a site'); return; }
     const invalid = validateEntryRows(rows);
-    if (invalid) { legacy.toast(invalid); return; }
+    if (invalid) { app.showToast(invalid); return; }
     const materialsUsed = serializeEntryRows(rows);
-    if (!materialsUsed.length) { legacy.toast('⚠️ Add at least one consumption entry'); return; }
+    if (!materialsUsed.length) { app.showToast('⚠️ Add at least one consumption entry'); return; }
 
     const payload = { action: 'saveMaterialLog', date, site, by: user.username, materialsUsed };
 
     if (!navigator.onLine) {
-      legacy.toast(enqueueOffline(payload) ? '💾 Offline — will sync on reconnect' : '⚠️ Offline and could not queue — try again');
+      app.showToast(enqueueOffline([payload]) ? '💾 Offline — will sync on reconnect' : '⚠️ Offline and could not queue — try again');
       return;
     }
 
     setSaving(true);
-    legacy.toast('☁️ Saving consumption entries...');
+    app.showToast('☁️ Saving consumption entries...');
     try {
-      const res = await fetch(API, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      }).then(r => {
-        if (r.status === 401) window.__onAuthRequired?.(); // back to login; the entered rows stay
-        return r.json();
-      });
-      if (res && res.error) { legacy.toast('⚠️ Save failed: ' + res.error); return; }
-      legacy.toast(`✅ Saved ${materialsUsed.length} consumption entr${materialsUsed.length === 1 ? 'y' : 'ies'}`);
+      const res = await apiPost(payload); // a 401 drops to the login screen; the entered rows stay
+      if (res && res.error) { app.showToast('⚠️ Save failed: ' + res.error); return; }
+      app.showToast(`✅ Saved ${materialsUsed.length} consumption entr${materialsUsed.length === 1 ? 'y' : 'ies'}`);
       setRows([emptyEntryRow()]); // keep date + site for the next entry
-      legacy.reload();
+      app.reloadMaterialLogs();
     } catch (e) {
-      legacy.toast('⚠️ Save failed — check connection');
+      app.showToast('⚠️ Save failed — check connection');
     } finally {
       setSaving(false);
     }
   };
-
-  if (!mountNode) return null;
 
   const excluded = counts.Contractor + counts.Other;
   const loading = !data.logs.length && (data.status === 'loading' || data.status === 'idle');
@@ -215,8 +157,8 @@ export default function MaterialsScreen() {
     );
   }
 
-  return createPortal(
-    <ErrorBoundary>
+  return (
+    <>
       <div className="card">
         <div className="section-title">📦 Log Consumption Entries</div>
         <div className="history-filter-grid">
@@ -284,7 +226,7 @@ export default function MaterialsScreen() {
           </div>
         </div>
         <div className="history-toolbar">
-          <button type="button" className="btn-blue btn-sm" onClick={legacy.reload} disabled={data.status === 'loading'}>
+          <button type="button" className="btn-blue btn-sm" onClick={app.reloadMaterialLogs} disabled={data.status === 'loading'}>
             {data.status === 'loading' ? '⏳ Refreshing...' : '🔄 Refresh'}
           </button>
           <button type="button" className="btn-gray btn-sm" onClick={() => { setFilters(EMPTY_FILTERS); setVisibleLogs(LOG_PAGE); }} disabled={!isFiltered}>❌ Clear Filter</button>
@@ -327,7 +269,6 @@ export default function MaterialsScreen() {
         </div>
         {logBody}
       </div>
-    </ErrorBoundary>,
-    mountNode
+    </>
   );
 }

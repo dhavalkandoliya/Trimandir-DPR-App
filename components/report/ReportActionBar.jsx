@@ -4,14 +4,16 @@ import { useEffect, useRef, useState } from 'react';
 import {
   canShareFiles, prepareShareFiles, preloadExportLibs, REPORT_ACTIONS, runReportAction, SHARE_FORMATS,
 } from '../../lib/report/exportReport';
+import { useApp } from '../app/AppContext';
 
-const defaultToast = (msg) => window.showToast?.(msg);
 const IDLE = { jpg: 'pending', pdf: 'pending' };
 
 // [JPG (High-res)] [PDF] [Share ▾] — the single export surface for a report,
 // used by the Entry preview and the History View modal. Share opens a small
 // chooser (JPG or PDF) and hands the chosen file to the OS share sheet.
-export default function ReportActionBar({ report, toast = defaultToast, autoOpenShare = false }) {
+export default function ReportActionBar({ report, toast: toastProp, autoOpenShare = false }) {
+  const { showToast } = useApp();
+  const toast = toastProp || showToast;
   const [busy, setBusy] = useState(null);
   const [chooserOpen, setChooserOpen] = useState(false);
   const [fileState, setFileState] = useState(IDLE); // per format: 'pending' | 'ready' | 'error'

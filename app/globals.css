@@ -1740,3 +1740,153 @@ footer {
 @media (max-width: 400px) {
   .ce-grid-two { grid-template-columns: 1fr; gap: 0; }
 }
+
+/* ── APP SHELL (components/app/*) ── */
+/* Action toast ("Edit existing DPR") — these rules only ever lived in the
+   old index.html stylesheet, so in production the button couldn't be
+   clicked (#toast is pointer-events:none). */
+#toast.with-action {
+  pointer-events: auto;
+  white-space: normal;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-radius: 12px;
+  padding: 12px 16px;
+  text-align: left;
+}
+.toast-action-btn {
+  flex-shrink: 0;
+  width: auto;
+  margin-top: 0;
+  background: var(--primary, #3b82f6);
+  color: white;
+  border: none;
+  border-radius: 16px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.login-label { text-align: left; }
+.login-submit { margin-top: 6px; }
+.login-submit:disabled { opacity: 0.7; cursor: progress; }
+.login-err.is-info { color: var(--primary); }
+.login-hint { font-size: 12px; color: var(--muted); margin-top: 16px; text-align: center; }
+.login-chips-wrap { text-align: center; }
+.login-chips-title { color: rgba(255,255,255,.55); font-size: 11px; margin-bottom: 8px; }
+.user-chip { width: auto; margin-top: 0; } /* now a <button>: undo the global full-width button style */
+
+.header-actions { display: flex; gap: 6px; justify-content: flex-end; }
+#offlineBadge.is-visible { display: block; }
+
+/* ── ADMIN PANEL (components/admin/*) ── */
+.admin-acc-header {
+  width: 100%;
+  margin-top: 0;
+  border: none;
+  border-radius: 0;
+  text-align: left;
+}
+.admin-help { font-size: 13px; color: var(--muted); margin-bottom: 14px; }
+.admin-form {
+  background: var(--surface-subtle);
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  padding: 14px;
+  margin-bottom: 14px;
+}
+.admin-form-title { font-weight: 700; font-size: 14px; color: var(--primary); margin-bottom: 10px; }
+.admin-list-title { font-weight: 700; font-size: 14px; color: var(--primary); margin-bottom: 4px; }
+.admin-tree.admin-list-scroll { max-height: 480px; }
+
+.admin-stats { grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 10px; margin-bottom: 12px; }
+.admin-stats .dash-stat { padding: 12px 8px; }
+.admin-stats .num { font-size: 24px; }
+.admin-stats .admin-stat-text {
+  font-size: 14px;
+  font-weight: 700;
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  word-break: break-word;
+}
+.admin-export-bar { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.admin-export-bar button { margin-top: 0; font-size: 12px; }
+
+.admin-user-card { flex-direction: column; align-items: stretch; gap: 4px; padding: 12px; }
+.admin-user-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.admin-user-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  margin-top: 4px;
+  padding-top: 6px;
+  font-size: 12px;
+  border-top: 1px solid var(--border);
+}
+.admin-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 2px 6px;
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 4px;
+  vertical-align: middle;
+}
+.admin-badge.is-active { background: #dcfce7; color: #15803d; }
+.admin-badge.is-inactive { background: #fee2e2; color: #dc2626; }
+.admin-badge.is-me { background: var(--accent-light); color: var(--accent); }
+.admin-protected { font-size: 11px; color: var(--muted); }
+
+.admin-row-actions { display: flex; gap: 5px; flex-shrink: 0; }
+.admin-icon-btn { width: auto; margin: 0; padding: 4px 8px; font-size: 11px; min-width: 30px; }
+.admin-icon-btn:disabled { opacity: 0.4; cursor: default; }
+.admin-inline-btn { width: auto; margin: 0; padding: 6px 12px; }
+
+.admin-inline-form { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 6px; }
+.admin-inline-form input { flex: 1 1 160px; margin-bottom: 0; padding: 7px 10px; }
+.admin-inline-form .admin-unit-input { flex: 0 1 120px; }
+
+.admin-tree-group {
+  margin-bottom: 10px;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.admin-tree-group.is-orphans { border-color: #f59e0b; }
+.admin-tree-orphan-title { padding: 8px 12px; font-size: 12px; font-weight: 700; color: #b45309; background: rgba(245,158,11,0.08); }
+.admin-tree-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.admin-tree-group > .admin-tree-row:first-child { background: var(--surface-subtle); }
+.admin-tree-row:last-child { border-bottom: none; }
+.admin-tree-row.is-sub { padding-left: 24px; }
+.admin-tree-row.is-inactive .admin-tree-name { color: var(--muted); text-decoration: line-through; }
+.admin-tree-name { font-size: 13.5px; font-weight: 600; color: var(--text); min-width: 0; overflow-wrap: anywhere; }
+.admin-tree-row:not(.is-sub) > .admin-tree-name { color: var(--primary); }
+.admin-tree-meta { display: block; font-size: 11px; font-weight: 400; color: var(--muted); text-decoration: none; }
+.admin-tree-empty { padding: 6px 24px 8px; font-size: 12px; color: var(--muted); }
+
+[data-theme="dark"] .admin-badge.is-active { background: rgba(74,222,128,0.15); color: #4ade80; }
+[data-theme="dark"] .admin-badge.is-inactive { background: rgba(248,113,113,0.15); color: #f87171; }
+
+@media (max-width: 480px) {
+  .admin-tree-row { flex-wrap: wrap; }
+  .admin-row-actions { width: 100%; justify-content: flex-end; }
+}
+
+/* Stat tiles (Dashboard + Admin) hard-code a light gradient end colour and
+   border, which turned them into light cards with faint text in dark mode. */
+[data-theme="dark"] .dash-stat {
+  background: linear-gradient(135deg, var(--primary-light), var(--surface-subtle));
+  border-color: var(--border);
+}

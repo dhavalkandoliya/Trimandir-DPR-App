@@ -1,8 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
-import ErrorBoundary from '../ui/ErrorBoundary';
+import { apiPost } from '../../lib/client/api';
+import { enqueueOffline, useApp } from '../app/AppContext';
 import ExecutiveReport from '../report/ExecutiveReport';
 import ReportActionBar from '../report/ReportActionBar';
 import { buildReport, consumptionForRecord, recordActivities } from '../../lib/report/reportModel';
@@ -11,9 +11,7 @@ import {
   emptyEntryRow, entryRowFrom, entryRowHasContent, serializeEntryRows, validateEntryRows,
 } from '../../lib/materials/consumption';
 
-const API = '/api/proxy';
 const DRAFT_KEY = 'dpr_form_draft';
-const OFFLINE_QUEUE_KEY = 'dprOfflineQ';
 
 const CONDITIONS = [
   { val: 'Sunny',       label: '☀️ Sunny' },
@@ -97,48 +95,6 @@ function readDraft() {
   }
 }
 
-function enqueueOffline(payloads) {
-  try {
-    const q = JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) || '[]');
-    q.push(...payloads);
-    localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(q));
-    return true;
-  } catch (e) {
-    return false;
-  }
-}
-
-async function apiPost(body) {
-  const res = await fetch(API, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  // Session expired/revoked: index.html shows the login screen. The form
-  // (and its draft) stays as-is, so nothing typed is lost.
-  if (res.status === 401) window.__onAuthRequired?.();
-  return res.json();
-}
-
-// ── Legacy bridge ─────────────────────────────────────────────────────
-// The rest of the app (login, tabs, toasts, History) is still the legacy
-// script injected by app/page.js. These wrappers are the only places this
-// component touches it — see index.html's "DPR ENTRY FORM" section comment.
-
-const legacy = {
-  toast: (msg) => window.showToast?.(msg),
-  actionToast: (msg, label, fn) => window.showActionToast?.(msg, label, fn),
-  user: () => window.__getCurrentUser?.() || null,
-  projects: () => window.__getProjects?.() || [],
-  activities: () => window.__getActivities?.() || [],
-  materials: () => window.__getMaterials?.() || [],
-  materialLogs: () => window.__getMaterialLogs?.() || [],
-  history: () => window.__getHistory?.() || [],
-  reloadHistory: () => window.loadHistory?.(),
-  reloadMaterialLogs: () => window.loadMaterialLogs?.(),
-  editDprAt: (idx) => window.editDPR?.(idx),
-};
-
 // ── Subcomponents ─────────────────────────────────────────────────────
 
 function Stepper({ label, value, onChange }) {
@@ -220,11 +176,9 @@ function ActivityRow({ index, row, mains, subsFor, onChange, onRemove }) {
 
 // ── Main component ────────────────────────────────────────────────────
 
-// Portal-mounted React replacement for the legacy New DPR form
-// (addActivityRow/generate/saveToCloud/saveFormDraft in index.html).
+// New DPR form: activity rows, consumption entries, draft, save + report.
 export default function DprEntryForm() {
-  const [mountNode, setMountNode] = useState(null);
-  const [dataVersion, setDataVersion] = useState(0);
+  const app = useApp();
 
   const [date, setDate] = useState(getLocalTodayYMD);
   const [site, setSite] = useState('');
@@ -236,45 +190,17 @@ export default function DprEntryForm() {
   const [generatedReport, setGeneratedReport] = useState(null);
   const reportRef = useRef(null);
 
-  // Drafts are only written after the legacy script has told us which state
-  // to start from (init/reset/edit) — otherwise the pristine initial render
-  // would overwrite a saved draft before bootApp() gets to restore it.
+  // Drafts are only written after the app has told us which state to start
+  // from (init/reset/edit) — otherwise the pristine initial render would
+  // overwrite a saved draft before the boot's 'init' restores it.
   const readyRef = useRef(false);
 
-  useEffect(() => {
-    let cancelled = false;
-    const tryFind = () => {
-      const el = document.getElementById('__entry_mount__');
-      if (el) { if (!cancelled) setMountNode(el); return true; }
-      return false;
-    };
-    if (tryFind()) return undefined;
-    const interval = setInterval(() => { if (tryFind()) clearInterval(interval); }, 200);
-    return () => { cancelled = true; clearInterval(interval); };
-  }, []);
-
-  useEffect(() => {
-    const bump = () => setDataVersion(v => v + 1);
-    window.addEventListener('dpr:masterDataUpdated', bump);
-    window.addEventListener('dpr:historyUpdated', bump);
-    window.addEventListener('dpr:materialLogsUpdated', bump);
-    return () => {
-      window.removeEventListener('dpr:masterDataUpdated', bump);
-      window.removeEventListener('dpr:historyUpdated', bump);
-      window.removeEventListener('dpr:materialLogsUpdated', bump);
-    };
-  }, []);
-
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const master = useMemo(() => {
-    if (typeof window === 'undefined') return { projects: [], activities: [], materials: [], history: [] };
-    return {
-      projects: legacy.projects(),
-      activities: legacy.activities(),
-      materials: legacy.materials().filter(m => m.status !== 'inactive'),
-      history: legacy.history(),
-    };
-  }, [dataVersion]);
+  const master = useMemo(() => ({
+    projects: app.projects,
+    activities: app.activities,
+    materials: app.materials.filter(m => m.status !== 'inactive'),
+    history: app.history,
+  }), [app.projects, app.activities, app.materials, app.history]);
 
   const siteOptions = useMemo(() => {
     const active = master.projects.filter(p => p.status === 'active');
@@ -287,10 +213,8 @@ export default function DprEntryForm() {
   }, [master.projects]);
 
   const contractorSuggestions = useMemo(
-    // Guarded like `master` above: this also runs during the server prerender.
-    () => (typeof window === 'undefined' ? [] : [...new Set(legacy.materialLogs().map(l => String(l.contractor || '').trim()).filter(Boolean))].sort()),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [dataVersion]
+    () => [...new Set(app.materialLogs.map(l => String(l.contractor || '').trim()).filter(Boolean))].sort(),
+    [app.materialLogs]
   );
 
   const mains = useMemo(
@@ -316,9 +240,12 @@ export default function DprEntryForm() {
     setEditingKey(null);
   }, []);
 
+  const username = app.user ? app.user.username : '';
   const loadDraftOrReset = useCallback(() => {
     const draft = readDraft();
-    if (!draft) { resetForm(); return; }
+    // A draft written by someone else on this device is not theirs to submit.
+    // (Older drafts predate the `user` tag and still load.)
+    if (!draft || (draft.user && draft.user.toLowerCase() !== username.toLowerCase())) { resetForm(); return; }
     setDate(draft.date || getLocalTodayYMD());
     setSite(draft.site || '');
     setCondition(draft.siteCondition || '');
@@ -327,7 +254,7 @@ export default function DprEntryForm() {
     const mats = Array.isArray(draft.materials) ? draft.materials : [];
     setMaterialRows(mats.map(entryRowFrom)); // older drafts ({material_name, qty}) load too
     setEditingKey(null);
-  }, [resetForm]);
+  }, [resetForm, username]);
 
   const loadRecordForEdit = useCallback((item) => {
     setEditingKey(toYMD(item.date) + '||' + String(item.site).trim());
@@ -339,24 +266,20 @@ export default function DprEntryForm() {
     setMaterialRows([]);
   }, []);
 
-  // Commands from the legacy script (bootApp, tab switch, History → Edit).
-  // Anything sent before this component mounted is queued by sendEntryCommand().
+  // Commands from the app (boot 'init', New DPR tab 'init', History → 'edit').
+  const lastSeq = useRef(0);
   useEffect(() => {
-    const handle = (cmd) => {
-      if (!cmd) return;
-      if (cmd.type === 'init') loadDraftOrReset();
-      else if (cmd.type === 'reset') resetForm();
-      else if (cmd.type === 'edit' && cmd.record) loadRecordForEdit(cmd.record);
-      readyRef.current = true;
-    };
-    window.__dprEntryHandler = handle;
-    const queued = window.__dprEntryQueue || [];
-    window.__dprEntryQueue = [];
-    queued.forEach(handle);
-    return () => { if (window.__dprEntryHandler === handle) window.__dprEntryHandler = null; };
-  }, [loadDraftOrReset, resetForm, loadRecordForEdit]);
+    const c = app.entryCommand;
+    if (!c || c.seq === lastSeq.current) return;
+    lastSeq.current = c.seq;
+    const { cmd } = c;
+    if (cmd.type === 'init') loadDraftOrReset();
+    else if (cmd.type === 'reset') resetForm();
+    else if (cmd.type === 'edit' && cmd.record) loadRecordForEdit(cmd.record);
+    readyRef.current = true;
+  }, [app.entryCommand, loadDraftOrReset, resetForm, loadRecordForEdit]);
 
-  // Draft persistence — same localStorage key/shape the legacy form used, plus
+  // Draft persistence — same localStorage key/shape as the original form, plus
   // `materials`. Edits of an existing DPR are never drafted.
   useEffect(() => {
     if (!readyRef.current || editingKey) return;
@@ -370,9 +293,9 @@ export default function DprEntryForm() {
       activities.every(a => !a.main_activity && !a.skilled && !a.unskilled && !a.note && !a.plannedQty);
     try {
       if (isEmpty) localStorage.removeItem(DRAFT_KEY);
-      else localStorage.setItem(DRAFT_KEY, JSON.stringify({ date, site, siteCondition: condition, activities, materials }));
+      else localStorage.setItem(DRAFT_KEY, JSON.stringify({ user: username, date, site, siteCondition: condition, activities, materials }));
     } catch (e) { /* storage full/blocked — drafting is best-effort */ }
-  }, [date, site, condition, rows, materialRows, editingKey]);
+  }, [date, site, condition, rows, materialRows, editingKey, username]);
 
   useEffect(() => {
     if (generatedReport) reportRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -406,33 +329,33 @@ export default function DprEntryForm() {
     const lastSite = master.history[0] ? master.history[0].site : '';
     if (lastSite && siteOptions.some(o => o.value === lastSite)) setSite(lastSite);
     readyRef.current = true;
-    legacy.toast('🆕 New DPR ready for today');
+    app.showToast('🆕 New DPR ready for today');
   };
 
   const duplicateLast = () => {
-    if (!site) { legacy.toast('⚠️ Select a site first'); return; }
+    if (!site) { app.showToast('⚠️ Select a site first'); return; }
     const prior = master.history.find(h => String(h.site || '').trim() === site.trim());
-    if (!prior) { legacy.toast('⚠️ No previous DPR found for this site'); return; }
+    if (!prior) { app.showToast('⚠️ No previous DPR found for this site'); return; }
     const copied = rowsFromRecord(prior);
-    if (!copied.length) { legacy.toast('⚠️ Previous DPR has no activity rows'); return; }
+    if (!copied.length) { app.showToast('⚠️ Previous DPR has no activity rows'); return; }
     setRows(copied);
-    legacy.toast(`📋 Duplicated ${copied.length} activity row(s) from last DPR`);
+    app.showToast(`📋 Duplicated ${copied.length} activity row(s) from last DPR`);
   };
 
   // ── Generate & save ──
   const generate = async () => {
     if (saving) return;
-    const user = legacy.user();
-    if (!user) { legacy.toast('⚠️ Please sign in first'); return; }
-    if (!date) { legacy.toast('⚠️ Select a date'); return; }
-    if (!site) { legacy.toast('⚠️ Select a site'); return; }
+    const user = app.user;
+    if (!user) { app.showToast('⚠️ Please sign in first'); return; }
+    if (!date) { app.showToast('⚠️ Select a date'); return; }
+    if (!site) { app.showToast('⚠️ Select a site'); return; }
 
     const activities = rows.filter(r => r.main.trim()).map(serializeActivity);
     const activeActs = activities.filter(a => a.skilled > 0 || a.unskilled > 0);
-    if (!activeActs.length) { legacy.toast('⚠️ Enter at least one activity with workers'); return; }
+    if (!activeActs.length) { app.showToast('⚠️ Enter at least one activity with workers'); return; }
 
     const invalidMaterial = editingKey ? null : validateEntryRows(materialRows);
-    if (invalidMaterial) { legacy.toast(invalidMaterial); return; }
+    if (invalidMaterial) { app.showToast(invalidMaterial); return; }
     const materialsUsed = editingKey ? [] : serializeEntryRows(materialRows);
 
     const total = activities.reduce((s, a) => s + a.skilled + a.unskilled, 0);
@@ -445,7 +368,7 @@ export default function DprEntryForm() {
     setGeneratedReport(buildReport({
       date, site, activities: activeActs, preparedBy: prepBy, editedBy, condition, projects: master.projects,
       // New DPR: the entries on this form. Edit: what's already logged for this site/day.
-      materials: editingKey ? consumptionForRecord({ date, site }, legacy.materialLogs()) : materialsUsed,
+      materials: editingKey ? consumptionForRecord({ date, site }, app.materialLogs) : materialsUsed,
     }));
 
     const isEdit = !!editingKey;
@@ -466,23 +389,23 @@ export default function DprEntryForm() {
 
     if (!navigator.onLine) {
       const queued = enqueueOffline(materialPayload ? [payload, materialPayload] : [payload]);
-      legacy.toast(queued ? '💾 Offline — will sync on reconnect' : '⚠️ Offline and could not queue — keep this page open and retry');
+      app.showToast(queued ? '💾 Offline — will sync on reconnect' : '⚠️ Offline and could not queue — keep this page open and retry');
       return;
     }
 
     setSaving(true);
-    legacy.toast('☁️ Saving to cloud...');
+    app.showToast('☁️ Saving to cloud...');
     try {
       const res = await apiPost(payload);
       if (res && res.status === 'duplicate') {
-        legacy.actionToast('⚠️ A DPR already exists for this date & site.', 'Edit existing DPR', () => {
-          const idx = legacy.history().findIndex(h => toYMD(h.date) === date && String(h.site || '').trim() === site.trim());
-          if (idx > -1) legacy.editDprAt(idx);
-          else legacy.toast('⚠️ Could not find it — try reloading History.');
+        app.showActionToast('⚠️ A DPR already exists for this date & site.', 'Edit existing DPR', () => {
+          const existingRec = app.history.find(h => toYMD(h.date) === date && String(h.site || '').trim() === site.trim());
+          if (existingRec) app.editDpr(existingRec);
+          else app.showToast('⚠️ Could not find it — try reloading History.');
         });
         return;
       }
-      if (res && res.error) { legacy.toast('⚠️ Save failed: ' + res.error); return; }
+      if (res && res.error) { app.showToast('⚠️ Save failed: ' + res.error); return; }
 
       let materialError = '';
       if (materialPayload) {
@@ -496,25 +419,23 @@ export default function DprEntryForm() {
 
       // Confirmed success — reset for the next entry but leave the generated
       // #report visible so Download/Share keep working against it.
-      if (materialError) legacy.toast(`⚠️ DPR saved, but materials failed (${materialError}) — log them from the Materials tab`);
-      else legacy.toast(isEdit ? '✅ DPR Updated!' : '✅ Saved!');
+      if (materialError) app.showToast(`⚠️ DPR saved, but materials failed (${materialError}) — log them from the Materials tab`);
+      else app.showToast(isEdit ? '✅ DPR Updated!' : '✅ Saved!');
       try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}
       resetForm();
-      legacy.reloadHistory();
-      if (materialPayload && !materialError) legacy.reloadMaterialLogs();
+      app.reloadHistory();
+      if (materialPayload && !materialError) app.reloadMaterialLogs();
     } catch (e) {
-      legacy.toast('⚠️ Save failed — check connection');
+      app.showToast('⚠️ Save failed — check connection');
     } finally {
       setSaving(false);
     }
   };
 
-  if (!mountNode) return null;
-
   const siteKnown = siteOptions.some(o => o.value === site);
 
-  return createPortal(
-    <ErrorBoundary>
+  return (
+    <>
       <div className="dpr-entry">
         <div className="btn-group entry-quick-actions">
           <button type="button" className="btn-gray btn-sm" onClick={quickNewToday}>🌿 New DPR (Today)</button>
@@ -619,7 +540,6 @@ export default function DprEntryForm() {
           </section>
         )}
       </div>
-    </ErrorBoundary>,
-    mountNode
+    </>
   );
 }

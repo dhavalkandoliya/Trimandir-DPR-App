@@ -2,10 +2,8 @@
 
 import { Component } from 'react';
 
-// Minimal error boundary so a bug in a newly-ported React component (e.g. the
-// portal-mounted AnalyticsDashboard) can't crash the still-legacy rest of the
-// page, which is injected separately via innerHTML and has no React tree of
-// its own to catch errors for.
+// Minimal error boundary: AppShell wraps each tab in one, so a render bug in
+// one screen (say, the Dashboard) can't take down the rest of the app.
 export default class ErrorBoundary extends Component {
   constructor(props) {
     super(props);
