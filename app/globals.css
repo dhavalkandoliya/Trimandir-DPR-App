@@ -1388,7 +1388,7 @@ footer {
   --x-border: #e3e5f0;
   --x-tint: #eef2ff;
   --x-subtle: #f5f6fb;
-  --x-subtotal: #f8fafc;
+  --x-group: #f1f5f9; /* light slate — main-activity rows carrying group totals */
   background: #ffffff;
   color: var(--x-text);
   border: 1px solid var(--x-border);
@@ -1501,12 +1501,11 @@ footer {
 }
 .exec-table .c-num { width: 34px; text-align: center; color: var(--x-muted); }
 .exec-table .c-n { width: 72px; text-align: right; font-variant-numeric: tabular-nums; }
-.exec-table .c-sub { padding-left: 22px; }
+.exec-table .c-sub { padding-left: 26px; }
 .exec-table .c-note { color: var(--x-muted); font-size: 11.5px; min-width: 120px; }
 .exec-table thead .c-n { text-align: right; }
 .exec-row.is-main td:nth-child(2) { font-weight: 700; }
-.exec-group td { background: var(--x-tint); color: var(--x-primary); font-weight: 700; }
-.exec-subtotal td { background: var(--x-subtotal); font-weight: 700; }
+.exec-group td { background: var(--x-group); color: var(--x-primary); font-weight: 700; }
 .exec-grand td {
   background: var(--x-primary);
   color: #ffffff;
@@ -1532,7 +1531,7 @@ footer {
 /* ── REPORT ACTION BAR (components/report/ReportActionBar.jsx) ── */
 .report-actions {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
   margin-bottom: 12px;
 }
@@ -1545,9 +1544,52 @@ footer {
 }
 .report-action.is-jpg { background: linear-gradient(135deg, #475569, #334155); }
 .report-action.is-pdf { background: linear-gradient(135deg, #4f46e5, #312e81); }
-.report-action.is-whatsapp { background: linear-gradient(135deg, #25d366, #128c7e); }
-.report-action.is-share { background: linear-gradient(135deg, #64748b, #475569); }
+.report-action.is-share { background: linear-gradient(135deg, #0d9488, #0f766e); }
 .report-action:disabled { opacity: 0.6; cursor: progress; }
+
+.report-actions-wrap { position: relative; }
+
+/* Share → "as JPG / as PDF" chooser */
+.share-chooser {
+  position: absolute;
+  top: calc(100% - 6px);
+  right: 0;
+  z-index: 60;
+  width: min(300px, 100%);
+  padding: 8px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-lg);
+  animation: fadeIn 0.15s ease;
+}
+.share-chooser-title {
+  padding: 4px 8px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.share-chooser-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 0;
+  padding: 11px 10px;
+  text-align: left;
+  font-size: 14px;
+  color: var(--text);
+  background: transparent;
+  border-radius: 8px;
+}
+.share-chooser-option:hover,
+.share-chooser-option:focus-visible { background: var(--primary-light); opacity: 1; outline: none; }
+.share-chooser-label { flex: 1; }
+.share-chooser-status { font-size: 11px; font-weight: 600; color: var(--muted); }
+.share-chooser-status.is-ready { color: var(--green); }
+.share-chooser-status.is-error { color: var(--red); }
+.share-chooser-note { margin: 6px 8px 2px; font-size: 11.5px; color: var(--muted); }
 
 .report-preview { margin-bottom: 14px; scroll-margin-top: 16px; }
 .report-preview-head { display: flex; align-items: center; justify-content: space-between; }
@@ -1556,7 +1598,7 @@ footer {
 .modal-box.modal-box-wide { max-width: 760px; }
 
 @media (max-width: 560px) {
-  .report-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .report-action { font-size: 12px; padding: 10px 4px; white-space: normal; }
   .exec-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .exec-meta { grid-template-columns: 1fr; }
   .exec-head, .exec-meta, .exec-kpis, .exec-foot { padding-left: 14px; padding-right: 14px; }

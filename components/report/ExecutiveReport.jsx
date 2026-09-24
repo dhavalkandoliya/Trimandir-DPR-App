@@ -84,8 +84,17 @@ export default function ExecutiveReport({ report }) {
                     </tr>
                   );
                 }
+                // The main-activity row carries the group's totals; its
+                // sub-activities sit indented directly underneath.
                 return [
-                  <tr key={`${g.name}-h`} className="exec-group"><td colSpan={6}>{g.name}</td></tr>,
+                  <tr key={`${g.name}-h`} className="exec-group">
+                    <td className="c-num" />
+                    <td>{g.name}</td>
+                    <td className="c-n">{g.totals.skilled}</td>
+                    <td className="c-n">{g.totals.unskilled}</td>
+                    <td className="c-n">{g.totals.total}</td>
+                    <td />
+                  </tr>,
                   ...g.rows.map((r, i) => {
                     seq += 1;
                     return (
@@ -94,19 +103,11 @@ export default function ExecutiveReport({ report }) {
                         <td className={r.isSub ? 'c-sub' : ''}>{r.name}</td>
                         <td className="c-n">{r.skilled}</td>
                         <td className="c-n">{r.unskilled}</td>
-                        <td className="c-n"><b>{r.total}</b></td>
+                        <td className="c-n">{r.total}</td>
                         <td className="c-note">{r.note}</td>
                       </tr>
                     );
                   }),
-                  <tr key={`${g.name}-s`} className="exec-subtotal">
-                    <td />
-                    <td>Subtotal — {g.name}</td>
-                    <td className="c-n">{g.subtotal.skilled}</td>
-                    <td className="c-n">{g.subtotal.unskilled}</td>
-                    <td className="c-n">{g.subtotal.total}</td>
-                    <td />
-                  </tr>,
                 ];
               })}
             </tbody>

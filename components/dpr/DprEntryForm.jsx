@@ -449,7 +449,7 @@ export default function DprEntryForm() {
     const editedBy = existing && existing.by !== user.username ? user.username : '';
 
     // The preview stays up after the save resets the form, so the
-    // JPG/PDF/WhatsApp/Share actions keep working against what was submitted.
+    // JPG/PDF/Share actions keep working against what was submitted.
     setGeneratedReport(buildReport({
       date, site, activities: activeActs, preparedBy: prepBy, editedBy, condition, projects: master.projects,
     }));

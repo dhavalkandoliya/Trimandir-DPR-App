@@ -51,7 +51,7 @@ const legacy = {
   remove: (idx) => window.deleteDPR?.(idx),
 };
 
-function DprViewModal({ item, projects, onClose }) {
+function DprViewModal({ item, projects, autoOpenShare, onClose }) {
   const boxRef = useRef(null);
   const report = useMemo(() => reportFromRecord(item, projects), [item, projects]);
 
@@ -82,7 +82,7 @@ function DprViewModal({ item, projects, onClose }) {
           <button type="button" className="modal-close" aria-label="Close" onClick={onClose}>✕</button>
         </div>
         <div className="modal-body">
-          <ReportActionBar report={report} />
+          <ReportActionBar report={report} autoOpenShare={autoOpenShare} />
           <ExecutiveReport report={report} />
         </div>
       </div>
@@ -153,7 +153,7 @@ export default function HistoryScreen() {
   const [filters, setFilters] = useState({ start: '', end: '', site: '', supervisor: '' });
   const [page, setPage] = useState(1);
   const [openMenuKey, setOpenMenuKey] = useState(null);
-  const [viewing, setViewing] = useState(null);
+  const [viewing, setViewing] = useState(null); // { item, autoOpenShare }
   const closeViewer = useCallback(() => setViewing(null), []);
 
   useEffect(() => {
@@ -243,6 +243,8 @@ export default function HistoryScreen() {
   // Report exports work straight from the record; the remaining legacy
   // actions still take an index into the live _history array.
   const onAction = (kind, item) => {
+    // Share needs its JPG/PDF chooser, which lives in the View modal's action bar.
+    if (kind === 'share') { setViewing({ item, autoOpenShare: true }); return; }
     if (REPORT_ACTIONS.some(a => a.kind === kind)) {
       runReportAction(kind, reportFromRecord(item, data.projects), legacy.toast);
       return;
@@ -279,7 +281,7 @@ export default function HistoryScreen() {
           user={data.user}
           menuOpen={openMenuKey === key}
           onToggleMenu={setOpenMenuKey}
-          onView={setViewing}
+          onView={(item) => setViewing({ item, autoOpenShare: false })}
           onAction={onAction}
         />
       );
@@ -339,7 +341,9 @@ export default function HistoryScreen() {
         )}
       </div>
 
-      {viewing && <DprViewModal item={viewing} projects={data.projects} onClose={closeViewer} />}
+      {viewing && (
+        <DprViewModal item={viewing.item} autoOpenShare={viewing.autoOpenShare} projects={data.projects} onClose={closeViewer} />
+      )}
     </ErrorBoundary>,
     mountNode
   );
