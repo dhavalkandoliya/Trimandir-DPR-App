@@ -121,11 +121,8 @@ $part1 = "'use client';" + "`n" +
           "  useEffect(() => {" + "`n" +
           "    if (typeof window === 'undefined') return;" + "`n" +
           "" + "`n" +
-          "    // -- Inject html2canvas and jsPDF from CDN --" + "`n" +
-          "    const s1 = document.createElement('script');" + "`n" +
-          "    s1.src = 'https://html2canvas.hertzen.com/dist/html2canvas.min.js';" + "`n" +
-          "    document.head.appendChild(s1);" + "`n" +
-          "" + "`n" +
+          "    // -- Inject jsPDF (+autotable) and SheetJS from CDN for the legacy Master Log exports --" + "`n" +
+          "    // (per-DPR JPG/PDF use the bundled html2canvas/jspdf in lib/report/exportReport.js)" + "`n" +
           "    const s2 = document.createElement('script');" + "`n" +
           "    s2.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';" + "`n" +
           "    document.head.appendChild(s2);" + "`n" +

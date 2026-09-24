@@ -3,6 +3,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import ErrorBoundary from '../ui/ErrorBoundary';
+import ExecutiveReport from '../report/ExecutiveReport';
+import ReportActionBar from '../report/ReportActionBar';
+import { buildReport, recordActivities } from '../../lib/report/reportModel';
 
 const API = '/api/proxy';
 const DRAFT_KEY = 'dpr_form_draft';
@@ -38,20 +41,6 @@ function toYMD(v) {
 const toCount = (v) => Math.max(0, Number(v) || 0);
 const isTopLevel = (item) => !item.parent_id || String(item.parent_id).trim() === '';
 
-// Same keyword rules as isCivilActivity() in index.html, which the legacy
-// History/report views still use to read sections back — keep the two in sync.
-const CIVIL_KWS = ['rcc', 'waterproofing', 'marble', 'flooring', 'masonry', 'plaster', 'fabrication', 'steel', 'civil', 'plumbing', 'pipe'];
-const INTERIOR_KWS = ['furniture', 'carpentry', 'polishing', 'paint', 'ceiling', 'electrical', 'interior'];
-const OTHER_INTERIOR_KWS = ['tile', 'modular', 'hvac', 'ac', 'cctv', 'it work', 'lift', 'epoxy', 'polish'];
-
-function detectSection(mainAct, subAct) {
-  const checkStr = `${(mainAct || '').toLowerCase()} ${(subAct || '').toLowerCase()}`.trim();
-  if (CIVIL_KWS.some(kw => checkStr.includes(kw))) return 'Civil';
-  if (INTERIOR_KWS.some(kw => checkStr.includes(kw))) return 'Interior';
-  if (OTHER_INTERIOR_KWS.some(kw => checkStr.includes(kw))) return 'Interior';
-  return 'Civil';
-}
-
 let _keySeq = 0;
 const nextKey = () => `r${++_keySeq}`;
 
@@ -83,21 +72,15 @@ function activityRowFrom(a) {
 }
 
 function rowsFromRecord(item) {
-  const civil = Array.isArray(item.civilActivities) ? item.civilActivities : [];
-  const interior = Array.isArray(item.interiorActivities) ? item.interiorActivities : [];
-  const pooled = [...civil, ...interior];
-  const source = pooled.length ? pooled : (Array.isArray(item.details) ? item.details : []);
-  return source.map(activityRowFrom);
+  return recordActivities(item).map(activityRowFrom);
 }
 
 // Row → wire/draft shape expected by saveDPR/editDPR (lib/dprSupabaseApi.js).
+// No `section` is sent — the DPR is one unified table now.
 function serializeActivity(r) {
-  const main = r.main.trim();
-  const sub = r.sub.trim();
   return {
-    main_activity: main,
-    sub_activity: sub,
-    section: detectSection(main, sub),
+    main_activity: r.main.trim(),
+    sub_activity: r.sub.trim(),
     skilled: toCount(r.skilled),
     unskilled: toCount(r.unskilled),
     note: r.note.trim(),
@@ -147,7 +130,6 @@ const legacy = {
   activities: () => window.__getActivities?.() || [],
   materials: () => window.__getMaterials?.() || [],
   history: () => window.__getHistory?.() || [],
-  renderReport: (data) => window.__renderDprReport?.(data),
   reloadHistory: () => window.loadHistory?.(),
   reloadMaterialLogs: () => window.loadMaterialLogs?.(),
   editDprAt: (idx) => window.editDPR?.(idx),
@@ -183,7 +165,6 @@ function ActivityRow({ index, row, mains, subsFor, onChange, onRemove }) {
   const subKnown = subs.some(s => s.activity_name === row.sub);
   const showSub = subs.length > 0 || !!row.sub;
   const total = toCount(row.skilled) + toCount(row.unskilled);
-  const section = row.main ? detectSection(row.main, row.sub) : null;
   const update = (patch) => onChange({ ...row, ...patch });
 
   return (
@@ -191,7 +172,6 @@ function ActivityRow({ index, row, mains, subsFor, onChange, onRemove }) {
       <div className="entry-row-head">
         <span className="entry-row-title">Activity {index + 1}</span>
         <div className="entry-row-actions">
-          {section && <span className={`entry-section-badge ${section === 'Interior' ? 'is-interior' : 'is-civil'}`}>{section}</span>}
           <span className="entry-row-total">Total: <b>{total}</b></span>
           <button type="button" className="delete-btn entry-row-remove" onClick={onRemove}>🗑️ Remove</button>
         </div>
@@ -271,6 +251,8 @@ export default function DprEntryForm() {
   const [materialRows, setMaterialRows] = useState([]);
   const [editingKey, setEditingKey] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [generatedReport, setGeneratedReport] = useState(null);
+  const reportRef = useRef(null);
 
   // Drafts are only written after the legacy script has told us which state
   // to start from (init/reset/edit) — otherwise the pristine initial render
@@ -399,17 +381,18 @@ export default function DprEntryForm() {
     } catch (e) { /* storage full/blocked — drafting is best-effort */ }
   }, [date, site, condition, rows, materialRows, editingKey]);
 
+  useEffect(() => {
+    if (generatedReport) reportRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [generatedReport]);
+
   // ── Derived totals (summary footer) ──
   const totals = useMemo(() => {
-    const t = { skilled: 0, unskilled: 0, civil: 0, interior: 0, rows: 0 };
+    const t = { skilled: 0, unskilled: 0, rows: 0 };
     rows.forEach(r => {
       if (!r.main) return;
-      const sk = toCount(r.skilled), un = toCount(r.unskilled);
       t.rows++;
-      t.skilled += sk;
-      t.unskilled += un;
-      if (detectSection(r.main, r.sub) === 'Interior') t.interior += sk + un;
-      else t.civil += sk + un;
+      t.skilled += toCount(r.skilled);
+      t.unskilled += toCount(r.unskilled);
     });
     t.total = t.skilled + t.unskilled;
     t.materials = materialRows.filter(m => m.name && toCount(m.qty) > 0).length;
@@ -465,7 +448,11 @@ export default function DprEntryForm() {
     const prepBy = existing ? (existing.by || user.username) : user.username;
     const editedBy = existing && existing.by !== user.username ? user.username : '';
 
-    legacy.renderReport({ date, site, prepBy, editedBy, activities: activeActs, total });
+    // The preview stays up after the save resets the form, so the
+    // JPG/PDF/WhatsApp/Share actions keep working against what was submitted.
+    setGeneratedReport(buildReport({
+      date, site, activities: activeActs, preparedBy: prepBy, editedBy, condition, projects: master.projects,
+    }));
 
     const isEdit = !!editingKey;
     const payload = {
@@ -615,15 +602,26 @@ export default function DprEntryForm() {
             <div className="entry-stat"><span className="entry-stat-num">{totals.total}</span><span className="entry-stat-lbl">Total</span></div>
             <div className="entry-stat"><span className="entry-stat-num">{totals.skilled}</span><span className="entry-stat-lbl">Skilled</span></div>
             <div className="entry-stat"><span className="entry-stat-num">{totals.unskilled}</span><span className="entry-stat-lbl">Unskilled</span></div>
-            <div className="entry-stat entry-stat-split">
-              <span className="entry-stat-lbl">Civil <b>{totals.civil}</b> · Interior <b>{totals.interior}</b></span>
-              <span className="entry-stat-lbl">{totals.rows} activit{totals.rows === 1 ? 'y' : 'ies'}{totals.materials ? ` · ${totals.materials} material${totals.materials === 1 ? '' : 's'}` : ''}</span>
-            </div>
+            <div className="entry-stat"><span className="entry-stat-num">{totals.rows}</span><span className="entry-stat-lbl">Activities</span></div>
+            {totals.materials > 0 && (
+              <div className="entry-stat"><span className="entry-stat-num">{totals.materials}</span><span className="entry-stat-lbl">Materials</span></div>
+            )}
           </div>
           <button type="button" className="btn-green entry-generate-btn" onClick={generate} disabled={saving}>
             {saving ? '⏳ Saving...' : editingKey ? '✅ Update DPR' : '✅ Generate DPR'}
           </button>
         </div>
+
+        {generatedReport && (
+          <section className="report-preview" ref={reportRef} aria-label="Generated DPR">
+            <div className="report-preview-head">
+              <div className="section-title">📊 Generated DPR</div>
+              <button type="button" className="modal-close" aria-label="Close preview" onClick={() => setGeneratedReport(null)}>✕</button>
+            </div>
+            <ReportActionBar report={generatedReport} />
+            <ExecutiveReport report={generatedReport} />
+          </section>
+        )}
       </div>
     </ErrorBoundary>,
     mountNode

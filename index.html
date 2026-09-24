@@ -10,7 +10,6 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180">
     <link rel="manifest" href="/manifest.json">
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Noto+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Rajdhani:wght@500;600;700&display=swap');
@@ -1163,23 +1162,6 @@ footer {
     <!-- React: components/dpr/DprEntryForm.jsx, portal-mounted here -->
     <div id="__entry_mount__"></div>
 
-    <div class="btn-group">
-        <button class="btn-blue" onclick="downloadImage()">&#128247; Download Image</button>
-        <button class="btn-blue" onclick="downloadPDF()">&#128196; Download PDF</button>
-    </div>
-    <button class="btn-wa" onclick="shareReport()">&#128228; Share (WhatsApp / Email)</button>
-    <button class="btn-gray" onclick="copyWhats()">&#128172; Copy Text for WhatsApp</button>
-
-    <div id="report" style="display:none;">
-        <div class="report-letterhead">
-            <div class="report-letterhead-title">Trimandir Construction Project</div>
-            <div class="report-letterhead-sub">Daily Progress Report</div>
-        </div>
-        <h3>DPR &#8212; MAN POWER REPORT</h3>
-        <div class="report-meta" id="rdate"></div>
-        <div id="rcivil"></div>
-        <div id="rmanpower"></div>
-    </div>
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════════
@@ -1442,7 +1424,6 @@ footer {
         let _history    = [];   // see handleGetDPRs schema below
         let _materialLogs = []; // { date, site, material_name, qty, unit, loggedBy, createdAt } — see Material_Logs sheet
         let _currentUser    = null;
-        let _reportDate     = '';   // date of the DPR last rendered into #report — used for download/share file names
 
         function conditionEmoji(val) {
             const map = { 'Sunny': '☀️', 'Rainy': '🌧️', 'Cloudy': '☁️', 'Site Closed': '🚧', 'Holiday': '🎉' };
@@ -1510,32 +1491,8 @@ footer {
         function sumWorkers(skilled, unskilled) { return toNum(skilled) + toNum(unskilled); }
 
         /* ═══════════════════════════════════════════════════════════
-           INTERIOR SECTION DETECTION & HELPERS
+           DISPLAY HELPERS
         ═══════════════════════════════════════════════════════════ */
-        function isCivilActivity(a) {
-            const main = (a.main_activity || a.activity || '').toLowerCase();
-            const sub = (a.sub_activity || '').toLowerCase();
-            const checkStr = (main + ' ' + sub).trim();
-            
-            const civilKws = ['rcc', 'waterproofing', 'marble', 'flooring', 'masonry', 'plaster', 'fabrication', 'steel', 'civil', 'plumbing', 'pipe'];
-            const interiorKws = ['furniture', 'carpentry', 'polishing', 'paint', 'ceiling', 'electrical', 'interior'];
-            
-            if (civilKws.some(kw => checkStr.includes(kw))) {
-                return true;
-            }
-            if (interiorKws.some(kw => checkStr.includes(kw))) {
-                return false;
-            }
-            
-            // Standard fallback keywords from old detection
-            const otherInteriorKws = ['tile', 'modular', 'hvac', 'ac', 'cctv', 'it work', 'lift', 'epoxy', 'polish'];
-            if (otherInteriorKws.some(kw => checkStr.includes(kw))) {
-                return false;
-            }
-            
-            return (a.section || 'Civil') !== 'Interior';
-        }
-
         function toTitleCase(str) {
             if (!str) return '';
             str = String(str).replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
@@ -1548,10 +1505,6 @@ footer {
             return val;
         }
 
-        function detectSection(mainAct, subAct) {
-            return isCivilActivity({ main_activity: mainAct, sub_activity: subAct }) ? 'Civil' : 'Interior';
-        }
-
         function getSiteDisplayName(siteName) {
             if (!siteName) return '—';
             const currentProj = _projects.find(p => String(p.project_name).trim().toLowerCase() === String(siteName).trim().toLowerCase());
@@ -1562,85 +1515,6 @@ footer {
                 }
             }
             return escHtml(siteName);
-        }
-
-        /* ═══════════════════════════════════════════════════════════
-           SHARED ACTIVITY REPORT BUILDER
-           Used by renderDprReport() (live submission preview), getReportHtmlForRecord()
-           (History download image/PDF). The History View modal is a React port
-           (HistoryScreen's ActivityReport). Each caller
-           passes its own childNameOrder to preserve its verified current
-           child/sub-activity name resolution behavior exactly.
-        ═══════════════════════════════════════════════════════════ */
-        function poolRecordActivities(item) {
-            const civilArr    = Array.isArray(item.civilActivities)    ? item.civilActivities    : [];
-            const interiorArr = Array.isArray(item.interiorActivities) ? item.interiorActivities : [];
-            const detailRows  = Array.isArray(item.details) ? item.details : [];
-            let allActs = [];
-            if (civilArr.length || interiorArr.length) {
-                civilArr.forEach(a => allActs.push({ ...a }));
-                interiorArr.forEach(a => allActs.push({ ...a }));
-            } else if (detailRows.length) {
-                detailRows.forEach(r => allActs.push({
-                    main_activity: r.main_activity || r.activity,
-                    activity: r.activity || r.main_activity,
-                    sub_activity: r.sub_activity || '',
-                    skilled: r.skilled, unskilled: r.unskilled, note: r.note
-                }));
-            }
-            return allActs.filter(a => toNum(a.skilled) > 0 || toNum(a.unskilled) > 0);
-        }
-
-        function buildActivityReportHtml(acts, opts) {
-            opts = opts || {};
-            const childNameOrder = opts.childNameOrder || ['sub_activity', 'activity'];
-            if (!acts.length) return '';
-            const grouped = {};
-            acts.forEach(a => {
-                const mainName = a.main_activity || a.activity || 'General';
-                if (!grouped[mainName]) grouped[mainName] = [];
-                grouped[mainName].push(a);
-            });
-            return Object.entries(grouped).map(([main, rows]) => {
-                const innerRowsHtml = rows.map((r, rIdx) => {
-                    let childName = '';
-                    for (const f of childNameOrder) { if (r[f]) { childName = String(r[f]).trim(); break; } }
-                    childName = childName.replace(/^[↳\s\-➔]+/, '').trim();
-                    const mainClean = String(main).trim().toLowerCase();
-                    if (childName.toLowerCase().indexOf(mainClean) === 0) {
-                        childName = childName.substring(mainClean.length).replace(/^[↳\s\-➔]+/, '').trim();
-                    }
-
-                    const isSub = childName !== '' && childName.toLowerCase() !== mainClean;
-                    const sk = toNum(r.skilled), un = toNum(r.unskilled), totalVal = sk + un;
-                    const borderVal = rIdx === rows.length - 1 ? 'none' : '1.5px solid #cbd5e1';
-
-                    const paddingLeft = isSub ? '16px' : '0px';
-                    const fontSize = '13.5px';
-                    const titleColor = isSub ? '#475569' : '#1e293b';
-                    const fontWeight = isSub ? '500' : '700';
-                    const prefix = isSub ? '<span style="color:var(--primary);margin-right:4px;">↳</span>' : '';
-
-                    return `
-                    <div style="padding: 10px 0; padding-left: ${paddingLeft}; border-bottom: ${borderVal}; line-height: 1.6;">
-                        <div style="font-weight: ${fontWeight}; color: ${titleColor}; font-size: ${fontSize};">${prefix}${escHtml(childName || toTitleCase(main))}</div>
-                        <div style="font-size: 12px; color: #475569; margin-top: 4px;">
-                            Skilled: <b>${sk}</b> &nbsp;·&nbsp; Unskilled: <b>${un}</b> &nbsp;·&nbsp; Total: <b>${totalVal}</b>
-                        </div>
-                        ${r.note ? `<div style="color: #475569; font-size: 11.5px; margin-top: 6px; font-style: italic; background: #f8fafc; padding: 6px 8px; border-radius: 4px; border-left: 2.5px solid #cbd5e1;">📌 ${escHtml(r.note)}</div>` : ''}
-                    </div>`;
-                }).join('');
-
-                return `
-                <div class="report-activity" style="margin-bottom: 14px; padding: 16px; border-left: 5px solid var(--primary); background: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
-                    <div style="font-weight: 600; font-size: 14.5px; color: #1e293b; margin-bottom: 12px; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 6px; letter-spacing: 0.2px;">
-                        📦 ${escHtml(toTitleCase(main))}
-                    </div>
-                    <div style="display: flex; flex-direction: column;">
-                        ${innerRowsHtml}
-                    </div>
-                </div>`;
-            }).join('');
         }
 
         /* ═══════════════════════════════════════════════════════════
@@ -2012,7 +1886,6 @@ footer {
         ═══════════════════════════════════════════════════════════ */
         function switchTab(tab, btn) {
             closeDPRModal();
-            document.getElementById('report').style.display = 'none';
             document.querySelectorAll('.tab-page').forEach(p => { p.classList.remove('active'); p.style.display = 'none'; });
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
             const pg = document.getElementById('tab' + tab);
@@ -2026,7 +1899,6 @@ footer {
 
         function resetAndSwitchToForm(btn, forceNew) {
             closeDPRModal();
-            document.getElementById('report').style.display = 'none';
             document.querySelectorAll('.tab-page').forEach(p => { p.classList.remove('active'); p.style.display = 'none'; });
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
             const fp = document.getElementById('tabForm');
@@ -2042,8 +1914,7 @@ footer {
            (localStorage 'dpr_form_draft') and saveDPR/editDPR/saveMaterialLog
            submission. Interop bridge:
              legacy → React: sendEntryCommand({ type: 'init' | 'reset' | 'edit', record })
-             React → legacy: window.__get*() accessors, __renderDprReport(),
-                             and the showToast/showActionToast/editDPR/
+             React → legacy: window.__get*() accessors and the showToast/showActionToast/editDPR/
                              loadHistory/loadMaterialLogs globals.
            'dpr:masterDataUpdated' fires whenever projects/activities/
            materials change. Commands sent before the component mounts are
@@ -2294,24 +2165,6 @@ footer {
         }
         window.renderMaterialConsumptionTab = renderMaterialConsumptionTab;
 
-        /* ═══════════════════════════════════════════════════════════
-           GENERATED REPORT PREVIEW — called by DprEntryForm after it
-           validates, so the #report markup that Download/Share/Copy
-           capture is still built by the shared report builder above.
-        ═══════════════════════════════════════════════════════════ */
-        function renderDprReport({ date, site, prepBy, editedBy, activities, total }) {
-            _reportDate = date;
-            document.getElementById('rdate').innerHTML =
-                `<b>📅 Date :</b> ${formatDate(date)}<br>
-                 <b>📍 Site :</b> ${getSiteDisplayName(site)}<br>
-                 <b>👤 Filled by :</b> ${escHtml(prepBy)}${editedBy ? ` (Edited by: ${escHtml(editedBy)})` : ''}`;
-            document.getElementById('rcivil').innerHTML    = buildActivityReportHtml(activities, { childNameOrder: ['sub_activity', 'activity'] });
-            document.getElementById('rmanpower').innerHTML = `<div class="report-total">👷 Total Manpower : ${total}</div>`;
-            document.getElementById('report').style.display = 'block';
-            document.getElementById('report').scrollIntoView({ behavior: 'smooth' });
-        }
-        window.__renderDprReport = renderDprReport;
-
         function syncOfflineQueue() {
             const q = JSON.parse(localStorage.getItem('dprOfflineQ') || '[]');
             if (!q.length) { showToast('✅ Nothing to sync'); return; }
@@ -2335,104 +2188,6 @@ footer {
                 .then(() => { _historyStatus = 'ok'; })
                 .catch(() => { _historyStatus = 'error'; })
                 .finally(() => window.dispatchEvent(new CustomEvent('dpr:historyUpdated')));
-        }
-
-        function getReportHtmlForRecord(item) {
-            const activeActs = poolRecordActivities(item);
-            const bodyHtml = activeActs.length
-                ? buildActivityReportHtml(activeActs, { childNameOrder: ['activity', 'sub_activity'] })
-                : '<p style="color:var(--muted);text-align:center;padding:20px;">No activity detail available for this record.</p>';
-
-            const d      = toYMD(item.date);
-            const byLine = item.editedBy && item.editedBy !== item.by
-                ? `${item.by} (Edited by: ${item.editedBy})`
-                : (item.by || '—');
-
-            return `
-                <div class="report-letterhead">
-                    <div class="report-letterhead-title">Trimandir Construction Project</div>
-                    <div class="report-letterhead-sub">Daily Progress Report</div>
-                </div>
-                <h3>DPR &mdash; MAN POWER REPORT</h3>
-                <div class="report-meta">
-                    <b>📅 Date :</b> ${formatDate(d) || '—'}<br>
-                    <b>📍 Site :</b> ${getSiteDisplayName(item.site)}<br>
-                    <b>👤 Filled by :</b> ${byLine}<br>
-                    <b>👷 Total :</b> ${item.total || 0} workers
-                </div>
-                <div>${bodyHtml}</div>
-                <div class="report-total" style="margin-top:14px;">👷 Total Manpower : ${item.total || 0}</div>
-            `;
-        }
-
-        function downloadHistoryDPR(i, type) {
-            const item = _history[i];
-            if (!item) return;
-
-            const reportHtml = getReportHtmlForRecord(item);
-
-            // Create off-screen container
-            const tempContainer = document.createElement('div');
-            tempContainer.id = 'report-temp-capture';
-            tempContainer.style.position = 'absolute';
-            tempContainer.style.left = '-9999px';
-            tempContainer.style.top = '0';
-            tempContainer.style.width = '480px';
-            tempContainer.style.maxWidth = '480px';
-            tempContainer.style.background = '#ffffff';
-            tempContainer.style.color = '#000000';
-            tempContainer.style.padding = '20px';
-            tempContainer.style.boxSizing = 'border-box';
-            tempContainer.style.fontFamily = "'Inter', sans-serif";
-            tempContainer.style.lineHeight = '1.75';
-            tempContainer.style.fontSize = '14px';
-            
-            tempContainer.innerHTML = reportHtml;
-
-            // Direct inline styles to match header configuration
-            const h3 = tempContainer.querySelector('h3');
-            if (h3) {
-                h3.style.fontFamily = "'Rajdhani', sans-serif";
-                h3.style.fontSize = '21px';
-                h3.style.color = 'var(--primary)';
-                h3.style.marginBottom = '6px';
-                h3.style.textAlign = 'center';
-                h3.style.letterSpacing = '0.5px';
-            }
-
-            document.body.appendChild(tempContainer);
-
-            const allItems = tempContainer.querySelectorAll('.report-activity, .report-meta, .report-total');
-            allItems.forEach(el => {
-                el.style.pageBreakInside = 'avoid';
-                el.style.breakInside = 'avoid';
-            });
-
-            const cleanSite = String(item.site || 'Site').replace(/[^a-zA-Z0-9_\-]/g, '_');
-            const cleanDate = toYMD(item.date);
-            const baseName = `DPR_History_${cleanSite}_${cleanDate}`;
-            const isShare = type === 'share';
-
-            showToast(isShare ? '⏳ Preparing to share...' : `⏳ Generating ${type === 'pdf' ? 'PDF' : 'Image'}...`);
-
-            // Use 150ms timeout to guarantee dynamic mounting has fully laid out child elements
-            setTimeout(() => {
-                captureReportCanvas(tempContainer, 0).then(c => {
-                    document.body.removeChild(tempContainer);
-
-                    if (!c || c.width === 0) {
-                        showToast('⚠️ Generated image was empty. Try again.');
-                        return;
-                    }
-
-                    deliverCanvas(c, { baseName, asPdf: isShare ? true : type === 'pdf', share: isShare });
-                }).catch(err => {
-                    if (document.getElementById('report-temp-capture')) {
-                        document.body.removeChild(tempContainer);
-                    }
-                    showToast(isShare ? '⚠️ Share failed' : `⚠️ ${type === 'pdf' ? 'PDF' : 'Image'} generation failed`);
-                });
-            }, 150);
         }
 
         /* ═══════════════════════════════════════════════════════════
@@ -2463,7 +2218,7 @@ footer {
         function buildMasterLogRows() {
             const headers = [
                 'Date', 'Site', 'Supervisor (Created By)', 'Last Edited By', 'Submitted At',
-                'Total DPR Manpower', 'Activity Category (Main)', 'Sub-Activity', 'Section',
+                'Total DPR Manpower', 'Activity Category (Main)', 'Sub-Activity',
                 'Skilled Workers', 'Unskilled Workers', 'Activity Total', 'Note'
             ];
             const rows = [headers];
@@ -2475,36 +2230,23 @@ footer {
                 const submittedAt = item.submittedAt || '';
                 const totalManpower = item.total || 0;
 
-                let activities = [];
-                if (Array.isArray(item.civilActivities)) {
-                    activities.push(...item.civilActivities.map(a => ({ ...a, section: 'Civil' })));
-                }
-                if (Array.isArray(item.interiorActivities)) {
-                    activities.push(...item.interiorActivities.map(a => ({ ...a, section: 'Interior' })));
-                }
-                if (!activities.length && Array.isArray(item.details)) {
-                    activities.push(...item.details.map(d => ({
-                        main_activity: d.activity || d.main_activity || '',
-                        sub_activity: d.subActivity || '',
-                        section: d.section || 'Civil',
-                        skilled: d.skilled,
-                        unskilled: d.unskilled,
-                        note: d.note
-                    })));
-                }
+                // civilActivities/interiorActivities are only API storage
+                // buckets — pool them; `details` is the oldest fallback.
+                const pooled = [...(item.civilActivities || []), ...(item.interiorActivities || [])];
+                const activities = pooled.length ? pooled : (Array.isArray(item.details) ? item.details : []);
 
                 if (activities.length === 0) {
-                    rows.push([dateStr, siteStr, createdBy, editedBy, submittedAt, totalManpower, '', '', '', 0, 0, 0, '']);
+                    rows.push([dateStr, siteStr, createdBy, editedBy, submittedAt, totalManpower, '', '', 0, 0, 0, '']);
                 } else {
                     activities.forEach(act => {
                         const mainAct = act.main_activity || act.activity || '';
-                        const subAct = act.sub_activity || '';
-                        const sect = isCivilActivity(act) ? 'Civil' : 'Interior';
+                        // Saved rows carry the sub-activity name in `activity` when one was chosen.
+                        const subAct = act.sub_activity || (act.main_activity && act.activity && act.activity !== act.main_activity ? act.activity : '');
                         const sk = Number(act.skilled) || 0;
                         const un = Number(act.unskilled) || 0;
                         const actTotal = sk + un;
                         const noteStr = act.note || '';
-                        rows.push([dateStr, siteStr, createdBy, editedBy, submittedAt, totalManpower, mainAct, subAct, sect, sk, un, actTotal, noteStr]);
+                        rows.push([dateStr, siteStr, createdBy, editedBy, submittedAt, totalManpower, mainAct, subAct, sk, un, actTotal, noteStr]);
                     });
                 }
             });
@@ -2561,10 +2303,8 @@ footer {
         window.exportMasterLogExcel = exportMasterLogExcel;
 
         // True vector PDF (selectable text, paginated with repeated headers)
-        // for the Master Log — unlike the per-record report/modal exports,
-        // which stay raster (html2canvas) since they're a WYSIWYG document
-        // capture, not a long tabular export where autoTable's pagination
-        // actually earns its keep.
+        // for the Master Log. Per-record DPR PDFs are built separately, in
+        // lib/report/exportReport.js.
         function exportMasterLogPDF() {
             if (!_history.length) { showToast('⚠️ No history records to export'); return; }
             if (typeof window.jspdf === 'undefined') { showToast('⚠️ PDF library still loading — try again in a moment'); return; }
@@ -2630,8 +2370,9 @@ footer {
            per-record ⋮ menu and the View modal. Interop bridge:
              React → legacy: window.__getHistory/__getHistoryStatus/
                              __getProjects/__getUsers/__getCurrentUser, and
-                             the index-based editDPR/requestEditDPR/deleteDPR/
-                             downloadHistoryDPR globals below.
+                             the index-based editDPR/requestEditDPR/deleteDPR
+                             globals below. Report JPG/PDF/WhatsApp/Share
+                             live in lib/report/ (ExecutiveReport).
              legacy → React: 'dpr:historyUpdated' (data or load status
                              changed), 'dpr:masterDataUpdated', and
                              'dpr:closeDprModal' (via closeDPRModal()).
@@ -3393,143 +3134,6 @@ footer {
            above and the 'dpr:historyUpdated'/'dpr:themeChanged' events
            are the interop bridge.
         ═══════════════════════════════════════════════════════════ */
-
-        /* ═══════════════════════════════════════════════════════════
-           DOWNLOADS / SHARE — shared capture+deliver helpers
-        ═══════════════════════════════════════════════════════════ */
-        function captureReportCanvas(node, scrollY) {
-            return html2canvas(node, {
-                scale: 3.5,
-                devicePixelRatio: 3.5,
-                useCORS: true,
-                allowTaint: false,
-                backgroundColor: '#ffffff',
-                logging: false,
-                scrollX: 0,
-                scrollY: typeof scrollY === 'number' ? scrollY : -window.scrollY,
-                onclone: function(clonedDoc) {
-                    const canvas = clonedDoc.querySelector('canvas');
-                    if (canvas) {
-                        const ctx = canvas.getContext('2d');
-                        ctx.imageSmoothingEnabled = false;
-                        ctx.webkitImageSmoothingEnabled = false;
-                        ctx.mozImageSmoothingEnabled = false;
-                    }
-                }
-            });
-        }
-
-        function buildPdfFromCanvas(canvas) {
-            const { jsPDF } = window.jspdf;
-            const pdf = new jsPDF({ orientation: 'portrait', unit: 'px', format: [canvas.width, canvas.height] });
-            pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, canvas.width, canvas.height);
-            return pdf;
-        }
-
-        // Delivers a captured canvas either via the native Share sheet (mobile,
-        // WhatsApp/Email/any installed app) or by triggering a normal download
-        // when Web Share (with files) isn't supported — e.g. desktop browsers.
-        async function deliverCanvas(canvas, { baseName, asPdf, share }) {
-            if (share && navigator.canShare) {
-                try {
-                    let blob, filename, mime;
-                    if (asPdf) {
-                        blob = buildPdfFromCanvas(canvas).output('blob');
-                        filename = `${baseName}.pdf`; mime = 'application/pdf';
-                    } else {
-                        blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.95));
-                        filename = `${baseName}.jpg`; mime = 'image/jpeg';
-                    }
-                    const file = new File([blob], filename, { type: mime });
-                    if (navigator.canShare({ files: [file] })) {
-                        await navigator.share({ files: [file], title: 'DPR Report', text: 'Daily Progress Report' });
-                        showToast('📤 Shared!');
-                        return;
-                    }
-                } catch (err) {
-                    if (err && err.name === 'AbortError') return; // user cancelled the share sheet
-                    // fall through to download fallback below
-                }
-            }
-            if (asPdf) {
-                buildPdfFromCanvas(canvas).save(`${baseName}.pdf`);
-                showToast('📄 PDF Downloaded!');
-            } else {
-                const a = document.createElement('a');
-                a.download = `${baseName}.jpg`;
-                a.href = canvas.toDataURL('image/jpeg', 0.95);
-                a.click();
-                showToast('📷 Image Downloaded!');
-            }
-        }
-
-        function withReportCaptureStyles(rep, fn) {
-            const oldWidth = rep.style.width;
-            const oldColor = rep.style.color;
-            const oldMaxW = rep.style.maxWidth;
-            const oldShadow = rep.style.boxShadow;
-
-            rep.style.width = '480px';
-            rep.style.maxWidth = '480px';
-            rep.style.color = '#000000';
-            rep.style.boxShadow = 'none';
-
-            const allItems = rep.querySelectorAll('.report-activity, .report-meta, .report-total');
-            allItems.forEach(el => {
-                el.style.pageBreakInside = 'avoid';
-                el.style.breakInside = 'avoid';
-            });
-
-            const restore = () => {
-                rep.style.width = oldWidth;
-                rep.style.maxWidth = oldMaxW;
-                rep.style.color = oldColor;
-                rep.style.boxShadow = oldShadow;
-            };
-            return fn().then(result => { restore(); return result; }).catch(err => { restore(); throw err; });
-        }
-
-        function downloadImage() {
-            const rep = document.getElementById('report');
-            if (rep.style.display === 'none') { showToast('⚠️ Generate DPR first'); return; }
-            showToast('⏳ Generating Image...');
-            withReportCaptureStyles(rep, () => captureReportCanvas(rep))
-                .then(c => deliverCanvas(c, { baseName: `DPR_${_reportDate}`, asPdf: false, share: false }))
-                .catch(() => showToast('⚠️ Image generation failed'));
-        }
-
-        function downloadPDF() {
-            const rep = document.getElementById('report');
-            if (rep.style.display === 'none') { showToast('⚠️ Generate DPR first'); return; }
-            showToast('⏳ Generating PDF...');
-            withReportCaptureStyles(rep, () => captureReportCanvas(rep))
-                .then(c => deliverCanvas(c, { baseName: `DPR_${_reportDate}`, asPdf: true, share: false }))
-                .catch(() => showToast('⚠️ PDF generation failed'));
-        }
-
-        function shareReport() {
-            const rep = document.getElementById('report');
-            if (rep.style.display === 'none') { showToast('⚠️ Generate DPR first'); return; }
-            showToast('⏳ Preparing to share...');
-            withReportCaptureStyles(rep, () => captureReportCanvas(rep))
-                .then(c => deliverCanvas(c, { baseName: `DPR_${_reportDate}`, asPdf: true, share: true }))
-                .catch(() => showToast('⚠️ Share failed'));
-        }
-
-        function copyWhats() {
-            const rep = document.getElementById('report');
-            if (rep.style.display === 'none') { showToast('⚠️ Generate DPR first'); return; }
-            const text = rep.innerText.replace(/\n{3,}/g, '\n\n');
-            navigator.clipboard.writeText(text)
-                .then(() => showToast('💬 Copied for WhatsApp!'))
-                .catch(() => {
-                    const ta = document.createElement('textarea');
-                    ta.value = text; document.body.appendChild(ta);
-                    ta.select(); document.execCommand('copy');
-                    document.body.removeChild(ta);
-                    showToast('💬 Copied!');
-                });
-        }
 
         /* ═══════════════════════════════════════════════════════════
            WINDOW EXPORTS (for onclick= handlers in HTML)

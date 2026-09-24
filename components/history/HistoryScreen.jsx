@@ -3,24 +3,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import ErrorBoundary from '../ui/ErrorBoundary';
+import ExecutiveReport from '../report/ExecutiveReport';
+import ReportActionBar from '../report/ReportActionBar';
+import { runReportAction, REPORT_ACTIONS } from '../../lib/report/exportReport';
+import { CONDITION_EMOJI, reportFromRecord, siteDisplayName, toYMD } from '../../lib/report/reportModel';
 
 const ITEMS_PER_PAGE = 10;
 const EDIT_WINDOW_MS = 15 * 60 * 1000;
-const CONDITION_EMOJI = { Sunny: '☀️', Rainy: '🌧️', Cloudy: '☁️', 'Site Closed': '🚧', Holiday: '🎉' };
-
-// ── Pure helpers (ports of the index.html utilities of the same name) ──
-
-function toYMD(v) {
-  if (v === null || v === undefined || v === '') return '';
-  const s = String(v).trim();
-  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-  if (/^\d{4}-\d{2}-\d{2}T/.test(s)) return s.substring(0, 10);
-  const dt = new Date(s);
-  if (!isNaN(dt.getTime())) {
-    return dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0');
-  }
-  return s;
-}
 
 function formatDate(s) {
   const y = toYMD(s);
@@ -29,43 +18,8 @@ function formatDate(s) {
   return `${da}-${mo}-${yr}`;
 }
 
-const toNum = (v) => Number(v) || 0;
 const recordKey = (item) => toYMD(item.date) + '||' + String(item.site).trim();
 const submittedMs = (item) => Number(item.submittedAt) || (item.submittedAt ? new Date(item.submittedAt).getTime() : 0);
-
-function toTitleCase(str) {
-  if (!str) return '';
-  return String(str).replace(/_/g, ' ').replace(/\s+/g, ' ').trim()
-    .toLowerCase().replace(/\b\w/g, c => c.toUpperCase())
-    .replace(/\bRcc\b/g, 'RCC').replace(/\bHvac\b/g, 'HVAC').replace(/\bCctv\b/g, 'CCTV')
-    .replace(/\bAc\b/g, 'AC').replace(/\bDpr\b/g, 'DPR');
-}
-
-function siteDisplayName(siteName, projects) {
-  if (!siteName) return '—';
-  const norm = (v) => String(v).trim().toLowerCase();
-  const proj = projects.find(p => norm(p.project_name) === norm(siteName));
-  if (proj && proj.parent_id && String(proj.parent_id).trim() !== '') {
-    const parent = projects.find(p => String(p.id).trim() === String(proj.parent_id).trim());
-    if (parent) return `${parent.project_name} ➔ ${proj.project_name}`;
-  }
-  return siteName;
-}
-
-function poolRecordActivities(item) {
-  const civil = Array.isArray(item.civilActivities) ? item.civilActivities : [];
-  const interior = Array.isArray(item.interiorActivities) ? item.interiorActivities : [];
-  const details = Array.isArray(item.details) ? item.details : [];
-  const all = (civil.length || interior.length)
-    ? [...civil, ...interior]
-    : details.map(r => ({
-      main_activity: r.main_activity || r.activity,
-      activity: r.activity || r.main_activity,
-      sub_activity: r.sub_activity || '',
-      skilled: r.skilled, unskilled: r.unskilled, note: r.note,
-    }));
-  return all.filter(a => toNum(a.skilled) > 0 || toNum(a.unskilled) > 0);
-}
 
 // Same edit-permission rules as index.html's editDPR() gate, which still
 // enforces them — this only decides which menu label to show.
@@ -95,55 +49,11 @@ const legacy = {
   edit: (idx) => window.editDPR?.(idx),
   requestEdit: (idx) => window.requestEditDPR?.(idx),
   remove: (idx) => window.deleteDPR?.(idx),
-  download: (idx, type) => window.downloadHistoryDPR?.(idx, type),
 };
-
-// ── Report (React port of buildActivityReportHtml, View-modal variant) ──
-
-function ActivityReport({ acts }) {
-  if (!acts.length) {
-    return <p className="history-empty">No activity detail available for this record.</p>;
-  }
-  const groups = new Map();
-  acts.forEach(a => {
-    const main = a.main_activity || a.activity || 'General';
-    if (!groups.has(main)) groups.set(main, []);
-    groups.get(main).push(a);
-  });
-  return [...groups.entries()].map(([main, rows]) => {
-    const mainClean = String(main).trim().toLowerCase();
-    return (
-      <div key={main} className="report-activity history-report-group">
-        <div className="history-report-group-title">📦 {toTitleCase(main)}</div>
-        {rows.map((r, i) => {
-          let child = String(r.activity || '').trim().replace(/^[↳\s\-➔]+/, '').trim();
-          if (child.toLowerCase().indexOf(mainClean) === 0) {
-            child = child.substring(mainClean.length).replace(/^[↳\s\-➔]+/, '').trim();
-          }
-          const isSub = child !== '' && child.toLowerCase() !== mainClean;
-          const sk = toNum(r.skilled), un = toNum(r.unskilled);
-          return (
-            <div key={i} className={`history-report-row${isSub ? ' is-sub' : ''}`}>
-              <div className="history-report-row-title">
-                {isSub && <span className="history-report-arrow">↳</span>}
-                {child || toTitleCase(main)}
-              </div>
-              <div className="history-report-row-counts">
-                Skilled: <b>{sk}</b> · Unskilled: <b>{un}</b> · Total: <b>{sk + un}</b>
-              </div>
-              {r.note && <div className="history-report-note">📌 {r.note}</div>}
-            </div>
-          );
-        })}
-      </div>
-    );
-  });
-}
 
 function DprViewModal({ item, projects, onClose }) {
   const boxRef = useRef(null);
-  const byLine = item.editedBy && item.editedBy !== item.by ? `${item.by} (Edited by: ${item.editedBy})` : (item.by || '—');
-  const acts = useMemo(() => poolRecordActivities(item), [item]);
+  const report = useMemo(() => reportFromRecord(item, projects), [item, projects]);
 
   useEffect(() => {
     const trigger = document.activeElement;
@@ -166,20 +76,14 @@ function DprViewModal({ item, projects, onClose }) {
 
   return createPortal(
     <div id="dprModal" className="open" role="presentation" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="modal-box" role="dialog" aria-modal="true" aria-labelledby="dprModalTitle" ref={boxRef}>
+      <div className="modal-box modal-box-wide" role="dialog" aria-modal="true" aria-labelledby="dprModalTitle" ref={boxRef}>
         <div className="modal-header">
-          <h3 id="dprModalTitle">📊 DPR — Man Power Report</h3>
+          <h3 id="dprModalTitle">📊 {report.dprNo}</h3>
           <button type="button" className="modal-close" aria-label="Close" onClick={onClose}>✕</button>
         </div>
         <div className="modal-body">
-          <div className="report-meta">
-            <b>📅 Date :</b> {formatDate(toYMD(item.date)) || '—'}<br />
-            <b>📍 Site :</b> {siteDisplayName(item.site, projects)}<br />
-            <b>👤 Filled by :</b> {byLine}<br />
-            <b>👷 Total :</b> {item.total || 0} workers
-          </div>
-          <ActivityReport acts={acts} />
-          <div className="report-total history-report-total">👷 Total Manpower : {item.total || 0}</div>
+          <ReportActionBar report={report} />
+          <ExecutiveReport report={report} />
         </div>
       </div>
     </div>,
@@ -217,9 +121,11 @@ function HistoryItem({ item, projects, user, menuOpen, onToggleMenu, onView, onA
       <div className={`history-dropdown${menuOpen ? ' show' : ''}`} role="menu" onClick={(e) => e.stopPropagation()}>
         <button type="button" role="menuitem" className="history-dropdown-item" onClick={run(() => onAction(edit.kind, item))}>{edit.label}</button>
         <button type="button" role="menuitem" className="history-dropdown-item delete-item" onClick={run(() => onAction('delete', item))}>❌ Delete</button>
-        <button type="button" role="menuitem" className="history-dropdown-item" onClick={run(() => onAction('image', item))}>📸 Download Image</button>
-        <button type="button" role="menuitem" className="history-dropdown-item" onClick={run(() => onAction('pdf', item))}>📄 Download PDF</button>
-        <button type="button" role="menuitem" className="history-dropdown-item" onClick={run(() => onAction('share', item))}>📤 Share (WhatsApp / Email)</button>
+        {REPORT_ACTIONS.map(a => (
+          <button key={a.kind} type="button" role="menuitem" className="history-dropdown-item" onClick={run(() => onAction(a.kind, item))}>
+            {a.icon} {a.label}
+          </button>
+        ))}
       </div>
 
       <div className="history-item-title">
@@ -334,8 +240,13 @@ export default function HistoryScreen() {
   const setFilter = (field) => (e) => { setFilters(f => ({ ...f, [field]: e.target.value })); setPage(1); };
   const clearFilters = () => { setFilters({ start: '', end: '', site: '', supervisor: '' }); setPage(1); };
 
-  // Legacy actions still take an index into the live _history array.
+  // Report exports work straight from the record; the remaining legacy
+  // actions still take an index into the live _history array.
   const onAction = (kind, item) => {
+    if (REPORT_ACTIONS.some(a => a.kind === kind)) {
+      runReportAction(kind, reportFromRecord(item, data.projects), legacy.toast);
+      return;
+    }
     const idx = legacy.history().indexOf(item);
     if (idx < 0) { legacy.toast('⚠️ Record changed — refresh and try again'); return; }
     switch (kind) {
@@ -344,9 +255,6 @@ export default function HistoryScreen() {
       case 'pending':   legacy.toast('⏳ Edit request is pending Admin approval'); break;
       case 'forbidden': legacy.toast('❌ You can only edit your own DPRs'); break;
       case 'delete':    legacy.remove(idx); break;
-      case 'image':
-      case 'pdf':
-      case 'share':     legacy.download(idx, kind); break;
       default: break;
     }
   };
