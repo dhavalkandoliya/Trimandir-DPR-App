@@ -2,16 +2,21 @@
 
 import { useEffect, useRef, useState } from 'react';
 import {
-  canShareFiles, prepareShareFiles, preloadExportLibs, REPORT_ACTIONS, runReportAction, SHARE_FORMATS,
+  canShareFiles, prepareShareFiles, preloadExportLibs, runReportAction, SHARE_FORMATS,
 } from '../../lib/report/exportReport';
 import { useApp } from '../app/AppContext';
+import Icon from '../ui/Icon';
 
 const IDLE = { jpg: 'pending', pdf: 'pending' };
+const FORMAT_ICON = { jpg: 'image', pdf: 'pdf' };
 
-// [JPG (High-res)] [PDF] [Share ▾] — the single export surface for a report,
-// used by the Entry preview and the History View modal. Share opens a small
-// chooser (JPG or PDF) and hands the chosen file to the OS share sheet.
-export default function ReportActionBar({ report, toast: toastProp, autoOpenShare = false }) {
+// Download image · Download PDF · Share ▾ — the single export surface for a
+// report (Entry success view, History viewer). Share opens a small chooser
+// (JPG or PDF) and hands the chosen file to the OS share sheet.
+//
+// layout="list" stacks full-width buttons (success view side panel);
+// layout="row" lays them out inline (dialog footer).
+export default function ReportActionBar({ report, toast: toastProp, autoOpenShare = false, layout = 'row' }) {
   const { showToast } = useApp();
   const toast = toastProp || showToast;
   const [busy, setBusy] = useState(null);
@@ -56,7 +61,7 @@ export default function ReportActionBar({ report, toast: toastProp, autoOpenShar
 
   useEffect(() => {
     if (!chooserOpen) return undefined;
-    wrapRef.current?.querySelector('.share-chooser-option')?.focus();
+    wrapRef.current?.querySelector('.share-menu button')?.focus();
     const onPointer = (e) => { if (wrapRef.current && !wrapRef.current.contains(e.target)) closeChooser(false); };
     document.addEventListener('mousedown', onPointer);
     document.addEventListener('touchstart', onPointer);
@@ -78,57 +83,61 @@ export default function ReportActionBar({ report, toast: toastProp, autoOpenShar
 
   const onKeyDown = (e) => {
     if (e.key === 'Escape' && chooserOpen) {
-      e.stopPropagation(); // close just the chooser, not an enclosing modal
+      e.stopPropagation(); // close just the chooser, not an enclosing dialog
       closeChooser(true);
     }
   };
 
-  const statusLabel = { pending: 'Preparing…', ready: 'Ready', error: 'Retry' };
+  const status = {
+    pending: <span className="tag">Preparing…</span>,
+    ready: <span className="tag ok">Ready</span>,
+    error: <span className="tag danger">Retry</span>,
+  };
+  const list = layout === 'list';
+  const sharing = !!busy && busy.startsWith('share-');
 
-  return (
-    <div className="report-actions-wrap" ref={wrapRef} onKeyDown={onKeyDown}>
-      <div className="report-actions" role="toolbar" aria-label="Export and share report">
-        {REPORT_ACTIONS.map(a => {
-          const isShare = a.kind === 'share';
-          const isBusy = isShare ? !!busy && busy.startsWith('share-') : busy === a.kind;
-          return (
-            <button
-              key={a.kind}
-              ref={isShare ? shareBtnRef : undefined}
-              type="button"
-              className={`report-action is-${a.kind}`}
-              onClick={isShare ? () => (chooserOpen ? closeChooser(false) : openChooser()) : () => run(a.kind)}
-              disabled={!!busy}
-              aria-busy={isBusy}
-              {...(isShare ? { 'aria-haspopup': 'menu', 'aria-expanded': chooserOpen } : {})}
-            >
-              <span aria-hidden="true">{isBusy ? '⏳' : a.icon}</span> {a.label}{isShare ? ' ▾' : ''}
-            </button>
-          );
-        })}
-      </div>
-
+  const share = (
+    <div className="share-wrap" ref={wrapRef} onKeyDown={onKeyDown}>
+      <button
+        ref={shareBtnRef}
+        type="button"
+        className={`btn primary${list ? ' block' : ''}`}
+        onClick={() => (chooserOpen ? closeChooser(false) : openChooser())}
+        disabled={!!busy}
+        aria-busy={sharing}
+        aria-haspopup="menu"
+        aria-expanded={chooserOpen}
+      >
+        <Icon name="share" />{sharing ? 'Sharing…' : list ? 'Share report' : 'Share'}
+      </button>
       {chooserOpen && (
-        <div className="share-chooser" role="menu" aria-label="Share report as">
-          <div className="share-chooser-title">Share report as…</div>
-          {SHARE_FORMATS.map(({ format, label, icon }) => (
-            <button
-              key={format}
-              type="button"
-              role="menuitem"
-              className="share-chooser-option"
-              onClick={() => { closeChooser(false); run(`share-${format}`); }}
-            >
-              <span aria-hidden="true">{icon}</span>
-              <span className="share-chooser-label">{label}</span>
-              <span className={`share-chooser-status is-${fileState[format]}`}>{statusLabel[fileState[format]]}</span>
+        <div className="share-menu" role="menu" aria-label="Share report as">
+          <div className="mhead">Share report as…</div>
+          {SHARE_FORMATS.map(({ format, label }) => (
+            <button key={format} type="button" role="menuitem" onClick={() => { closeChooser(false); run(`share-${format}`); }}>
+              <Icon name={FORMAT_ICON[format]} />
+              <span>{label}</span>
+              {status[fileState[format]]}
             </button>
           ))}
-          {!shareSupported && (
-            <p className="share-chooser-note">This browser can&apos;t open the share sheet — the file will download instead.</p>
-          )}
+          {!shareSupported && <p>This browser can&apos;t open the share sheet — the file will download instead.</p>}
         </div>
       )}
     </div>
   );
+
+  const pdf = (
+    <button type="button" className="btn" onClick={() => run('pdf')} disabled={!!busy} aria-busy={busy === 'pdf'}>
+      <Icon name="pdf" />{busy === 'pdf' ? 'Building PDF…' : list ? 'Download PDF (A4)' : 'PDF'}
+    </button>
+  );
+  const jpg = (
+    <button type="button" className="btn" onClick={() => run('jpg')} disabled={!!busy} aria-busy={busy === 'jpg'}>
+      <Icon name="image" />{busy === 'jpg' ? 'Rendering…' : list ? 'Download image (JPG)' : 'Image'}
+    </button>
+  );
+
+  return list
+    ? <div className="action-list" role="toolbar" aria-label="Export and share report">{share}{pdf}{jpg}</div>
+    : <div className="report-actions" role="toolbar" aria-label="Export and share report">{jpg}{pdf}{share}</div>;
 }

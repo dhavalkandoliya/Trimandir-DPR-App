@@ -2,24 +2,23 @@
 
 import { useMemo, useState } from 'react';
 import { useApp } from '../app/AppContext';
+import Icon from '../ui/Icon';
 import { useAdminAction } from './useAdminAction';
 
 // Two-level master lists — Projects › Sub-projects and Activities ›
-// Sub-activities — share one editor. Order is persisted via updateSortOrder
-// (the old panel sent activity order straight to Apps Script with
-// mode:'no-cors', so it never reached Supabase).
+// Sub-activities — share one editor. Order is persisted via updateSortOrder.
 const CONFIG = {
   projects: {
     field: 'project_name', add: 'addProject', update: 'updateProject', remove: 'deleteProject', sortType: 'projects',
-    icon: '📍', noun: 'project', nouns: 'projects', subNoun: 'sub-project',
-    help: 'Only active projects appear in the DPR and Materials forms. Deleting a project does not delete DPRs already logged against it.',
+    noun: 'site', nouns: 'sites', subNoun: 'sub-site',
+    help: 'Only active sites appear in the report and Materials forms. Deleting a site does not delete reports already filed against it — deactivate it instead to keep history tidy.',
     placeholder: 'e.g. New Hospital Wing',
   },
   activities: {
     field: 'activity_name', add: 'addActivity', update: 'updateActivity', remove: 'deleteActivity', sortType: 'activities',
-    icon: '🔨', noun: 'activity', nouns: 'activities', subNoun: 'sub-activity',
-    help: 'Main activities are work categories (e.g. RCC Work); sub-activities are specific tasks (e.g. Steel work). Only active ones appear in the DPR form.',
-    placeholder: 'e.g. MEP Work / Panel Wiring',
+    noun: 'main activity', nouns: 'activities', subNoun: 'sub-activity',
+    help: 'Main activities are work categories (e.g. RCC Work); sub-activities are specific tasks (e.g. Steel work). Only active ones appear in the report form.',
+    placeholder: 'e.g. MEP Work',
   },
 };
 
@@ -29,39 +28,36 @@ const isTop = (item) => idStr(item.parent_id) === '';
 function InlineEdit({ value, onSave, onCancel, busy, label }) {
   const [text, setText] = useState(value);
   return (
-    <form className="admin-inline-form" onSubmit={(e) => { e.preventDefault(); if (text.trim() && text.trim() !== value) onSave(text.trim()); else onCancel(); }}>
-      <input value={text} onChange={(e) => setText(e.target.value)} aria-label={label} autoFocus />
-      <button type="submit" className="btn-green btn-sm admin-inline-btn" disabled={busy || !text.trim()}>Save</button>
-      <button type="button" className="btn-gray btn-sm admin-inline-btn" onClick={onCancel}>Cancel</button>
+    <form className="inline-form" onSubmit={(e) => { e.preventDefault(); if (text.trim() && text.trim() !== value) onSave(text.trim()); else onCancel(); }}>
+      <input className="input" value={text} onChange={(e) => setText(e.target.value)} aria-label={label} autoFocus />
+      <button type="submit" className="btn sm primary" disabled={busy || !text.trim()}>Save</button>
+      <button type="button" className="btn sm ghost" onClick={onCancel}>Cancel</button>
     </form>
   );
 }
 
-function ItemRow({ item, cfg, isSub, canUp, canDown, onMove, editing, setEditing, run, busy, childCount }) {
+function ItemLine({ item, cfg, canUp, canDown, onMove, editing, setEditing, run, busy, childCount }) {
   const name = item[cfg.field];
   const active = item.status === 'active';
   const rename = (next) => run({ action: cfg.update, id: item.id, [cfg.field]: next }, { success: '✅ Renamed' }).then(ok => { if (ok) setEditing(null); });
-  const toggle = () => run({ action: cfg.update, id: item.id, status: active ? 'inactive' : 'active' }, { success: active ? '🔴 Deactivated' : '🟢 Activated' });
+  const toggle = () => run({ action: cfg.update, id: item.id, status: active ? 'inactive' : 'active' }, { success: active ? 'Deactivated' : 'Activated' });
   const remove = () => {
     const extra = childCount ? ` and its ${childCount} ${childCount === 1 ? cfg.subNoun : `${cfg.subNoun}s`}` : '';
     if (window.confirm(`Delete "${name}"${extra} permanently?`)) run({ action: cfg.remove, id: item.id }, { success: '🗑️ Deleted' });
   };
 
   if (editing === idStr(item.id)) {
-    return <div className={`admin-tree-row${isSub ? ' is-sub' : ''}`}><InlineEdit value={name} onSave={rename} onCancel={() => setEditing(null)} busy={busy} label={`Rename ${name}`} /></div>;
+    return <div className="tree-line"><InlineEdit value={name} onSave={rename} onCancel={() => setEditing(null)} busy={busy} label={`Rename ${name}`} /></div>;
   }
   return (
-    <div className={`admin-tree-row${isSub ? ' is-sub' : ''}${active ? '' : ' is-inactive'}`}>
-      <span className="admin-tree-name">
-        {isSub ? '↳ ' : `${cfg.icon} `}{name}
-        {!active && <span className="admin-badge is-inactive">off</span>}
-      </span>
-      <div className="admin-row-actions">
-        <button type="button" className="btn-gray btn-sm admin-icon-btn" onClick={() => onMove(-1)} disabled={!canUp || busy} aria-label={`Move ${name} up`} title="Move up">↑</button>
-        <button type="button" className="btn-gray btn-sm admin-icon-btn" onClick={() => onMove(1)} disabled={!canDown || busy} aria-label={`Move ${name} down`} title="Move down">↓</button>
-        <button type="button" className="btn-blue btn-sm admin-icon-btn" onClick={() => setEditing(idStr(item.id))} aria-label={`Rename ${name}`} title="Rename">✏️</button>
-        <button type="button" className={`${active ? 'btn-red' : 'btn-green'} btn-sm admin-icon-btn`} onClick={toggle} disabled={busy} aria-label={`${active ? 'Deactivate' : 'Activate'} ${name}`} title={active ? 'Deactivate' : 'Activate'}>{active ? '🔴' : '🟢'}</button>
-        <button type="button" className="btn-red btn-sm admin-icon-btn" onClick={remove} disabled={busy} aria-label={`Delete ${name}`} title="Delete">🗑️</button>
+    <div className={`tree-line${active ? '' : ' off'}`}>
+      <span className="name">{name}{!active && <span className="tag">Inactive</span>}</span>
+      <div className="tree-tools">
+        <button type="button" className="icon-btn" onClick={() => onMove(-1)} disabled={!canUp || busy} aria-label={`Move ${name} up`} title="Move up"><Icon name="up" /></button>
+        <button type="button" className="icon-btn" onClick={() => onMove(1)} disabled={!canDown || busy} aria-label={`Move ${name} down`} title="Move down"><Icon name="arrowDown" /></button>
+        <button type="button" className="btn sm ghost" onClick={toggle} disabled={busy}>{active ? 'Deactivate' : 'Activate'}</button>
+        <button type="button" className="icon-btn" onClick={() => setEditing(idStr(item.id))} aria-label={`Rename ${name}`} title="Rename"><Icon name="edit" /></button>
+        <button type="button" className="icon-btn danger" onClick={remove} disabled={busy} aria-label={`Delete ${name}`} title="Delete"><Icon name="trash" /></button>
       </div>
     </div>
   );
@@ -129,46 +125,60 @@ export default function HierarchyAdmin({ kind }) {
   };
 
   const activeTops = tree.tops.filter(t => t.item.status === 'active');
+  const lineProps = { cfg, editing, setEditing, run, busy };
 
   return (
     <>
-      <p className="admin-help">{cfg.help}</p>
-      <form className="admin-form" onSubmit={add}>
-        <div className="admin-form-title">➕ Add {cfg.noun} or {cfg.subNoun}</div>
-        <label htmlFor={`${kind}Parent`}>Parent (blank = top-level {cfg.noun})</label>
-        <select id={`${kind}Parent`} value={parentId} onChange={(e) => setParentId(e.target.value)}>
-          <option value="">— None (top-level) —</option>
-          {activeTops.map(t => <option key={idStr(t.item.id)} value={idStr(t.item.id)}>{t.item[cfg.field]}</option>)}
-        </select>
-        <label htmlFor={`${kind}Name`}>Name</label>
-        <input id={`${kind}Name`} value={name} onChange={(e) => setName(e.target.value)} placeholder={cfg.placeholder} />
-        <button type="submit" className="btn-green" disabled={busy}>✅ Add</button>
+      <form className="panel" onSubmit={add}>
+        <h2 className="panel-title">Add {cfg.noun} or {cfg.subNoun}</h2>
+        <div className="form-grid three">
+          <label className="field">
+            <span>Under</span>
+            <select className="select" value={parentId} onChange={(e) => setParentId(e.target.value)}>
+              <option value="">Nothing — new top-level {cfg.noun}</option>
+              {activeTops.map(t => <option key={idStr(t.item.id)} value={idStr(t.item.id)}>{t.item[cfg.field]}</option>)}
+            </select>
+          </label>
+          <label className="field">
+            <span>Name</span>
+            <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder={cfg.placeholder} />
+          </label>
+          <button type="submit" className="btn primary" disabled={busy}><Icon name="plus" />Add</button>
+        </div>
+        <p className="hint" style={{ marginTop: 10 }}>{cfg.help}</p>
       </form>
 
-      <div className="admin-list-title">📋 All {cfg.nouns} ({items.length})</div>
-      <div className="admin-list-scroll admin-tree">
-        {!tree.tops.length && !tree.orphans.length && <p className="history-empty">No {cfg.nouns} yet.</p>}
+      <div className="list-bar section-gap">
+        <h2 className="panel-title">All {cfg.nouns} <em>({items.length})</em></h2>
+      </div>
+      <section className="panel">
+        {!tree.tops.length && !tree.orphans.length && <p className="muted">No {cfg.nouns} yet.</p>}
         {tree.tops.map((t, i) => (
-          <div key={idStr(t.item.id)} className="admin-tree-group">
-            <ItemRow item={t.item} cfg={cfg} canUp={i > 0} canDown={i < tree.tops.length - 1} onMove={(d) => moveTop(i, d)}
-              editing={editing} setEditing={setEditing} run={run} busy={busy} childCount={t.children.length} />
-            {t.children.map((c, ci) => (
-              <ItemRow key={idStr(c.id)} item={c} cfg={cfg} isSub canUp={ci > 0} canDown={ci < t.children.length - 1}
-                onMove={(d) => moveChild(i, ci, d)} editing={editing} setEditing={setEditing} run={run} busy={busy} childCount={0} />
-            ))}
-            {!t.children.length && <div className="admin-tree-empty">No {cfg.subNoun}s yet.</div>}
+          <div key={idStr(t.item.id)} className="tree-main">
+            <ItemLine item={t.item} {...lineProps} canUp={i > 0} canDown={i < tree.tops.length - 1} onMove={(d) => moveTop(i, d)} childCount={t.children.length} />
+            {t.children.length > 0 && (
+              <div className="tree-sub">
+                {t.children.map((c, ci) => (
+                  <ItemLine key={idStr(c.id)} item={c} {...lineProps} canUp={ci > 0} canDown={ci < t.children.length - 1} onMove={(d) => moveChild(i, ci, d)} childCount={0} />
+                ))}
+              </div>
+            )}
           </div>
         ))}
         {tree.orphans.length > 0 && (
-          <div className="admin-tree-group is-orphans">
-            <div className="admin-tree-orphan-title">⚠️ Unassigned — parent no longer exists</div>
-            {tree.orphans.map(o => (
-              <ItemRow key={idStr(o.id)} item={o} cfg={cfg} isSub canUp={false} canDown={false} onMove={() => {}}
-                editing={editing} setEditing={setEditing} run={run} busy={busy} childCount={0} />
-            ))}
+          <div className="tree-main">
+            <div className="banner warn" style={{ marginBottom: 6 }}>
+              <Icon name="lock" />
+              <div className="btxt"><b>Unassigned</b>These {cfg.subNoun}s point to a parent that no longer exists. Rename or delete them.</div>
+            </div>
+            <div className="tree-sub">
+              {tree.orphans.map(o => (
+                <ItemLine key={idStr(o.id)} item={o} {...lineProps} canUp={false} canDown={false} onMove={() => {}} childCount={0} />
+              ))}
+            </div>
           </div>
         )}
-      </div>
+      </section>
     </>
   );
 }

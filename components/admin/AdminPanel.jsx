@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from 'react';
 import { useApp } from '../app/AppContext';
-import { siteDisplayName, toYMD } from '../../lib/report/reportModel';
+import Icon from '../ui/Icon';
+import { siteDisplayName, toYMD, formatDisplayDate } from '../../lib/report/reportModel';
 import { exportMasterLogCsv, exportMasterLogExcel, exportMasterLogPdf } from '../../lib/admin/masterLog';
 import HierarchyAdmin from './HierarchyAdmin';
 import MaterialsAdmin from './MaterialsAdmin';
@@ -13,37 +14,21 @@ function localTodayYMD() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-function formatDate(ymd) {
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(ymd || ''));
-  return m ? `${m[3]}-${m[2]}-${m[1]}` : String(ymd || '');
-}
-
-export function Accordion({ title, defaultOpen = false, children }) {
-  const [open, setOpen] = useState(defaultOpen);
-  return (
-    <section className="admin-acc-card">
-      <button type="button" className="admin-acc-header" aria-expanded={open} onClick={() => setOpen(o => !o)}>
-        <span>{title}</span>
-        <span className="admin-acc-icon" aria-hidden="true">{open ? '▼' : '▶'}</span>
-      </button>
-      {open && <div className="admin-acc-body open">{children}</div>}
-    </section>
-  );
-}
-
-function AdminAnalytics() {
+function Overview() {
   const { history, projects, showToast } = useApp();
   const [exporting, setExporting] = useState(null);
 
   const stats = useMemo(() => {
     const today = localTodayYMD();
-    const workforceToday = history.filter(h => toYMD(h.date) === today).reduce((s, h) => s + (Number(h.total) || 0), 0);
+    const todays = history.filter(h => toYMD(h.date) === today);
     const counts = new Map();
     history.forEach(h => { if (h.site) counts.set(h.site, (counts.get(h.site) || 0) + 1); });
     const top = [...counts.entries()].sort((a, b) => b[1] - a[1])[0];
     return {
-      workforceToday,
+      workforceToday: todays.reduce((s, h) => s + (Number(h.total) || 0), 0),
+      reportsToday: todays.length,
       mostActive: top ? siteDisplayName(top[0], projects) : '—',
+      mostActiveCount: top ? top[1] : 0,
       active: projects.filter(p => p.status === 'active').length,
       total: projects.length,
     };
@@ -56,7 +41,7 @@ function AdminAnalytics() {
       if (kind === 'csv') exportMasterLogCsv(history);
       else if (kind === 'excel') await exportMasterLogExcel(history);
       else await exportMasterLogPdf(history);
-      showToast(`✅ ${kind === 'csv' ? 'CSV' : kind === 'excel' ? 'Excel' : 'PDF'} exported!`);
+      showToast(`✅ ${kind === 'csv' ? 'CSV' : kind === 'excel' ? 'Excel' : 'PDF'} exported`);
     } catch (err) {
       showToast(`⚠️ Export failed — ${err.message || 'try again'}`);
     } finally {
@@ -65,52 +50,89 @@ function AdminAnalytics() {
   };
 
   return (
-    <div className="card">
-      <div className="section-title">📊 Admin Analytics Dashboard</div>
-      <div className="dash-grid admin-stats">
-        <div className="dash-stat"><div className="num">{stats.workforceToday}</div><div className="lbl">Workforce Today</div></div>
-        <div className="dash-stat"><div className="num admin-stat-text" title={stats.mostActive}>{stats.mostActive}</div><div className="lbl">Most Active Site</div></div>
-        <div className="dash-stat"><div className="num">{stats.active}/{stats.total}</div><div className="lbl">Active Projects</div></div>
+    <>
+      <div className="grid4">
+        <div className="kpi accent"><span>Workforce today</span><b>{stats.workforceToday}</b><small>{stats.reportsToday} report{stats.reportsToday === 1 ? '' : 's'} filed</small></div>
+        <div className="kpi"><span>Most active site</span><b className="text" title={stats.mostActive}>{stats.mostActive}</b><small>{stats.mostActiveCount} reports all time</small></div>
+        <div className="kpi"><span>Active sites</span><b>{stats.active}</b><small>of {stats.total} in the list</small></div>
+        <div className="kpi"><span>Reports on record</span><b>{history.length}</b><small>All sites, all time</small></div>
       </div>
-      <div className="admin-export-bar" role="group" aria-label="Export master log">
-        {[['csv', '📥 CSV'], ['excel', '📊 Excel'], ['pdf', '📄 PDF']].map(([k, label]) => (
-          <button key={k} type="button" className="btn-green btn-sm" onClick={() => exportAs(k)} disabled={!!exporting}>
-            {exporting === k ? '⏳' : label}
-          </button>
-        ))}
-      </div>
-    </div>
+      <section className="panel" style={{ marginTop: 16 }}>
+        <div className="panel-head">
+          <div>
+            <h2 className="panel-title">Master log export</h2>
+            <p className="hint">Every report flattened to one row per activity line.</p>
+          </div>
+          <div className="row" role="group" aria-label="Export master log">
+            {[['csv', 'CSV'], ['excel', 'Excel'], ['pdf', 'PDF']].map(([k, label]) => (
+              <button key={k} type="button" className="btn" onClick={() => exportAs(k)} disabled={!!exporting}>
+                <Icon name={k === 'pdf' ? 'pdf' : 'down'} />{exporting === k ? 'Exporting…' : label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </section>
+    </>
   );
 }
 
-function PendingEditRequests() {
-  const { history, projects, approveEdit } = useApp();
-  const pending = useMemo(() => history.filter(h => h.editPermission === 'pending'), [history]);
+function EditRequests({ pending }) {
+  const { projects, approveEdit } = useApp();
+  if (!pending.length) {
+    return <div className="list"><div className="empty"><h3>No edit requests waiting</h3><p className="muted">When a supervisor asks to change a locked report, it shows up here.</p></div></div>;
+  }
   return (
-    <div className="card">
-      <div className="section-title">✏️ Pending Edit Requests</div>
-      {pending.length ? pending.map(item => (
-        <div key={`${toYMD(item.date)}||${item.site}`} className="admin-user-row">
+    <div className="list">
+      {pending.map(item => (
+        <div key={`${toYMD(item.date)}||${item.site}`} className="lrow simple">
           <div>
-            <div className="admin-user-info">📅 {formatDate(toYMD(item.date))} · 📍 {siteDisplayName(item.site, projects)}</div>
-            <div className="admin-user-sub">Requested by: <b>{item.requestedBy || '—'}</b> · Prepared by {item.by || '—'}</div>
+            <b>{item.requestedBy || 'Someone'}</b> wants to edit <b>{siteDisplayName(item.site, projects)}</b>, {formatDisplayDate(item.date)}
+            <div className="sub">Originally filed by {item.by || '—'}.</div>
           </div>
-          <button type="button" className="btn-green btn-sm admin-inline-btn" onClick={() => approveEdit(item)}>✅ Approve</button>
+          <div className="row">
+            <button type="button" className="btn sm primary" onClick={() => approveEdit(item)}><Icon name="check" />Allow edit</button>
+          </div>
         </div>
-      )) : <p className="history-empty">✅ No pending requests.</p>}
+      ))}
     </div>
   );
 }
 
 export default function AdminPanel() {
+  const { history } = useApp();
+  const pending = useMemo(() => history.filter(h => h.editPermission === 'pending'), [history]);
+  const [tab, setTab] = useState('overview');
+
+  const tabs = [
+    ['overview', 'Overview'],
+    ['requests', `Edit requests${pending.length ? ` (${pending.length})` : ''}`],
+    ['users', 'Users'],
+    ['sites', 'Sites'],
+    ['activities', 'Activities'],
+    ['materials', 'Material catalogue'],
+  ];
+
   return (
     <>
-      <AdminAnalytics />
-      <PendingEditRequests />
-      <Accordion title="⚙️ Create / Manage Users" defaultOpen><UsersAdmin /></Accordion>
-      <Accordion title="📍 Manage Projects & Sub-Projects"><HierarchyAdmin kind="projects" /></Accordion>
-      <Accordion title="📋 Manage Activities & Sub-Activities"><HierarchyAdmin kind="activities" /></Accordion>
-      <Accordion title="🧱 Manage Materials"><MaterialsAdmin /></Accordion>
+      <div className="page-head">
+        <div>
+          <h1>Admin</h1>
+          <p className="lede">Manage people, sites, the activity list and the material catalogue, and approve edit requests.</p>
+        </div>
+      </div>
+      <div className="tabs" role="tablist" aria-label="Admin sections">
+        {tabs.map(([k, label]) => (
+          <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{label}</button>
+        ))}
+      </div>
+      <div role="tabpanel">
+        {tab === 'overview' && <Overview />}
+        {tab === 'requests' && <EditRequests pending={pending} />}
+        {tab === 'users' && <UsersAdmin />}
+        {tab === 'sites' && <HierarchyAdmin kind="projects" />}
+        {tab === 'activities' && <HierarchyAdmin kind="activities" />}
+        {tab === 'materials' && <MaterialsAdmin />}
+      </div>
     </>
   );
 }

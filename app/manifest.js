@@ -5,8 +5,8 @@ export default function manifest() {
     description: 'Trimandir Construction DPR Man Power Report',
     start_url: '/',
     display: 'standalone',
-    background_color: '#f8fafc',
-    theme_color: '#1e293b',
+    background_color: '#E8EBE9',
+    theme_color: '#15212B',
     icons: [
       {
         src: '/favicon.ico',

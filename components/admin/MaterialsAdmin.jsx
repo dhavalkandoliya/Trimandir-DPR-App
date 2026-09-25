@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useApp } from '../app/AppContext';
+import Icon from '../ui/Icon';
 import { QTY_UNIT_SUGGESTIONS } from '../../lib/materials/consumption';
 import { useAdminAction } from './useAdminAction';
 
@@ -17,7 +18,7 @@ function MaterialRow({ m, run, busy }) {
     const ok = await run({ action: 'updateMaterial', id: m.id, material_name: name.trim(), unit: unit.trim() }, { success: '✅ Material updated' });
     if (ok) setEditing(false);
   };
-  const toggle = () => run({ action: 'updateMaterial', id: m.id, status: active ? 'inactive' : 'active' }, { success: active ? '🔴 Deactivated' : '🟢 Activated' });
+  const toggle = () => run({ action: 'updateMaterial', id: m.id, status: active ? 'inactive' : 'active' }, { success: active ? 'Deactivated' : 'Activated' });
   const remove = () => {
     if (window.confirm(`Delete material "${m.material_name}"? Consumption entries already logged keep their material name.`)) {
       run({ action: 'deleteMaterial', id: m.id }, { success: '🗑️ Deleted' });
@@ -26,26 +27,29 @@ function MaterialRow({ m, run, busy }) {
 
   if (editing) {
     return (
-      <form className="admin-tree-row admin-inline-form" onSubmit={save}>
-        <input value={name} onChange={(e) => setName(e.target.value)} aria-label="Material name" autoFocus />
-        <input value={unit} onChange={(e) => setUnit(e.target.value)} list="materialUnitSuggestions" placeholder="Default unit" aria-label="Default unit" className="admin-unit-input" />
-        <button type="submit" className="btn-green btn-sm admin-inline-btn" disabled={busy || !name.trim()}>Save</button>
-        <button type="button" className="btn-gray btn-sm admin-inline-btn" onClick={() => { setEditing(false); setName(m.material_name); setUnit(m.unit || ''); }}>Cancel</button>
-      </form>
+      <tr>
+        <td colSpan={4}>
+          <form className="inline-form" onSubmit={save}>
+            <input className="input" value={name} onChange={(e) => setName(e.target.value)} aria-label="Material name" autoFocus />
+            <input className="input" value={unit} onChange={(e) => setUnit(e.target.value)} list="materialUnitSuggestions" placeholder="Default unit" aria-label="Default unit" style={{ maxWidth: 160 }} />
+            <button type="submit" className="btn sm primary" disabled={busy || !name.trim()}>Save</button>
+            <button type="button" className="btn sm ghost" onClick={() => { setEditing(false); setName(m.material_name); setUnit(m.unit || ''); }}>Cancel</button>
+          </form>
+        </td>
+      </tr>
     );
   }
   return (
-    <div className={`admin-tree-row${active ? '' : ' is-inactive'}`}>
-      <span className="admin-tree-name">
-        {m.material_name}
-        <span className="admin-tree-meta">{m.unit ? `Default unit: ${m.unit}` : 'No default unit'}</span>
-      </span>
-      <div className="admin-row-actions">
-        <button type="button" className="btn-blue btn-sm admin-icon-btn" onClick={() => setEditing(true)} aria-label={`Edit ${m.material_name}`} title="Edit">✏️</button>
-        <button type="button" className={`${active ? 'btn-red' : 'btn-green'} btn-sm admin-icon-btn`} onClick={toggle} disabled={busy} aria-label={`${active ? 'Deactivate' : 'Activate'} ${m.material_name}`} title={active ? 'Deactivate' : 'Activate'}>{active ? '🔴' : '🟢'}</button>
-        <button type="button" className="btn-red btn-sm admin-icon-btn" onClick={remove} disabled={busy} aria-label={`Delete ${m.material_name}`} title="Delete">🗑️</button>
-      </div>
-    </div>
+    <tr className={active ? '' : 'off'}>
+      <td><b>{m.material_name}</b></td>
+      <td>{m.unit || <span className="muted">—</span>}</td>
+      <td>{active ? <span className="tag ok">Active</span> : <span className="tag">Inactive</span>}</td>
+      <td className="acts">
+        <button type="button" className="btn sm ghost" onClick={toggle} disabled={busy}>{active ? 'Deactivate' : 'Activate'}</button>
+        <button type="button" className="icon-btn" onClick={() => setEditing(true)} aria-label={`Edit ${m.material_name}`} title="Edit"><Icon name="edit" /></button>
+        <button type="button" className="icon-btn danger" onClick={remove} disabled={busy} aria-label={`Delete ${m.material_name}`} title="Delete"><Icon name="trash" /></button>
+      </td>
+    </tr>
   );
 }
 
@@ -67,20 +71,36 @@ export default function MaterialsAdmin() {
 
   return (
     <>
-      <p className="admin-help">The materials offered when logging consumption entries. The unit is only a default — each entry records its own unit.</p>
       <datalist id="materialUnitSuggestions">{QTY_UNIT_SUGGESTIONS.map(u => <option key={u} value={u} />)}</datalist>
-      <form className="admin-form" onSubmit={add}>
-        <div className="admin-form-title">➕ Add Material</div>
-        <label htmlFor="newMaterialName">Material Name</label>
-        <input id="newMaterialName" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Cement - OPC" />
-        <label htmlFor="newMaterialUnit">Default Unit <span className="entry-optional">(Optional)</span></label>
-        <input id="newMaterialUnit" value={unit} onChange={(e) => setUnit(e.target.value)} list="materialUnitSuggestions" placeholder="e.g. Bags, Nos, Brass, Kg" />
-        <button type="submit" className="btn-green" disabled={busy}>✅ Add Material</button>
+      <form className="panel" onSubmit={add}>
+        <h2 className="panel-title">Add material</h2>
+        <div className="form-grid three">
+          <label className="field">
+            <span>Material name</span>
+            <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Cement - OPC" />
+          </label>
+          <label className="field">
+            <span>Default unit <em>(optional)</em></span>
+            <input className="input" value={unit} onChange={(e) => setUnit(e.target.value)} list="materialUnitSuggestions" placeholder="e.g. Bags, Nos, Brass, Kg" />
+          </label>
+          <button type="submit" className="btn primary" disabled={busy}><Icon name="plus" />Add material</button>
+        </div>
+        <p className="hint" style={{ marginTop: 10 }}>The materials offered when logging consumption. The unit is only a default — each entry records its own unit.</p>
       </form>
-      <div className="admin-list-title">🧱 All Materials ({materials.length})</div>
-      <div className="admin-list-scroll admin-tree">
-        {sorted.length ? sorted.map(m => <MaterialRow key={m.id} m={m} run={run} busy={busy} />) : <p className="history-empty">No materials yet.</p>}
+
+      <div className="list-bar section-gap">
+        <h2 className="panel-title">Material catalogue <em>({materials.length})</em></h2>
       </div>
+      {sorted.length ? (
+        <div className="list tscroll">
+          <table className="dt">
+            <thead><tr><th>Material</th><th>Default unit</th><th>Status</th><th /></tr></thead>
+            <tbody>{sorted.map(m => <MaterialRow key={m.id} m={m} run={run} busy={busy} />)}</tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="list"><div className="empty"><h3>No materials yet</h3><p className="muted">Add the first one above.</p></div></div>
+      )}
     </>
   );
 }

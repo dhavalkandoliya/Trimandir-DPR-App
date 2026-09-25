@@ -15,15 +15,13 @@ export default class ErrorBoundary extends Component {
   }
 
   componentDidCatch(error, info) {
-    console.error('AnalyticsDashboard crashed:', error, info);
+    console.error('Screen crashed:', error, info);
   }
 
   render() {
     if (this.state.hasError) {
       return (
-        <div style={{ padding: 16, textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>
-          ⚠️ Dashboard failed to render. Try switching tabs and back.
-        </div>
+        <div className="list"><div className="empty"><h3>This screen failed to load</h3><p className="muted">Switch to another tab and back, or reload the page.</p></div></div>
       );
     }
     return this.props.children;

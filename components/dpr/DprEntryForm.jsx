@@ -5,21 +5,17 @@ import { apiPost } from '../../lib/client/api';
 import { enqueueOffline, useApp } from '../app/AppContext';
 import ExecutiveReport from '../report/ExecutiveReport';
 import ReportActionBar from '../report/ReportActionBar';
-import { buildReport, consumptionForRecord, recordActivities } from '../../lib/report/reportModel';
+import Icon from '../ui/Icon';
+import {
+  CONDITIONS, buildReport, consumptionForRecord, formatDisplayDate, recordActivities,
+} from '../../lib/report/reportModel';
 import ConsumptionEntryRow from '../materials/ConsumptionEntryRow';
 import {
   emptyEntryRow, entryRowFrom, entryRowHasContent, serializeEntryRows, validateEntryRows,
 } from '../../lib/materials/consumption';
 
 const DRAFT_KEY = 'dpr_form_draft';
-
-const CONDITIONS = [
-  { val: 'Sunny',       label: '☀️ Sunny' },
-  { val: 'Rainy',       label: '🌧️ Rainy' },
-  { val: 'Cloudy',      label: '☁️ Cloudy' },
-  { val: 'Site Closed', label: '🚧 Site Closed' },
-  { val: 'Holiday',     label: '🎉 Holiday' },
-];
+const SEP = '||'; // activity picker value: "<main>||<sub>" ("<main>||" = main activity only)
 
 // ── Pure helpers ──────────────────────────────────────────────────────
 
@@ -40,14 +36,14 @@ function toYMD(v) {
   return s;
 }
 
-const toCount = (v) => Math.max(0, Number(v) || 0);
+const toCount = (v) => Math.max(0, Math.floor(Number(v) || 0));
 const isTopLevel = (item) => !item.parent_id || String(item.parent_id).trim() === '';
 
 let _keySeq = 0;
 const nextKey = () => `r${++_keySeq}`;
 
 function emptyActivityRow() {
-  return { key: nextKey(), main: '', sub: '', skilled: '0', unskilled: '0', plannedQty: '', note: '' };
+  return { key: nextKey(), main: '', sub: '', skilled: '0', unskilled: '0', plannedQty: '', note: '', open: false };
 }
 
 // Accepts both the draft shape ({main_activity, sub_activity, ...}) and the
@@ -58,14 +54,17 @@ function activityRowFrom(a) {
   const main = a.main_activity || a.activity || '';
   let sub = a.sub_activity || '';
   if (!sub && a.main_activity && a.activity && a.activity !== a.main_activity) sub = a.activity;
+  const note = a.note || '';
+  const plannedQty = a.plannedQty ? String(a.plannedQty) : '';
   return {
     key: nextKey(),
     main,
     sub,
     skilled: String(a.skilled != null ? toCount(a.skilled) : 0),
     unskilled: String(a.unskilled != null ? toCount(a.unskilled) : 0),
-    plannedQty: a.plannedQty ? String(a.plannedQty) : '',
-    note: a.note || '',
+    plannedQty,
+    note,
+    open: !!(note || plannedQty),
   };
 }
 
@@ -97,86 +96,166 @@ function readDraft() {
 
 // ── Subcomponents ─────────────────────────────────────────────────────
 
-function Stepper({ label, value, onChange }) {
-  const set = (n) => onChange(String(Math.max(0, n)));
+// −/+ counter. Press and hold a button to keep counting (after 380 ms,
+// every 80 ms); ↑/↓ in the field step too. onStep must use a functional
+// state update, since the hold interval calls it repeatedly.
+function Stepper({ label, value, onChange, onStep }) {
+  const timers = useRef({});
+  const stop = useCallback(() => { clearTimeout(timers.current.t); clearInterval(timers.current.i); }, []);
+  useEffect(() => stop, [stop]);
+
+  const press = (delta) => (e) => {
+    if (e.button !== undefined && e.button !== 0) return;
+    e.preventDefault(); // no focus shift, no text selection while holding
+    stop();
+    onStep(delta);
+    timers.current.t = setTimeout(() => { timers.current.i = setInterval(() => onStep(delta), 80); }, 380);
+  };
+  const button = (delta, symbol, aria) => (
+    <button
+      type="button"
+      aria-label={aria}
+      onPointerDown={press(delta)}
+      onPointerUp={stop}
+      onPointerLeave={stop}
+      onPointerCancel={stop}
+      onContextMenu={(e) => e.preventDefault()}
+      onClick={(e) => { if (e.detail === 0) onStep(delta); }} // keyboard activation only; pointers step on press
+    >
+      {symbol}
+    </button>
+  );
+
   return (
     <div>
-      <label>{label}</label>
-      <div className="counter-wrap">
-        <button type="button" className="counter-btn" onClick={() => set(toCount(value) - 1)} aria-label={`Decrease ${label.toLowerCase()}`}>−</button>
+      <span className="mini-label">{label}</span>
+      <div className="step">
+        {button(-1, '−', `Fewer ${label.toLowerCase()}`)}
         <input
-          type="number"
           inputMode="numeric"
-          min="0"
+          pattern="[0-9]*"
           value={value}
-          onChange={(e) => onChange(e.target.value)}
-          onBlur={() => set(toCount(value))}
-          aria-label={label}
+          aria-label={`${label} workers`}
+          onChange={(e) => onChange(e.target.value.replace(/\D/g, ''))}
+          onFocus={(e) => { const el = e.target; setTimeout(() => el.select(), 0); }}
+          onBlur={() => onChange(String(toCount(value)))}
+          onKeyDown={(e) => {
+            if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { e.preventDefault(); onStep(e.key === 'ArrowUp' ? 1 : -1); }
+          }}
         />
-        <button type="button" className="counter-btn" onClick={() => set(toCount(value) + 1)} aria-label={`Increase ${label.toLowerCase()}`}>+</button>
+        {button(1, '+', `More ${label.toLowerCase()}`)}
       </div>
     </div>
   );
 }
 
-function ActivityRow({ index, row, mains, subsFor, onChange, onRemove }) {
-  const subs = subsFor(row.main);
-  const mainKnown = mains.some(m => m.activity_name === row.main);
-  const subKnown = subs.some(s => s.activity_name === row.sub);
-  const showSub = subs.length > 0 || !!row.sub;
+function ActivityRow({ index, row, mains, subsFor, onChange, onStep, onRemove }) {
   const total = toCount(row.skilled) + toCount(row.unskilled);
   const update = (patch) => onChange({ ...row, ...patch });
+  const value = row.main ? `${row.main}${SEP}${row.sub}` : '';
+
+  // Grouped picker: a main activity with sub-activities becomes an
+  // optgroup (its first option logs the main activity on its own).
+  const known = !row.main || mains.some(m => m.activity_name === row.main && (!row.sub || subsFor(m.activity_name).some(s => s.activity_name === row.sub)));
 
   return (
-    <div className="activitybox">
-      <div className="entry-row-head">
-        <span className="entry-row-title">Activity {index + 1}</span>
-        <div className="entry-row-actions">
-          <span className="entry-row-total">Total: <b>{total}</b></span>
-          <button type="button" className="delete-btn entry-row-remove" onClick={onRemove}>🗑️ Remove</button>
+    <div className="arow">
+      <div className="arow-main">
+        <label className="field">
+          <span className="sr">Activity {index + 1}</span>
+          <select
+            className="select"
+            value={value}
+            onChange={(e) => {
+              const [main, sub = ''] = e.target.value.split(SEP);
+              update({ main: main || '', sub: e.target.value ? sub : '' });
+            }}
+          >
+            <option value="">Choose activity</option>
+            {mains.map(m => {
+              const subs = subsFor(m.activity_name);
+              if (!subs.length) return <option key={m.id} value={`${m.activity_name}${SEP}`}>{m.activity_name}</option>;
+              return (
+                <optgroup key={m.id} label={m.activity_name}>
+                  <option value={`${m.activity_name}${SEP}`}>{m.activity_name} — general</option>
+                  {subs.map(s => <option key={s.id} value={`${m.activity_name}${SEP}${s.activity_name}`}>{s.activity_name}</option>)}
+                </optgroup>
+              );
+            })}
+            {!known && <option value={value}>{row.sub ? `${row.main} / ${row.sub}` : row.main} (inactive)</option>}
+          </select>
+        </label>
+        <Stepper label="Skilled" value={row.skilled} onChange={(v) => update({ skilled: v })} onStep={(d) => onStep('skilled', d)} />
+        <Stepper label="Unskilled" value={row.unskilled} onChange={(v) => update({ unskilled: v })} onStep={(d) => onStep('unskilled', d)} />
+        <div className={`total${total ? '' : ' zero'}`} aria-label={`Total ${total}`}>{total}</div>
+        <div className="arow-tools">
+          <span className="rt">Total <b>{total}</b></span>
+          <span>
+            <button
+              type="button"
+              className={`icon-btn${row.open ? ' on' : ''}`}
+              aria-expanded={row.open}
+              aria-label="Note and planned quantity"
+              title="Note and planned quantity"
+              onClick={() => update({ open: !row.open })}
+            >
+              <Icon name="note" />
+            </button>
+            <button type="button" className="icon-btn danger" onClick={onRemove} aria-label="Remove activity" title="Remove activity">
+              <Icon name="trash" />
+            </button>
+          </span>
         </div>
       </div>
-
-      <label>Main Activity</label>
-      <select value={row.main} onChange={(e) => update({ main: e.target.value, sub: '' })}>
-        <option value="">— Select Main Activity —</option>
-        {mains.map(m => <option key={m.id} value={m.activity_name}>{m.activity_name}</option>)}
-        {row.main && !mainKnown && <option value={row.main}>{row.main}</option>}
-      </select>
-
-      {showSub && (
-        <>
-          <label>Sub-Activity</label>
-          <select value={row.sub} onChange={(e) => update({ sub: e.target.value })}>
-            <option value="">— Select Sub-Activity —</option>
-            {subs.map(s => <option key={s.id} value={s.activity_name}>{s.activity_name}</option>)}
-            {row.sub && !subKnown && <option value={row.sub}>{row.sub}</option>}
-          </select>
-        </>
+      {row.open && (
+        <div className="arow-more">
+          <label className="field">
+            <span>Note <em>(optional)</em></span>
+            <input className="input" value={row.note} onChange={(e) => update({ note: e.target.value })} placeholder="Location or remark, e.g. Grid C–D, 3rd floor" />
+          </label>
+          <label className="field">
+            <span>Planned qty <em>(optional)</em></span>
+            <input className="input" type="number" min="0" inputMode="decimal" value={row.plannedQty} onChange={(e) => update({ plannedQty: e.target.value })} placeholder="e.g. 120" />
+          </label>
+        </div>
       )}
-
-      <div className="row2">
-        <Stepper label="Skilled" value={row.skilled} onChange={(v) => update({ skilled: v })} />
-        <Stepper label="Unskilled" value={row.unskilled} onChange={(v) => update({ unskilled: v })} />
-      </div>
-
-      <label>Planned Qty <span className="entry-optional">(Optional — for % complete)</span></label>
-      <input
-        type="number"
-        min="0"
-        value={row.plannedQty}
-        onChange={(e) => update({ plannedQty: e.target.value })}
-        placeholder="e.g. total units planned for this activity"
-      />
-      <label>Note <span className="entry-optional">(Optional)</span></label>
-      <input type="text" value={row.note} onChange={(e) => update({ note: e.target.value })} placeholder="Work location or note..." />
     </div>
+  );
+}
+
+// After a save: the submitted report, share/download actions, and a way
+// back to a fresh form.
+function SuccessView({ result, onNew }) {
+  const { report, queued, isEdit } = result;
+  const t = report.totals;
+  const title = queued ? 'Report saved offline' : isEdit ? 'Changes saved' : 'Report submitted';
+  const lede = queued
+    ? `${report.siteDisplay}, ${report.displayDate}. It will sync automatically when you're back online.`
+    : `${report.siteDisplay}, ${report.displayDate}. ${t.total} workers across ${t.activities} ${t.activities === 1 ? 'activity' : 'activities'}. Share it with the team below.`;
+  return (
+    <>
+      <div className="success-hero">
+        <div className={`tick${queued ? ' warn' : ''}`}><Icon name="check" /></div>
+        <div><h1>{title}</h1><p className="lede">{lede}</p></div>
+      </div>
+      <div className="success">
+        <ExecutiveReport report={report} />
+        <div className="stack">
+          <section className="panel">
+            <h2 className="panel-title">Share this report</h2>
+            <ReportActionBar report={report} layout="list" />
+          </section>
+          <button type="button" className="btn ghost" onClick={onNew}><Icon name="plus" />Start another report</button>
+        </div>
+      </div>
+    </>
   );
 }
 
 // ── Main component ────────────────────────────────────────────────────
 
-// New DPR form: activity rows, consumption entries, draft, save + report.
+// New DPR form: activity rows, consumption entries, draft, live preview,
+// save + success view.
 export default function DprEntryForm() {
   const app = useApp();
 
@@ -187,8 +266,8 @@ export default function DprEntryForm() {
   const [materialRows, setMaterialRows] = useState([]);
   const [editingKey, setEditingKey] = useState(null);
   const [saving, setSaving] = useState(false);
-  const [generatedReport, setGeneratedReport] = useState(null);
-  const reportRef = useRef(null);
+  const [draftSaved, setDraftSaved] = useState(false);
+  const [submitted, setSubmitted] = useState(null); // { report, queued, isEdit }
 
   // Drafts are only written after the app has told us which state to start
   // from (init/reset/edit) — otherwise the pristine initial render would
@@ -208,7 +287,7 @@ export default function DprEntryForm() {
       { value: top.project_name, label: top.project_name },
       ...active
         .filter(p => String(p.parent_id).trim() === String(top.id).trim())
-        .map(s => ({ value: s.project_name, label: `  ↳ ${s.project_name}` })),
+        .map(s => ({ value: s.project_name, label: `  ↳ ${s.project_name}` })),
     ]);
   }, [master.projects]);
 
@@ -266,23 +345,24 @@ export default function DprEntryForm() {
     setMaterialRows([]);
   }, []);
 
-  // Commands from the app (boot 'init', New DPR tab 'init', History → 'edit').
+  // Commands from the app (boot 'init', New report tab 'init', History → 'edit').
   const lastSeq = useRef(0);
   useEffect(() => {
     const c = app.entryCommand;
     if (!c || c.seq === lastSeq.current) return;
     lastSeq.current = c.seq;
     const { cmd } = c;
+    setSubmitted(null);
     if (cmd.type === 'init') loadDraftOrReset();
     else if (cmd.type === 'reset') resetForm();
     else if (cmd.type === 'edit' && cmd.record) loadRecordForEdit(cmd.record);
     readyRef.current = true;
   }, [app.entryCommand, loadDraftOrReset, resetForm, loadRecordForEdit]);
 
-  // Draft persistence — same localStorage key/shape as the original form, plus
+  // Draft persistence — same localStorage key/shape as before, plus
   // `materials`. Edits of an existing DPR are never drafted.
   useEffect(() => {
-    if (!readyRef.current || editingKey) return;
+    if (!readyRef.current || editingKey) { setDraftSaved(false); return; }
     const activities = rows.map(serializeActivity);
     // Draft keeps partially-filled entries too (the save path validates).
     const materials = materialRows.filter(entryRowHasContent).map(m => ({
@@ -294,82 +374,114 @@ export default function DprEntryForm() {
     try {
       if (isEmpty) localStorage.removeItem(DRAFT_KEY);
       else localStorage.setItem(DRAFT_KEY, JSON.stringify({ user: username, date, site, siteCondition: condition, activities, materials }));
-    } catch (e) { /* storage full/blocked — drafting is best-effort */ }
+      setDraftSaved(!isEmpty);
+    } catch (e) { setDraftSaved(false); /* storage full/blocked — drafting is best-effort */ }
   }, [date, site, condition, rows, materialRows, editingKey, username]);
 
-  useEffect(() => {
-    if (generatedReport) reportRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }, [generatedReport]);
+  useEffect(() => { if (submitted) window.scrollTo({ top: 0, behavior: 'smooth' }); }, [submitted]);
 
-  // ── Derived totals (summary footer) ──
+  // ── Derived totals (summary bar) ──
   const totals = useMemo(() => {
     const t = { skilled: 0, unskilled: 0, rows: 0 };
     rows.forEach(r => {
       if (!r.main) return;
-      t.rows++;
-      t.skilled += toCount(r.skilled);
-      t.unskilled += toCount(r.unskilled);
+      const sk = toCount(r.skilled), un = toCount(r.unskilled);
+      if (sk + un > 0) t.rows++;
+      t.skilled += sk;
+      t.unskilled += un;
     });
     t.total = t.skilled + t.unskilled;
     t.materials = serializeEntryRows(materialRows).length;
     return t;
   }, [rows, materialRows]);
 
+  // An existing DPR for this date + site (the server refuses a second one).
+  const existing = useMemo(() => {
+    if (editingKey || !site || !date) return null;
+    return master.history.find(h => toYMD(h.date) === date && String(h.site || '').trim() === site.trim()) || null;
+  }, [editingKey, site, date, master.history]);
+
+  const preparedBy = existing ? (existing.by || username) : username;
+
+  // Live preview, rebuilt from the form as it's filled in.
+  const preview = useMemo(() => {
+    if (!site && !rows.some(r => r.main)) return null;
+    return buildReport({
+      date, site, condition, preparedBy, projects: master.projects, draft: true,
+      activities: rows.filter(r => r.main.trim()).map(serializeActivity),
+      materials: editingKey ? consumptionForRecord({ date, site }, app.materialLogs) : serializeEntryRows(materialRows),
+    });
+  }, [date, site, condition, rows, materialRows, editingKey, preparedBy, master.projects, app.materialLogs]);
+
   // ── Row mutations ──
   const updateRow = (key, next) => setRows(rs => rs.map(r => (r.key === key ? next : r)));
-  const removeRow = (key) => setRows(rs => rs.filter(r => r.key !== key));
+  const stepRow = useCallback((key, field, delta) => {
+    setRows(rs => rs.map(r => (r.key === key ? { ...r, [field]: String(Math.max(0, toCount(r[field]) + delta)) } : r)));
+  }, []);
+  const removeRow = (key) => {
+    const index = rows.findIndex(r => r.key === key);
+    const removed = rows[index];
+    setRows(rs => rs.filter(r => r.key !== key));
+    if (removed && (removed.main || toCount(removed.skilled) || toCount(removed.unskilled) || removed.note)) {
+      app.showActionToast('Activity removed', 'Undo', () => setRows(rs => [...rs.slice(0, index), removed, ...rs.slice(index)]));
+    }
+  };
   const addRow = () => setRows(rs => [...rs, emptyActivityRow()]);
   const updateMaterial = (key, next) => setMaterialRows(ms => ms.map(m => (m.key === key ? next : m)));
   const removeMaterial = (key) => setMaterialRows(ms => ms.filter(m => m.key !== key));
   const addMaterial = () => setMaterialRows(ms => [...ms, emptyEntryRow()]);
 
   // ── Quick actions ──
-  const quickNewToday = () => {
+  const clearForm = () => {
+    const snapshot = { date, site, condition, rows, materialRows };
     resetForm();
-    const lastSite = master.history[0] ? master.history[0].site : '';
-    if (lastSite && siteOptions.some(o => o.value === lastSite)) setSite(lastSite);
     readyRef.current = true;
-    app.showToast('🆕 New DPR ready for today');
+    app.showActionToast('Form cleared', 'Undo', () => {
+      setDate(snapshot.date);
+      setSite(snapshot.site);
+      setCondition(snapshot.condition);
+      setRows(snapshot.rows);
+      setMaterialRows(snapshot.materialRows);
+    });
   };
 
   const duplicateLast = () => {
-    if (!site) { app.showToast('⚠️ Select a site first'); return; }
+    if (!site) { app.showToast('⚠️ Choose a site first'); return; }
     const prior = master.history.find(h => String(h.site || '').trim() === site.trim());
-    if (!prior) { app.showToast('⚠️ No previous DPR found for this site'); return; }
-    const copied = rowsFromRecord(prior);
-    if (!copied.length) { app.showToast('⚠️ Previous DPR has no activity rows'); return; }
+    if (!prior) { app.showToast('⚠️ No previous report found for this site'); return; }
+    const copied = rowsFromRecord(prior).map(r => ({ ...r, note: '', open: !!r.plannedQty }));
+    if (!copied.length) { app.showToast('⚠️ The previous report has no activity rows'); return; }
     setRows(copied);
-    app.showToast(`📋 Duplicated ${copied.length} activity row(s) from last DPR`);
+    app.showToast(`📋 Copied ${copied.length} activit${copied.length === 1 ? 'y' : 'ies'} from ${formatDisplayDate(prior.date)} — update today's counts`);
   };
 
-  // ── Generate & save ──
-  const generate = async () => {
+  // ── Save ──
+  const submit = async () => {
     if (saving) return;
     const user = app.user;
     if (!user) { app.showToast('⚠️ Please sign in first'); return; }
-    if (!date) { app.showToast('⚠️ Select a date'); return; }
-    if (!site) { app.showToast('⚠️ Select a site'); return; }
+    if (!date) { app.showToast('⚠️ Choose the report date'); return; }
+    if (!site) { app.showToast('⚠️ Choose the site this report is for'); return; }
 
     const activities = rows.filter(r => r.main.trim()).map(serializeActivity);
     const activeActs = activities.filter(a => a.skilled > 0 || a.unskilled > 0);
-    if (!activeActs.length) { app.showToast('⚠️ Enter at least one activity with workers'); return; }
+    if (!activeActs.length) { app.showToast('⚠️ Add at least one activity with workers'); return; }
 
     const invalidMaterial = editingKey ? null : validateEntryRows(materialRows);
     if (invalidMaterial) { app.showToast(invalidMaterial); return; }
     const materialsUsed = editingKey ? [] : serializeEntryRows(materialRows);
 
     const total = activities.reduce((s, a) => s + a.skilled + a.unskilled, 0);
-    const existing = master.history.find(h => toYMD(h.date) === date && String(h.site).trim() === site.trim());
-    const prepBy = existing ? (existing.by || user.username) : user.username;
-    const editedBy = existing && existing.by !== user.username ? user.username : '';
+    const prior = master.history.find(h => toYMD(h.date) === date && String(h.site).trim() === site.trim());
+    const prepBy = prior ? (prior.by || user.username) : user.username;
+    const editedBy = prior && prior.by !== user.username ? user.username : '';
+    const submittedAt = new Date().toISOString();
 
-    // The preview stays up after the save resets the form, so the
-    // JPG/PDF/Share actions keep working against what was submitted.
-    setGeneratedReport(buildReport({
-      date, site, activities: activeActs, preparedBy: prepBy, editedBy, condition, projects: master.projects,
+    const report = buildReport({
+      date, site, activities: activeActs, preparedBy: prepBy, editedBy, condition, projects: master.projects, submittedAt,
       // New DPR: the entries on this form. Edit: what's already logged for this site/day.
       materials: editingKey ? consumptionForRecord({ date, site }, app.materialLogs) : materialsUsed,
-    }));
+    });
 
     const isEdit = !!editingKey;
     const payload = {
@@ -380,16 +492,26 @@ export default function DprEntryForm() {
       activities,
       by: prepBy,
       editedBy,
-      submittedAt: new Date().toISOString(),
+      submittedAt,
       siteCondition: condition,
     };
     const materialPayload = materialsUsed.length
       ? { action: 'saveMaterialLog', date, site, by: user.username, materialsUsed }
       : null;
 
+    const finish = (result) => {
+      try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}
+      resetForm();
+      setSubmitted(result);
+    };
+
     if (!navigator.onLine) {
-      const queued = enqueueOffline(materialPayload ? [payload, materialPayload] : [payload]);
-      app.showToast(queued ? '💾 Offline — will sync on reconnect' : '⚠️ Offline and could not queue — keep this page open and retry');
+      if (enqueueOffline(materialPayload ? [payload, materialPayload] : [payload])) {
+        app.showToast('💾 Offline — will sync on reconnect');
+        finish({ report, queued: true, isEdit });
+      } else {
+        app.showToast('⚠️ Offline and could not queue — keep this page open and retry');
+      }
       return;
     }
 
@@ -417,12 +539,9 @@ export default function DprEntryForm() {
         }
       }
 
-      // Confirmed success — reset for the next entry but leave the generated
-      // #report visible so Download/Share keep working against it.
       if (materialError) app.showToast(`⚠️ DPR saved, but materials failed (${materialError}) — log them from the Materials tab`);
-      else app.showToast(isEdit ? '✅ DPR Updated!' : '✅ Saved!');
-      try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}
-      resetForm();
+      else app.showToast(isEdit ? '✅ DPR updated' : '✅ Report submitted');
+      finish({ report, queued: false, isEdit });
       app.reloadHistory();
       if (materialPayload && !materialError) app.reloadMaterialLogs();
     } catch (e) {
@@ -432,113 +551,164 @@ export default function DprEntryForm() {
     }
   };
 
+  if (submitted) return <SuccessView result={submitted} onNew={() => setSubmitted(null)} />;
+
   const siteKnown = siteOptions.some(o => o.value === site);
+  const existingEdit = existing ? app.canEdit(existing) : null;
 
   return (
     <>
-      <div className="dpr-entry">
-        <div className="btn-group entry-quick-actions">
-          <button type="button" className="btn-gray btn-sm" onClick={quickNewToday}>🌿 New DPR (Today)</button>
-          <button type="button" className="btn-gray btn-sm" onClick={duplicateLast}>📋 Duplicate Last DPR</button>
+      <div className="page-head">
+        <div>
+          <h1>{editingKey ? 'Edit daily report' : 'New daily report'}</h1>
+          <p className="lede">
+            {editingKey
+              ? `Changes replace the report filed for ${site} on ${formatDisplayDate(date)}.`
+              : 'Record today’s manpower by activity. Your draft saves on this device as you type.'}
+          </p>
         </div>
+        <div className="row">
+          {editingKey
+            ? <button type="button" className="btn" onClick={loadDraftOrReset}>Cancel editing</button>
+            : <button type="button" className="btn" onClick={duplicateLast}><Icon name="copy" />Copy last report</button>}
+          {!editingKey && <button type="button" className="btn ghost" onClick={clearForm}>Clear form</button>}
+        </div>
+      </div>
 
-        {editingKey && (
-          <div className="entry-edit-banner">
-            ✏️ Editing DPR for <b>{date}</b> · {site}
-            <button type="button" className="btn-gray btn-sm" onClick={loadDraftOrReset}>Cancel edit</button>
+      {editingKey && (
+        <div className="banner info">
+          <Icon name="edit" />
+          <div className="btxt"><b>Editing a submitted report</b>Date and site are locked. Consumption entries aren’t changed here — log extra entries from the Materials tab.</div>
+        </div>
+      )}
+      {existing && (
+        <div className="banner warn">
+          <Icon name="lock" />
+          <div className="btxt">
+            <b>{site} already has a report for {formatDisplayDate(date)}.</b>
+            Filed by {existing.by || 'someone'}. Open it instead of filing a second one.
           </div>
-        )}
+          <div className="row">
+            {existingEdit && existingEdit.ok
+              ? <button type="button" className="btn sm primary" onClick={() => app.editDpr(existing)}>Edit that report</button>
+              : existing.editPermission === 'pending'
+                ? <span className="tag warn">Edit requested</span>
+                : String(existing.by || '').toLowerCase() === username.toLowerCase() &&
+                  <button type="button" className="btn sm primary" onClick={() => app.requestEdit(existing)}>Request edit</button>}
+          </div>
+        </div>
+      )}
 
-        <div className="card">
-          <div className="section-title">📅 Date &amp; Site</div>
-          <label htmlFor="entryDate">Date</label>
-          <input id="entryDate" type="date" value={date} onChange={(e) => setDate(e.target.value)} disabled={!!editingKey} />
-          <label htmlFor="entrySite">Site / Project</label>
-          <select id="entrySite" value={site} onChange={(e) => setSite(e.target.value)} disabled={!!editingKey}>
-            <option value="">{master.projects.length ? '— Select Site —' : '⌛ Loading projects...'}</option>
-            {siteOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-            {site && !siteKnown && <option value={site}>{site}</option>}
-          </select>
-          <label>Site Condition <span className="entry-optional">(Optional)</span></label>
-          <div className="condition-chips">
-            {CONDITIONS.map(c => (
-              <button
-                key={c.val}
-                type="button"
-                className={`condition-chip${condition === c.val ? ' selected' : ''}`}
-                aria-pressed={condition === c.val}
-                onClick={() => setCondition(cur => (cur === c.val ? '' : c.val))}
-              >
-                {c.label}
-              </button>
+      <div className="entry-grid">
+        <div>
+          <section className="panel">
+            <h2 className="panel-title">Date, site and conditions</h2>
+            <div className="stack">
+              <div className="grid2">
+                <label className="field">
+                  <span>Report date</span>
+                  <input className="input" type="date" value={date} max={getLocalTodayYMD()} onChange={(e) => setDate(e.target.value)} disabled={!!editingKey} />
+                </label>
+                <label className="field">
+                  <span>Site</span>
+                  <select className="select" value={site} onChange={(e) => setSite(e.target.value)} disabled={!!editingKey}>
+                    <option value="">{master.projects.length ? 'Choose site' : 'Loading sites…'}</option>
+                    {siteOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    {site && !siteKnown && <option value={site}>{site}</option>}
+                  </select>
+                </label>
+              </div>
+              <div className="field">
+                <span>Site condition <em>(optional)</em></span>
+                <div className="chips" role="group" aria-label="Site condition">
+                  {CONDITIONS.map(c => (
+                    <button
+                      key={c.value}
+                      type="button"
+                      className={`chip ${c.cls}`}
+                      aria-pressed={condition === c.value}
+                      onClick={() => setCondition(cur => (cur === c.value ? '' : c.value))}
+                    >
+                      <span className="cdot" />{c.value}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section className="panel">
+            <div className="panel-head">
+              <h2 className="panel-title">Manpower by activity</h2>
+              <span className="muted small">{rows.length} row{rows.length === 1 ? '' : 's'}</span>
+            </div>
+            <div className="rows-head" aria-hidden="true"><span>Activity</span><span>Skilled</span><span>Unskilled</span><span>Total</span><span /></div>
+            {rows.map((row, i) => (
+              <ActivityRow
+                key={row.key}
+                index={i}
+                row={row}
+                mains={mains}
+                subsFor={subsFor}
+                onChange={(next) => updateRow(row.key, next)}
+                onStep={(field, delta) => stepRow(row.key, field, delta)}
+                onRemove={() => removeRow(row.key)}
+              />
             ))}
-          </div>
-        </div>
+            {!rows.length && <p className="muted small" style={{ padding: '10px 0' }}>No activities yet.</p>}
+            <button type="button" className="btn add" onClick={addRow}><Icon name="plus" />Add activity</button>
+          </section>
 
-        <div className="card">
-          <div className="section-title">📋 Work Activities</div>
-          {rows.map((row, i) => (
-            <ActivityRow
-              key={row.key}
-              index={i}
-              row={row}
-              mains={mains}
-              subsFor={subsFor}
-              onChange={(next) => updateRow(row.key, next)}
-              onRemove={() => removeRow(row.key)}
-            />
-          ))}
-          <button type="button" className="btn-add" onClick={addRow}>+ Add Activity Row</button>
-        </div>
-
-        <div className="card">
-          <div className="section-title">📦 Consumption Entries <span className="entry-optional">(Optional)</span></div>
-          {editingKey ? (
-            <p className="entry-hint">Consumption entries aren&apos;t changed when editing a DPR — log extra entries from the Materials tab.</p>
-          ) : (
-            <>
-              {materialRows.map((m, i) => (
-                <ConsumptionEntryRow
-                  key={m.key}
-                  index={i}
-                  row={m}
-                  materials={master.materials}
-                  contractorSuggestions={contractorSuggestions}
-                  onChange={(next) => updateMaterial(m.key, next)}
-                  onRemove={() => removeMaterial(m.key)}
-                />
-              ))}
-              {!materialRows.length && <p className="entry-hint">No consumption entries added for this DPR.</p>}
-              <button type="button" className="btn-add" onClick={addMaterial}>+ Add Entry</button>
-            </>
-          )}
-        </div>
-
-        <div className="entry-summary-bar" role="region" aria-label="DPR summary">
-          <div className="entry-summary-stats">
-            <div className="entry-stat"><span className="entry-stat-num">{totals.total}</span><span className="entry-stat-lbl">Total</span></div>
-            <div className="entry-stat"><span className="entry-stat-num">{totals.skilled}</span><span className="entry-stat-lbl">Skilled</span></div>
-            <div className="entry-stat"><span className="entry-stat-num">{totals.unskilled}</span><span className="entry-stat-lbl">Unskilled</span></div>
-            <div className="entry-stat"><span className="entry-stat-num">{totals.rows}</span><span className="entry-stat-lbl">Activities</span></div>
-            {totals.materials > 0 && (
-              <div className="entry-stat"><span className="entry-stat-num">{totals.materials}</span><span className="entry-stat-lbl">Materials</span></div>
+          <section className="panel mat-panel">
+            <div className="panel-head">
+              <h2 className="panel-title">Materials used <em>(optional)</em></h2>
+              {!editingKey && materialRows.length > 0 && <span className="muted small">{materialRows.length} entr{materialRows.length === 1 ? 'y' : 'ies'}</span>}
+            </div>
+            {editingKey ? (
+              <p className="hint">Consumption entries aren’t changed when editing a report — log extra entries from the Materials tab.</p>
+            ) : (
+              <>
+                {materialRows.map((m, i) => (
+                  <ConsumptionEntryRow
+                    key={m.key}
+                    index={i}
+                    row={m}
+                    materials={master.materials}
+                    contractorSuggestions={contractorSuggestions}
+                    onChange={(next) => updateMaterial(m.key, next)}
+                    onRemove={() => removeMaterial(m.key)}
+                  />
+                ))}
+                {!materialRows.length && <p className="hint">Log consumption here, or later from the Materials tab. Site and date come from this report.</p>}
+                <button type="button" className="btn add mat" onClick={addMaterial}><Icon name="plus" />Add material</button>
+              </>
             )}
+          </section>
+        </div>
+
+        <aside className="entry-preview" aria-label="Report preview">
+          <div className="preview-head"><h2 className="panel-title">Live preview</h2><span className="tag">Draft</span></div>
+          {preview
+            ? <ExecutiveReport report={preview} />
+            : <div className="report-empty"><b>The report builds here as you fill the form.</b><br />Choose a site and add activities to see it.</div>}
+        </aside>
+      </div>
+
+      <div className="summary-bar" role="region" aria-label="Report summary">
+        <div className="summary-inner">
+          <div className="sum-total"><b>{totals.total}</b><span className="muted">workers</span></div>
+          <div className="sum-split">
+            <span>Skilled <b>{totals.skilled}</b></span>
+            <span>Unskilled <b>{totals.unskilled}</b></span>
+            <span>Activities <b>{totals.rows}</b></span>
+            {totals.materials > 0 && <span>Materials <b>{totals.materials}</b></span>}
           </div>
-          <button type="button" className="btn-green entry-generate-btn" onClick={generate} disabled={saving}>
-            {saving ? '⏳ Saving...' : editingKey ? '✅ Update DPR' : '✅ Generate DPR'}
+          {draftSaved && <div className="draft-state"><Icon name="check" /><span>Draft saved on this device</span></div>}
+          <div className="spacer" />
+          <button type="button" className="btn primary lg" onClick={submit} disabled={saving}>
+            <Icon name="check" />{saving ? 'Saving…' : editingKey ? 'Save changes' : 'Submit report'}
           </button>
         </div>
-
-        {generatedReport && (
-          <section className="report-preview" ref={reportRef} aria-label="Generated DPR">
-            <div className="report-preview-head">
-              <div className="section-title">📊 Generated DPR</div>
-              <button type="button" className="modal-close" aria-label="Close preview" onClick={() => setGeneratedReport(null)}>✕</button>
-            </div>
-            <ReportActionBar report={generatedReport} />
-            <ExecutiveReport report={generatedReport} />
-          </section>
-        )}
       </div>
     </>
   );

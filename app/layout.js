@@ -1,7 +1,7 @@
 import './globals.css';
 
 export const metadata = {
-  title: 'Site DPR — Man Power Report',
+  title: 'Trimandir DPR — Site Reporting',
   description: 'Trimandir Construction DPR',
   icons: {
     icon: [
@@ -30,6 +30,10 @@ export default function RootLayout({ children }) {
     <html lang="en">
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
+        {/* eslint-disable-next-line @next/next/no-page-custom-font */}
+        <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet" />
       </head>
       <body>{children}</body>
     </html>

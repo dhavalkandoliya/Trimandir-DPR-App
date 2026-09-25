@@ -28,47 +28,64 @@ export default function LoginScreen() {
     if (busy || checking) return;
     const u = username.trim();
     const p = password.trim();
-    if (!u || !p) { setMessage({ text: '❌ Enter username and password.', tone: 'error' }); return; }
+    if (!u || !p) { setMessage({ text: 'Enter your username and password.', tone: 'error' }); return; }
     setBusy(true);
-    setMessage({ text: '⏳ Authenticating...', tone: 'info' });
+    setMessage({ text: 'Signing in…', tone: 'info' });
     try {
       const res = await login(u, p);
       if (res && res.success) { setPassword(''); setMessage({ text: '', tone: 'info' }); return; }
-      setMessage({ text: res && res.error ? `❌ Server Error: ${res.error}` : '❌ Invalid username or password.', tone: 'error' });
+      setMessage({ text: res && res.error ? `Server error: ${res.error}` : 'That username and password don’t match.', tone: 'error' });
     } catch {
-      setMessage({ text: '⚠️ Connection error. Try again.', tone: 'error' });
+      setMessage({ text: 'Connection error — check your network and try again.', tone: 'error' });
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <div id="loginOverlay">
-      <form className="login-box" onSubmit={submit} noValidate>
-        <div className="login-logo">📋 DPR — Man Power Report</div>
-        <div className="login-sub">Trimandir Construction Project</div>
-        <label htmlFor="loginName" className="login-label">Username</label>
-        <input
-          id="loginName" type="text" value={username} onChange={(e) => setUsername(e.target.value)}
-          placeholder="Enter username" autoCapitalize="none" autoCorrect="off" autoComplete="username" disabled={checking}
-        />
-        <label htmlFor="loginPass" className="login-label">Password</label>
-        <input
-          id="loginPass" ref={passRef} type="password" value={password} onChange={(e) => setPassword(e.target.value)}
-          placeholder="Enter password" autoCapitalize="none" autoCorrect="off" autoComplete="current-password" disabled={checking}
-        />
-        <button type="submit" className="btn-green login-submit" disabled={busy || checking}>
-          {checking ? '⏳ Restoring session…' : busy ? '⏳ Signing in…' : 'Sign In →'}
-        </button>
-        <div className={`login-err${message.tone === 'info' ? ' is-info' : ''}`} role="alert">{message.text}</div>
-        <div className="login-hint">Please sign in to continue</div>
+    <div className="login">
+      <form className="login-card" onSubmit={submit} noValidate>
+        <div className="stripe" aria-hidden="true" />
+        <div className="login-brand">
+          <div className="brand-name">Trimandir DPR</div>
+          <div className="brand-sub">Construction site reporting</div>
+        </div>
+        <div className="login-body stack">
+          <div>
+            <h1>Sign in</h1>
+            <p className="lede">Trimandir Construction Project</p>
+          </div>
+          <label className="field">
+            <span>Username</span>
+            <input
+              className="input" type="text" value={username} onChange={(e) => setUsername(e.target.value)}
+              placeholder="Enter username" autoCapitalize="none" autoCorrect="off" autoComplete="username" disabled={checking}
+            />
+          </label>
+          <label className="field">
+            <span>Password</span>
+            <input
+              ref={passRef} className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)}
+              placeholder="Enter password" autoCapitalize="none" autoCorrect="off" autoComplete="current-password" disabled={checking}
+            />
+          </label>
+          <button type="submit" className="btn primary lg block" disabled={busy || checking}>
+            {checking ? 'Restoring session…' : busy ? 'Signing in…' : 'Sign in'}
+          </button>
+          <div className={`login-msg${message.tone === 'info' ? ' info' : ''}`} role="alert">{message.text}</div>
+        </div>
       </form>
       {names.length > 0 && (
-        <div className="login-chips-wrap">
-          <div className="login-chips-title">— Quick Select —</div>
-          <div className="user-chips">
+        <div className="login-names">
+          <p className="hint">Quick select</p>
+          <div className="chips">
             {names.map(n => (
-              <button key={n} type="button" className="user-chip" onClick={() => { setUsername(n); passRef.current?.focus(); }}>{n}</button>
+              <button
+                key={n} type="button" className="chip plain" aria-pressed={username === n}
+                onClick={() => { setUsername(n); passRef.current?.focus(); }}
+              >
+                <span className="cdot" />{n}
+              </button>
             ))}
           </div>
         </div>
