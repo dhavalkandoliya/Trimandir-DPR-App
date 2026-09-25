@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import {
   ADMIN_POST_ACTIONS, SUPABASE_GET_ACTIONS, SUPABASE_POST_ACTIONS, runSupabaseGetAction, runSupabasePostAction,
 } from '../../../lib/dprSupabaseApi';
-import { createUser, deleteUser, getUsers, getUsersPublic, login, resetPassword } from '../../../lib/authSupabaseApi';
+import { createUser, deleteUser, getUsers, login, resetPassword } from '../../../lib/authSupabaseApi';
 import { clearSessionCookie, getSession, isSameOrigin, needsRefresh, setSessionCookie } from '../../../lib/session';
 
 // Single backend endpoint for the app. Everything is served from Supabase:
@@ -86,11 +86,9 @@ export async function GET(request) {
     }
 
     const session = await sessionOrNull(request);
+    if (!session) return authRequired(); // no account names (or anything else) before sign-in
 
-    // The login screen lists account names before anyone signs in.
-    if (action === 'getUsers') return json(session ? await getUsers() : await getUsersPublic());
-
-    if (!session) return authRequired();
+    if (action === 'getUsers') return json(await getUsers());
 
     if (SUPABASE_GET_ACTIONS.has(action)) {
       if (action === 'getBootstrapData') {

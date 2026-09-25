@@ -1,7 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { apiGet } from '../../lib/client/api';
+import { useEffect, useState } from 'react';
 import { useApp } from './AppContext';
 
 export default function LoginScreen() {
@@ -10,18 +9,9 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState({ text: '', tone: 'error' });
   const [busy, setBusy] = useState(false);
-  const [names, setNames] = useState([]);
-  const passRef = useRef(null);
   const checking = authStatus === 'checking';
 
   useEffect(() => { if (authMessage) setMessage({ text: authMessage, tone: 'error' }); }, [authMessage]);
-
-  // Quick-select chips: account names only (public, pre-login).
-  useEffect(() => {
-    apiGet('getUsers')
-      .then((list) => { if (Array.isArray(list)) setNames(list.map(u => u.username)); })
-      .catch(() => {});
-  }, []);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -65,7 +55,7 @@ export default function LoginScreen() {
           <label className="field">
             <span>Password</span>
             <input
-              ref={passRef} className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)}
+              className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)}
               placeholder="Enter password" autoCapitalize="none" autoCorrect="off" autoComplete="current-password" disabled={checking}
             />
           </label>
@@ -75,21 +65,6 @@ export default function LoginScreen() {
           <div className={`login-msg${message.tone === 'info' ? ' info' : ''}`} role="alert">{message.text}</div>
         </div>
       </form>
-      {names.length > 0 && (
-        <div className="login-names">
-          <p className="hint">Quick select</p>
-          <div className="chips">
-            {names.map(n => (
-              <button
-                key={n} type="button" className="chip plain" aria-pressed={username === n}
-                onClick={() => { setUsername(n); passRef.current?.focus(); }}
-              >
-                <span className="cdot" />{n}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
