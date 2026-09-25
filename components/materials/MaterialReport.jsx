@@ -5,8 +5,9 @@ import { TRUST, formatOutput, formatQty } from '../../lib/materials/consumption'
 
 // The Material Consumption Report as a paper card — same design as the
 // DPR (ExecutiveReport): hazard stripe, letterhead, meta grid, KPI strip,
-// zebra table, Trust summary, sign-off lines. Rendered on screen and,
-// off-screen at a fixed width, as the JPG export source.
+// zebra table, Trust summary, sign-off lines. Covers exactly the entries in
+// the model (usually one). Rendered on screen and, off-screen at a fixed
+// width, as the JPG export source.
 export default function MaterialReport({ report }) {
   const t = report.totals;
   const by = report.loggedBy.join(', ') || '—';
@@ -26,20 +27,14 @@ export default function MaterialReport({ report }) {
 
       <div className="rp-body">
         <dl className="rp-meta">
-          <div><dt>Date</dt><dd>{report.displayDate}</dd></div>
-          <div><dt>Site</dt><dd>{report.siteDisplay}</dd></div>
-          <div><dt>Logged by</dt><dd>{by}</dd></div>
-          <div><dt>Materials</dt><dd>{t.materials} material{t.materials === 1 ? '' : 's'}</dd></div>
+          {report.meta.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}
         </dl>
 
         <div className="rp-kpis">
-          <div className="rp-kpi"><span>Consumption entries</span><b>{t.entries}</b></div>
-          <div className="rp-kpi"><span>Trust</span><b>{t.trust}</b></div>
-          <div className="rp-kpi"><span>Contractor / other</span><b>{t.reference}</b></div>
-          <div className="rp-kpi"><span>Materials</span><b>{t.materials}</b></div>
+          {report.kpis.map(([label, value]) => <div key={label} className="rp-kpi"><span>{label}</span><b>{value}</b></div>)}
         </div>
 
-        <div className="rp-h">Consumption entries</div>
+        <div className="rp-h">{t.entries === 1 ? 'Consumption entry' : 'Consumption entries'}</div>
         {report.entries.length ? (
           <div className="rp-scroll">
             <table className="rp-table">
@@ -70,7 +65,7 @@ export default function MaterialReport({ report }) {
             </table>
           </div>
         ) : (
-          <div className="rp-closed">No consumption entries for this site and date.</div>
+          <div className="rp-closed">No consumption entry to report.</div>
         )}
 
         <div className="rp-annex">
@@ -108,7 +103,7 @@ export default function MaterialReport({ report }) {
       </div>
 
       <div className="rp-gen">
-        <span>Last logged: {formatDateTime(report.submittedAt) || '—'}</span>
+        <span>Logged: {report.loggedAt || '—'}</span>
         <span>Generated {formatDateTime(report.generatedAt)}</span>
       </div>
     </article>

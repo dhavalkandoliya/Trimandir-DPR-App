@@ -258,6 +258,8 @@ textarea.input{height:auto;min-height:70px;padding:10px 12px;resize:vertical}
 .rp-title{font-family:var(--font-cond);font-size:26px;font-weight:700;line-height:1.05;margin-top:2px}
 .rp-no{text-align:right;font-size:11.5px;color:#C9D3DA;line-height:1.3;min-width:0}
 .rp-no strong{display:block;color:#fff;font-size:14px;font-weight:600;letter-spacing:.3px;word-break:break-all}
+/* proportional digits in running text: html2canvas (JPG export) mis-spaces tabular figures there */
+.rp-no strong,.rp-gen,.rp-meta dd{font-variant-numeric:normal}
 .rp-body{padding:18px 22px 20px}
 .rp-meta{display:grid;grid-template-columns:1fr 1fr;gap:10px 22px;padding-bottom:16px;border-bottom:1px solid var(--rp-line)}
 .rp-meta dt{font-size:11.5px;color:var(--rp-muted)}
