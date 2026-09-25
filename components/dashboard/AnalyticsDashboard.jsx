@@ -11,7 +11,7 @@ import {
 } from 'chart.js';
 import { useApp } from '../app/AppContext';
 import Icon from '../ui/Icon';
-import { CONDITIONS, conditionClass, recordActivities } from '../../lib/report/reportModel';
+import { CONDITIONS, conditionClass, recordActivities, siteDisplayName } from '../../lib/report/reportModel';
 
 Chart.register(CategoryScale, LinearScale, BarElement, BarController, Tooltip);
 
@@ -72,7 +72,130 @@ function HBars({ rows, empty }) {
   ));
 }
 
-// Dashboard: period KPIs, daily manpower chart, conditions, site and
+const todayYMD = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+const sameName = (a, b) => String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
+const timeOf = (v) => {
+  const ms = Number(v) || (v ? new Date(v).getTime() : 0);
+  return ms ? new Date(ms).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' }) : '';
+};
+
+// Today at a glance, scoped to the viewer. Admins: every active site and
+// the global record. Supervisors: the active sites they report on (all
+// active sites until they've filed one) and their own reports.
+function TodayOverview() {
+  const { history, projects, user, switchTab } = useApp();
+  const isAdmin = user && user.role === 'admin';
+
+  const view = useMemo(() => {
+    const t = todayYMD();
+    const active = projects.filter(p => p.status === 'active');
+    // Reportable sites: active projects with no active sub-sites, plus any
+    // active project that reports are actually filed against (a parent site
+    // can be reported on directly). Kept in the projects list's order.
+    const parentIds = new Set(active.map(p => String(p.parent_id || '').trim()).filter(Boolean));
+    const reportedOn = new Set(history.map(h => String(h.site || '').trim()));
+    const reportable = active
+      .filter(p => !parentIds.has(String(p.id).trim()) || reportedOn.has(String(p.project_name).trim()))
+      .map(p => String(p.project_name).trim());
+    const mine = history.filter(h => user && sameName(h.by, user.username));
+    const mineSites = new Set(mine.map(h => String(h.site || '').trim()));
+    const mySites = active.map(p => String(p.project_name).trim()).filter(n => mineSites.has(n));
+    const sites = isAdmin || !mySites.length ? reportable : mySites;
+    const siteSet = new Set(sites);
+
+    const today = history.filter(h => toYMD(h.date) === t);
+    const todayInScope = isAdmin ? today : today.filter(h => siteSet.has(String(h.site || '').trim()));
+    const filedBySite = new Map(todayInScope.map(h => [String(h.site || '').trim(), h]));
+
+    const counts = new Map();
+    history.forEach(h => { if (h.site) counts.set(h.site, (counts.get(h.site) || 0) + 1); });
+    const top = [...counts.entries()].sort((a, b) => b[1] - a[1])[0];
+    const last = mine.slice().sort((a, b) => toYMD(b.date).localeCompare(toYMD(a.date)))[0];
+
+    return {
+      workforce: todayInScope.reduce((s, h) => s + (Number(h.total) || 0), 0),
+      reportsToday: todayInScope.length,
+      mostActive: top ? siteDisplayName(top[0], projects) : '—',
+      mostActiveCount: top ? top[1] : 0,
+      activeCount: active.length,
+      totalCount: projects.length,
+      mineToday: mine.filter(h => toYMD(h.date) === t).length,
+      mineTotal: mine.length,
+      last,
+      sites: sites.map(s => ({ site: s, filed: filedBySite.get(s) || null })),
+      filedCount: sites.filter(s => filedBySite.has(s)).length,
+      scopedToMine: !isAdmin && mySites.length > 0,
+    };
+  }, [history, projects, user, isAdmin]);
+
+  const pending = view.sites.filter(s => !s.filed);
+  const filed = view.sites.filter(s => s.filed);
+
+  return (
+    <>
+      <div className="page-head">
+        <div>
+          <h1>Dashboard</h1>
+          <p className="lede">{isAdmin ? 'Today across all sites, then manpower and conditions over time.' : 'Your sites today, then manpower and conditions over time.'}</p>
+        </div>
+        <div className="row">
+          <button type="button" className="btn primary" onClick={() => switchTab('Form', { fromTabBar: true })}><Icon name="plus" />New DPR Report</button>
+          <button type="button" className="btn" onClick={() => switchTab('Materials')}><Icon name="plus" />Log Material Consumption</button>
+        </div>
+      </div>
+
+      <div className="grid4">
+        <div className="kpi accent">
+          <span>{isAdmin || !view.scopedToMine ? 'Workforce today' : 'Workforce at your sites today'}</span>
+          <b>{fmt(view.workforce)}</b>
+          <small>{view.reportsToday} report{view.reportsToday === 1 ? '' : 's'} filed today</small>
+        </div>
+        {isAdmin ? (
+          <>
+            <div className="kpi"><span>Most active site</span><b className="text" title={view.mostActive}>{view.mostActive}</b><small>{view.mostActiveCount} reports all time</small></div>
+            <div className="kpi"><span>Active sites</span><b>{view.activeCount}</b><small>of {view.totalCount} in the list</small></div>
+            <div className="kpi"><span>Reports on record</span><b>{fmt(history.length)}</b><small>All sites, all time</small></div>
+          </>
+        ) : (
+          <>
+            <div className="kpi"><span>Your reports today</span><b>{view.mineToday}</b><small>{view.mineTotal} filed all time</small></div>
+            <div className="kpi">
+              <span>Your last report</span>
+              <b className="text" title={view.last ? view.last.site : ''}>{view.last ? formatShortDate(toYMD(view.last.date)) : '—'}</b>
+              <small>{view.last ? siteDisplayName(view.last.site, projects) : 'Nothing filed yet'}</small>
+            </div>
+            <div className="kpi"><span>{view.scopedToMine ? 'Your sites reported' : 'Sites reported today'}</span><b>{view.filedCount}/{view.sites.length}</b><small>{pending.length ? `${pending.length} still pending` : 'All reported'}</small></div>
+          </>
+        )}
+      </div>
+
+      <section className="panel" style={{ marginTop: 16 }}>
+        <div className="panel-head">
+          <h2 className="panel-title">Today’s reporting <em>({view.filedCount} of {view.sites.length} {view.scopedToMine ? 'of your sites' : 'sites'})</em></h2>
+          {pending.length > 0 && <span className="tag warn">{pending.length} pending</span>}
+        </div>
+        {!view.sites.length && <p className="muted">No active sites yet.</p>}
+        {[...pending, ...filed].map(({ site, filed: h }) => (
+          <div key={site} className="site-status">
+            <div>
+              <b>{siteDisplayName(site, projects)}</b>
+              <div className="small muted">{h ? `${h.by || '—'}${timeOf(h.submittedAt) ? ` at ${timeOf(h.submittedAt)}` : ''}` : 'No report yet'}</div>
+            </div>
+            {h
+              ? <span className="row" style={{ gap: 8 }}><span className="kpi-num">{fmt(h.total)}</span><span className="tag ok">Filed</span></span>
+              : <span className="tag warn">Pending</span>}
+          </div>
+        ))}
+      </section>
+    </>
+  );
+}
+
+// Dashboard: today at a glance (TodayOverview), then period KPIs, daily
+// manpower chart, conditions, site and
 // activity mix, and the per-site drill-down.
 export default function AnalyticsDashboard() {
   const { history, projects, theme } = useApp();
@@ -286,10 +409,12 @@ export default function AnalyticsDashboard() {
 
   return (
     <>
-      <div className="page-head">
+      <TodayOverview />
+
+      <div className="page-head section-gap" style={{ marginBottom: 14 }}>
         <div>
-          <h1>Dashboard</h1>
-          <p className="lede">Manpower, reporting and site conditions across all sites.</p>
+          <h2 className="panel-title" style={{ fontSize: 24 }}>Manpower over time</h2>
+          <p className="lede">Reports, workers and site conditions for the selected period.</p>
         </div>
         <div className="seg" role="group" aria-label="Period">
           {PERIODS.map(([k, label]) => (

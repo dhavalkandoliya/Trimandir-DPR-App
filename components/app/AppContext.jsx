@@ -23,6 +23,18 @@ export const OFFLINE_QUEUE_KEY = 'dprOfflineQ';
 const EDIT_WINDOW_MS = 15 * 60 * 1000;
 const EMPTY_MASTER = { projects: [], activities: [], materials: [], users: [] };
 
+// Tabs ↔ URL hash (#/dashboard …), so a reload stays on the same screen.
+// Signing in always lands on the Dashboard.
+export const DEFAULT_TAB = 'Dashboard';
+const TAB_SLUGS = { Dashboard: 'dashboard', Form: 'report', History: 'history', Materials: 'materials', Admin: 'admin' };
+function tabFromHash(user) {
+  if (typeof window === 'undefined') return DEFAULT_TAB;
+  const slug = window.location.hash.replace(/^#\/?/, '').split(/[?/]/)[0].toLowerCase();
+  const tab = Object.keys(TAB_SLUGS).find(t => TAB_SLUGS[t] === slug);
+  if (!tab || (tab === 'Admin' && (!user || user.role !== 'admin'))) return DEFAULT_TAB;
+  return tab;
+}
+
 export function recordKey(item) {
   const d = String(item.date || '').slice(0, 10);
   return `${d}||${String(item.site || '').trim()}`;
@@ -57,7 +69,7 @@ export function AppProvider({ children }) {
   const [materialLogs, setMaterialLogs] = useState([]);
   const [materialLogsStatus, setMaterialLogsStatus] = useState('idle');
 
-  const [activeTab, setActiveTab] = useState('Form');
+  const [activeTab, setActiveTab] = useState(DEFAULT_TAB);
   const [toast, setToast] = useState(null); // { id, msg, action?: { label, onClick } }
   const [entryCommand, setEntryCommand] = useState(null); // { seq, cmd }
   const [theme, setTheme] = useState('light');
@@ -141,9 +153,12 @@ export function AppProvider({ children }) {
   }, []);
 
   // ── Auth ────────────────────────────────────────────────────────────
-  const beginSession = useCallback((u) => {
+  // restored = an existing session on page load (keep the screen in the
+  // URL); otherwise a fresh sign-in, which lands on the Dashboard.
+  const beginSession = useCallback((u, { restored = false } = {}) => {
     epoch.current += 1;
     setUser(u);
+    setActiveTab(restored ? tabFromHash(u) : DEFAULT_TAB);
     setAuthMessage('');
     setAuthStatus('signedIn');
   }, []);
@@ -153,14 +168,14 @@ export function AppProvider({ children }) {
     setUser(null);
     setAuthStatus('signedOut');
     setAuthMessage(message || '');
-    setActiveTab('Form');
+    setActiveTab(DEFAULT_TAB);
     setEntryCommand(null); // a pending 'edit' must not replay into the next session
   }, []);
 
   useEffect(() => {
     let cancelled = false;
     apiGet('session')
-      .then((res) => { if (!cancelled) (res && res.user ? beginSession(res.user) : endSession('')); })
+      .then((res) => { if (!cancelled) (res && res.user ? beginSession(res.user, { restored: true }) : endSession('')); })
       .catch(() => { if (!cancelled) endSession("⚠️ Can't reach the server — check your connection."); });
     return () => { cancelled = true; };
   }, [beginSession, endSession]);
@@ -264,6 +279,12 @@ export function AppProvider({ children }) {
   }, [authStatus, syncOfflineQueue]);
 
   // ── Tabs & cross-screen actions ─────────────────────────────────────
+  useEffect(() => {
+    if (authStatus !== 'signedIn') return;
+    const hash = `#/${TAB_SLUGS[activeTab] || TAB_SLUGS[DEFAULT_TAB]}`;
+    if (window.location.hash !== hash) window.history.replaceState(null, '', hash);
+  }, [activeTab, authStatus]);
+
   const switchTab = useCallback((tab, { fromTabBar = false } = {}) => {
     setActiveTab(tab);
     // Clicking "New DPR" restores the draft (or a blank form), leaving any edit.

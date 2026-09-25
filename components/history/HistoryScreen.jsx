@@ -5,6 +5,8 @@ import { useApp } from '../app/AppContext';
 import ExecutiveReport, { ConditionBadge } from '../report/ExecutiveReport';
 import ReportActionBar from '../report/ReportActionBar';
 import Dialog from '../ui/Dialog';
+import ExportButtons from '../ui/ExportButtons';
+import { exportDprLogCsv, exportDprLogExcel, exportDprLogPdf } from '../../lib/exports/logExports';
 import Icon from '../ui/Icon';
 import { runReportAction } from '../../lib/report/exportReport';
 import { CONDITIONS, recordActivities, reportFromRecord, siteDisplayName, toYMD } from '../../lib/report/reportModel';
@@ -234,9 +236,20 @@ export default function HistoryScreen() {
           <h1>Report history</h1>
           <p className="lede">Every daily report filed across your sites. Open one to view, share or edit.</p>
         </div>
-        <button type="button" className="btn" onClick={app.reloadHistory} disabled={data.status === 'loading'}>
-          <Icon name="refresh" />{data.status === 'loading' ? 'Refreshing…' : 'Refresh'}
-        </button>
+        <div className="row">
+          <ExportButtons
+            noun="report"
+            count={filtered.length}
+            formats={[
+              { kind: 'csv', label: 'CSV', run: () => exportDprLogCsv(filtered) },
+              { kind: 'excel', label: 'Excel', run: () => exportDprLogExcel(filtered) },
+              { kind: 'pdf', label: 'PDF', run: () => exportDprLogPdf(filtered) },
+            ]}
+          />
+          <button type="button" className="btn ghost" onClick={app.reloadHistory} disabled={data.status === 'loading'}>
+            <Icon name="refresh" />{data.status === 'loading' ? 'Refreshing…' : 'Refresh'}
+          </button>
+        </div>
       </div>
 
       <div className="filters five">
@@ -267,7 +280,7 @@ export default function HistoryScreen() {
 
       <div className="list-bar">
         <span className="muted small" aria-live="polite">
-          {data.history.length} report{data.history.length === 1 ? '' : 's'} loaded{isFiltered ? ` · ${filtered.length} matching` : ''}
+          {data.history.length} report{data.history.length === 1 ? '' : 's'} loaded{isFiltered ? ` · ${filtered.length} matching — exports cover the matching reports` : ''}
         </span>
         {isFiltered && <button type="button" className="btn sm ghost" onClick={clearFilters}><Icon name="x" />Clear filters</button>}
       </div>

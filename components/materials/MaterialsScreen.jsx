@@ -7,6 +7,8 @@ import ConsumptionEntryRow from './ConsumptionEntryRow';
 import MaterialReport from './MaterialReport';
 import ReportActionBar from '../report/ReportActionBar';
 import Dialog from '../ui/Dialog';
+import ExportButtons from '../ui/ExportButtons';
+import { exportMaterialLogCsv, exportMaterialLogExcel } from '../../lib/exports/logExports';
 import Icon from '../ui/Icon';
 import { siteDisplayName } from '../../lib/report/reportModel';
 import { buildMaterialReport } from '../../lib/materials/materialReport';
@@ -414,8 +416,22 @@ export default function MaterialsScreen() {
 
       <section className="section-gap">
         <div className="page-head" style={{ marginBottom: 12 }}>
-          <h2 className="panel-title">Consumption log</h2>
-          {isFiltered && <button type="button" className="btn sm ghost" onClick={() => { setFilters(EMPTY_FILTERS); setVisibleLogs(LOG_PAGE); }}><Icon name="x" />Clear filters</button>}
+          <div>
+            <h2 className="panel-title">Consumption log</h2>
+            <p className="hint">{isFiltered ? `${filteredLogs.length} of ${data.logs.length} entries match — exports cover the matching entries.` : `${data.logs.length} entries. Exports cover the entries shown by the filters.`}</p>
+          </div>
+          <div className="row">
+            {isFiltered && <button type="button" className="btn ghost" onClick={() => { setFilters(EMPTY_FILTERS); setVisibleLogs(LOG_PAGE); }}><Icon name="x" />Clear filters</button>}
+            <ExportButtons
+              noun="entry"
+              plural="entries"
+              count={filteredLogs.length}
+              formats={[
+                { kind: 'csv', label: 'CSV', run: () => exportMaterialLogCsv(filteredLogs) },
+                { kind: 'excel', label: 'Excel', run: () => exportMaterialLogExcel(filteredLogs) },
+              ]}
+            />
+          </div>
         </div>
         <div className="filters five">
           <label className="field">

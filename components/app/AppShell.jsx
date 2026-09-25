@@ -14,9 +14,9 @@ import LoginScreen from './LoginScreen';
 import Toast from './Toast';
 
 const TABS = [
+  { id: 'Dashboard', label: 'Dashboard', short: 'Dashboard', icon: 'dashboard' },
   { id: 'Form', label: 'New report', short: 'Report', icon: 'entry' },
   { id: 'History', label: 'History', short: 'History', icon: 'history' },
-  { id: 'Dashboard', label: 'Dashboard', short: 'Dashboard', icon: 'dashboard' },
   { id: 'Materials', label: 'Materials', short: 'Materials', icon: 'materials' },
   { id: 'Admin', label: 'Admin', short: 'Admin', icon: 'admin', adminOnly: true },
 ];
@@ -156,9 +156,9 @@ export default function AppShell() {
               </header>
 
               <main className="content" id="view" tabIndex={-1}>
+                <TabPage id="Dashboard"><AnalyticsDashboard /></TabPage>
                 <TabPage id="Form"><DprEntryForm /></TabPage>
                 <TabPage id="History"><HistoryScreen /></TabPage>
-                <TabPage id="Dashboard"><AnalyticsDashboard /></TabPage>
                 <TabPage id="Materials"><MaterialsScreen /></TabPage>
                 {isAdmin && <TabPage id="Admin"><AdminPanel /></TabPage>}
               </main>

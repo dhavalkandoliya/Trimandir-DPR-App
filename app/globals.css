@@ -365,6 +365,9 @@ table.dt .sub{font-size:13px;color:var(--muted)}
 .hbar .track{height:10px;background:var(--surface-3);border-radius:5px;overflow:hidden}
 .hbar .fill{height:100%;background:var(--primary);border-radius:5px}
 .hbar b{text-align:right}
+.site-status{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--line)}
+.panel-head + .site-status{border-top:0}
+.kpi-num{font-family:var(--font-cond);font-weight:700;font-size:20px}
 .site-block{border-top:1px solid var(--line)}
 .site-block:first-of-type{border-top:0}
 .site-toggle{display:grid;grid-template-columns:minmax(0,180px) minmax(0,1fr) 56px 20px;gap:10px;align-items:center;width:100%;padding:10px 0;text-align:left;font-size:14px}
