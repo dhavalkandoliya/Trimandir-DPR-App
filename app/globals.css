@@ -405,6 +405,7 @@ table.dt .sub{font-size:13px;color:var(--muted)}
 /* ================= OVERLAYS ================= */
 .scrim{position:fixed;inset:0;background:rgba(10,16,21,.5);z-index:80;display:flex;align-items:center;justify-content:center;padding:20px;animation:fade .15s}
 .dialog{background:var(--surface);border-radius:var(--r-lg);box-shadow:var(--sh-2);width:min(820px,100%);max-height:calc(100vh - 40px);display:flex;flex-direction:column;animation:rise .2s ease-out}
+.dialog.narrow{width:min(760px,100%)}
 .dialog-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px;border-bottom:1px solid var(--line)}
 .dialog-body{padding:20px;overflow:auto}
 .dialog.paper .dialog-body{background:var(--surface-3)}

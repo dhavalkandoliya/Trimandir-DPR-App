@@ -1,10 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useApp } from '../app/AppContext';
 import ExecutiveReport, { ConditionBadge } from '../report/ExecutiveReport';
 import ReportActionBar from '../report/ReportActionBar';
+import Dialog from '../ui/Dialog';
 import Icon from '../ui/Icon';
 import { runReportAction } from '../../lib/report/exportReport';
 import { CONDITIONS, recordActivities, reportFromRecord, siteDisplayName, toYMD } from '../../lib/report/reportModel';
@@ -53,43 +53,19 @@ function editAction(item, user) {
 }
 
 function DprViewDialog({ item, projects, materialLogs, autoOpenShare, canEditIt, onEdit, onClose }) {
-  const boxRef = useRef(null);
   const report = useMemo(() => reportFromRecord(item, projects, materialLogs), [item, projects, materialLogs]);
-
-  useEffect(() => {
-    const trigger = document.activeElement;
-    boxRef.current?.querySelector('[data-close]')?.focus();
-    const onKey = (e) => {
-      if (e.key === 'Escape') { onClose(); return; }
-      if (e.key !== 'Tab' || !boxRef.current) return;
-      const focusables = boxRef.current.querySelectorAll('button:not([disabled]), [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
-      if (!focusables.length) return;
-      const first = focusables[0], last = focusables[focusables.length - 1];
-      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
-      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
-    };
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('keydown', onKey);
-      if (trigger && document.body.contains(trigger)) trigger.focus();
-    };
-  }, [onClose]);
-
-  return createPortal(
-    <div className="scrim" role="presentation" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="dialog paper" role="dialog" aria-modal="true" aria-labelledby="dprDialogTitle" ref={boxRef}>
-        <div className="dialog-head">
-          <h2 id="dprDialogTitle" className="panel-title">{report.siteDisplay}, {shortDate(report.date)}</h2>
-          <button type="button" className="icon-btn" data-close aria-label="Close" onClick={onClose}><Icon name="x" /></button>
-        </div>
-        <div className="dialog-body"><ExecutiveReport report={report} /></div>
-        <div className="dialog-foot">
-          {canEditIt && <button type="button" className="btn push" onClick={onEdit}><Icon name="edit" />Edit</button>}
-          <ReportActionBar report={report} autoOpenShare={autoOpenShare} />
-        </div>
-      </div>
-    </div>,
-    document.body
+  return (
+    <Dialog
+      title={`${report.siteDisplay}, ${shortDate(report.date)}`}
+      paper
+      onClose={onClose}
+      footer={<>
+        {canEditIt && <button type="button" className="btn push" onClick={onEdit}><Icon name="edit" />Edit</button>}
+        <ReportActionBar report={report} autoOpenShare={autoOpenShare} />
+      </>}
+    >
+      <ExecutiveReport report={report} />
+    </Dialog>
   );
 }
 

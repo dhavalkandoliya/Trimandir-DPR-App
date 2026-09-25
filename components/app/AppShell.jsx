@@ -100,12 +100,15 @@ function UserMenu() {
 }
 
 export default function AppShell() {
-  const { authStatus, user, theme, toggleTheme, activeTab, switchTab, history } = useApp();
+  const { authStatus, user, theme, toggleTheme, activeTab, switchTab, history, materialLogs } = useApp();
   const signedIn = authStatus === 'signedIn' && user;
   const isAdmin = signedIn && user.role === 'admin';
   const tabs = TABS.filter(t => !t.adminOnly || isAdmin);
 
-  const pendingEdits = useMemo(() => history.filter(h => h.editPermission === 'pending').length, [history]);
+  const pendingEdits = useMemo(
+    () => history.filter(h => h.editPermission === 'pending').length + materialLogs.filter(l => l.requestStatus === 'pending').length,
+    [history, materialLogs]
+  );
   const filedToday = useMemo(() => {
     const t = todayYMD();
     return new Set(history.filter(h => toYMD(h.date) === t).map(h => String(h.site || '').trim())).size;

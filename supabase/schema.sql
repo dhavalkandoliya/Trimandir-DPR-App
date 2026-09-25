@@ -144,7 +144,15 @@ create table if not exists material_logs (
   output_unit    text,                   -- ... Rft / Sq.ft / Cu.m
   remarks        text,
   logged_by      text not null default '',
-  created_at     timestamptz not null default now()
+  created_at     timestamptz not null default now(),
+  -- edit/delete lifecycle (migration 004): pending = edit_requested_by set, approved = edit_granted_to set
+  edit_requested_by text,
+  edit_requested_at timestamptz,
+  edit_request_type text,               -- 'edit' | 'delete'
+  edit_granted_to   text,
+  edit_granted_at   timestamptz,
+  edited_by         text,
+  edited_at         timestamptz
 );
 create index if not exists idx_material_logs_site        on material_logs (site);
 create index if not exists idx_material_logs_log_date    on material_logs (log_date desc);
