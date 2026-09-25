@@ -132,7 +132,22 @@ function doGet_(e) {
 // dataVersion changing if and only if the underlying sheets actually did.
 var NON_MUTATING_POST_ACTIONS = { login: true };
 
+// RETIRED: the DPR app (app/api/proxy) now reads and writes everything —
+// users included — in Supabase. Any write accepted here would land in a
+// Sheet the app never reads (e.g. a user created from a stale cached copy
+// of the old index.html would never appear in the app's user list), and
+// this endpoint has no authentication. So every POST is refused. The
+// doGet_ reads stay only for scripts/migrate-sheets-to-supabase.js.
+var POST_RETIRED = true;
+
 function doPost_(e) {
+  if (POST_RETIRED) {
+    return jsonResponse({
+      error: 'This Google Sheets backend is retired. Please reload the DPR app — all data (including users) is now stored in Supabase.',
+      code: 'BACKEND_RETIRED'
+    });
+  }
+
   var body;
   try { body = JSON.parse(e.postData.contents); }
   catch (err) { return jsonResponse({ error: 'Invalid JSON' }); }
