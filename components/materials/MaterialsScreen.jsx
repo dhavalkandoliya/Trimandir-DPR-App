@@ -14,7 +14,7 @@ import { siteDisplayName } from '../../lib/report/reportModel';
 import { buildMaterialReport } from '../../lib/materials/materialReport';
 import {
   OWNERSHIP_OPTIONS, batchKey, emptyEntryRow, entryRowFrom, entryRowHasContent, filterLogs, formatOutput, formatQty,
-  groupSubmissions, normalizeOwnership, ownershipCounts, serializeEntryRows, sortLogsNewestFirst, submissionAccess, trustTotals, validateEntryRows,
+  groupSubmissions, normalizeOwnership, ownershipCounts, serializeEntryRows, sortLogsNewestFirst, submissionAccess, submissionMaterialTotals, trustTotals, validateEntryRows,
 } from '../../lib/materials/consumption';
 
 const LOG_PAGE = 25;
@@ -318,25 +318,17 @@ export default function MaterialsScreen() {
               {shown.map(sub => {
                 const owners = OWNERSHIP_OPTIONS.filter(o => sub.entries.some(e => normalizeOwnership(e.ownership) === o));
                 const anyTrust = owners.includes('Trust');
-                const n = sub.entries.length;
                 return (
                   <tr key={sub.key} className={anyTrust ? '' : 'ref'}>
                     <td style={{ whiteSpace: 'nowrap' }}><b>{shortDate(sub.date)}</b></td>
                     <td>{siteDisplayName(sub.site, data.projects)}</td>
                     <td>
-                      {n > 1 && <b>{n} materials</b>}
                       <ul className="sub-mats">
-                        {sub.entries.map(e => {
-                          const output = formatOutput(e.outputQty, e.outputUnit);
-                          const contractor = normalizeOwnership(e.ownership) === 'Trust' ? '' : e.contractor;
-                          return (
-                            <li key={e.id} className={normalizeOwnership(e.ownership) === 'Trust' ? '' : 'ref'}>
-                              {n > 1 ? e.material_name : <b>{e.material_name}</b>}{' '}
-                              <span className="qty-sm">{formatQty(e.qty)}</span> <span className="muted">{e.unit}</span>
-                              {(contractor || output) && <span className="muted"> · {[contractor, output && `Output ${output}`].filter(Boolean).join(' · ')}</span>}
-                            </li>
-                          );
-                        })}
+                        {submissionMaterialTotals(sub.entries).map(m => (
+                          <li key={m.key} className={m.trust ? '' : 'ref'}>
+                            {m.material}: <span className="qty-sm">{formatQty(m.qty)}</span> <span className="muted">{m.unit}</span>
+                          </li>
+                        ))}
                       </ul>
                     </td>
                     <td><div className="row" style={{ gap: 4, flexWrap: 'wrap' }}>{owners.map(o => <OwnershipBadge key={o} ownership={o} />)}</div></td>
