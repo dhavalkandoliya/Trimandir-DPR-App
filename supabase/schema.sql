@@ -152,13 +152,17 @@ create table if not exists material_logs (
   edit_granted_to   text,
   edit_granted_at   timestamptz,
   edited_by         text,
-  edited_at         timestamptz
+  edited_at         timestamptz,
+  -- submission batch (migration 005): rows saved together share batch_id; batch_line = form order
+  batch_id          uuid,
+  batch_line        smallint
 );
 create index if not exists idx_material_logs_site        on material_logs (site);
 create index if not exists idx_material_logs_log_date    on material_logs (log_date desc);
 create index if not exists idx_material_logs_material_id on material_logs (material_id);
 create index if not exists idx_material_logs_dpr_record  on material_logs (dpr_record_id);
 create index if not exists idx_material_logs_ownership   on material_logs (ownership);
+create index if not exists idx_material_logs_batch       on material_logs (batch_id);
 
 -- ── updated_at auto-touch trigger (shared across tables) ─────────
 create or replace function set_updated_at()

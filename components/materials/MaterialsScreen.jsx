@@ -13,7 +13,7 @@ import Icon from '../ui/Icon';
 import { siteDisplayName } from '../../lib/report/reportModel';
 import { buildMaterialReport } from '../../lib/materials/materialReport';
 import {
-  OWNERSHIP_OPTIONS, consumptionAccess, emptyEntryRow, entryRowFrom, entryRowHasContent, filterLogs, formatOutput, formatQty,
+  OWNERSHIP_OPTIONS, batchEntries, consumptionAccess, emptyEntryRow, entryRowFrom, entryRowHasContent, filterLogs, formatOutput, formatQty,
   normalizeOwnership, ownershipCounts, serializeEntryRows, sortLogsNewestFirst, trustTotals, validateEntryRows,
 } from '../../lib/materials/consumption';
 
@@ -31,7 +31,13 @@ function shortDate(ymd) {
   return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-const isTopLevel = (p) => !p.parent_id || String(p.parent_id).trim() === '';
+// Batch id for one submission (lib/dprSupabaseApi.js saveMaterialLog()).
+function newBatchId() {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+  return '10000000-1000-4000-8000-100000000000'.replace(/[018]/g, c => (c ^ (Math.random() * 16) >> (c / 4)).toString(16));
+}
+
+const isTopLevel =(p) => !p.parent_id || String(p.parent_id).trim() === '';
 const OWNER_TAG = { Trust: 'info', Contractor: 'warn', Other: '' };
 
 export function OwnershipBadge({ ownership }) {
@@ -114,7 +120,7 @@ function LogActions({ log, user, onView, onEdit, onDelete, onRequest }) {
   const pending = log.requestStatus === 'pending';
   return (
     <>
-      <button type="button" className="icon-btn" onClick={onView} title="View entry report" aria-label={`View report for ${log.material_name}, ${log.site}, ${log.date}`}><Icon name="eye" /></button>
+      <button type="button" className="icon-btn" onClick={onView} title="View submission report" aria-label={`View the report for the submission with ${log.material_name}, ${log.site}, ${log.date}`}><Icon name="eye" /></button>
       {access.edit === 'direct' && <button type="button" className="icon-btn" onClick={onEdit} title="Edit" aria-label="Edit entry"><Icon name="edit" /></button>}
       {access.edit === 'request' && <button type="button" className="icon-btn" onClick={() => onRequest('edit')} title="Request edit from admin" aria-label="Request edit"><Icon name="edit" /></button>}
       {access.delete === 'direct' && <button type="button" className="icon-btn danger" onClick={onDelete} title="Delete" aria-label="Delete entry"><Icon name="trash" /></button>}
@@ -136,7 +142,7 @@ export default function MaterialsScreen() {
   const [filters, setFilters] = useState(EMPTY_FILTERS);
   const [visibleLogs, setVisibleLogs] = useState(LOG_PAGE);
   const [saved, setSaved] = useState(null);     // { report, queued, count }
-  const [viewing, setViewing] = useState(null); // log row whose site/day report is open
+  const [viewing, setViewing] = useState(null); // log row whose submission report is open
   const [editing, setEditing] = useState(null); // log row being edited
 
   // Leaving the tab closes any open dialog (they're portalled to <body>).
@@ -177,10 +183,13 @@ export default function MaterialsScreen() {
   const logSites = useMemo(() => [...new Set(data.logs.map(l => l.site).filter(Boolean))].sort(), [data.logs]);
   const logMaterials = useMemo(() => [...new Set(data.logs.map(l => l.material_name).filter(Boolean))].sort(), [data.logs]);
 
-  // The report for the log row being viewed — that one entry only.
-  const viewReport = useMemo(() => (viewing
-    ? buildMaterialReport({ date: viewing.date, site: viewing.site, entries: [viewing], projects: data.projects })
-    : null), [viewing, data.projects]);
+  // The report for the log row being viewed — every entry saved in the same
+  // submission (all logs, not just the filtered ones).
+  const viewReport = useMemo(() => {
+    if (!viewing) return null;
+    const entries = batchEntries(data.logs, viewing);
+    return buildMaterialReport({ date: viewing.date, site: viewing.site, entries: entries.length ? entries : [viewing], projects: data.projects });
+  }, [viewing, data.logs, data.projects]);
 
   const setFilter = (field) => (e) => { setFilters(f => ({ ...f, [field]: e.target.value })); setVisibleLogs(LOG_PAGE); };
   const updateRow = (k, next) => setRows(rs => rs.map(r => (r.key === k ? next : r)));
@@ -198,12 +207,15 @@ export default function MaterialsScreen() {
     const materialsUsed = serializeEntryRows(rows);
     if (!materialsUsed.length) { app.showToast('⚠️ Add at least one consumption entry'); return; }
 
-    const payload = { action: 'saveMaterialLog', date, site, by: user.username, materialsUsed };
+    // One submission = one batch, so its report is the same one the eye
+    // button opens from any of its log rows later.
+    const batchId = newBatchId();
+    const payload = { action: 'saveMaterialLog', date, site, by: user.username, batchId, materialsUsed };
     // The report covers exactly this submission's entries; `saved` (the
-    // server's new rows, same order) adds their ids for the entry refs.
-    const done = (queued, saved = []) => {
+    // server's new rows, same order) adds their ids.
+    const done = (queued, saved = [], savedBatch = batchId) => {
       const entries = materialsUsed.map((m, i) => ({ ...m, id: saved[i] && saved[i].id, createdAt: (saved[i] && saved[i].createdAt) || new Date().toISOString() }));
-      const report = buildMaterialReport({ date, site, projects: data.projects, loggedBy: user.username, entries });
+      const report = buildMaterialReport({ date, site, projects: data.projects, loggedBy: user.username, entries, batchId: savedBatch });
       setRows([emptyEntryRow()]);
       setSaved({ report, queued, count: materialsUsed.length });
     };
@@ -220,7 +232,7 @@ export default function MaterialsScreen() {
       const res = await apiPost(payload); // a 401 drops to the login screen; the entered rows stay
       if (res && res.error) { app.showToast('⚠️ Save failed: ' + res.error); return; }
       app.showToast(`✅ Saved ${materialsUsed.length} consumption entr${materialsUsed.length === 1 ? 'y' : 'ies'} for ${site}`);
-      done(false, res && res.entries); // keep date + site for the next entry
+      done(false, res && res.entries, (res && res.batchId) || ''); // keep date + site for the next entry
       app.reloadMaterialLogs();
     } catch (e) {
       app.showToast('⚠️ Save failed — check connection');
@@ -462,7 +474,7 @@ export default function MaterialsScreen() {
       </section>
 
       {viewReport && (
-        <Dialog title={`${viewing.material_name} — ${viewReport.siteDisplay}, ${shortDate(viewReport.date)}`} paper onClose={() => setViewing(null)} footer={<ReportActionBar report={viewReport} />}>
+        <Dialog title={`${viewReport.entries.length > 1 ? `${viewReport.entries.length} materials` : viewing.material_name} — ${viewReport.siteDisplay}, ${shortDate(viewReport.date)}`} paper onClose={() => setViewing(null)} footer={<ReportActionBar report={viewReport} />}>
           <MaterialReport report={viewReport} />
         </Dialog>
       )}
