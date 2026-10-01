@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { apiMutate } from '../../lib/client/api';
-import { formatQty } from '../../lib/materials/consumption';
+import { formatQty, groupSubmissions } from '../../lib/materials/consumption';
 import { useApp } from '../app/AppContext';
 import Icon from '../ui/Icon';
 import { siteDisplayName, toYMD, formatDisplayDate } from '../../lib/report/reportModel';
@@ -10,18 +10,25 @@ import HierarchyAdmin from './HierarchyAdmin';
 import MaterialsAdmin from './MaterialsAdmin';
 import UsersAdmin from './UsersAdmin';
 
+// "10 Bags Cement" for a one-material submission, else "a submission of 3 materials".
+function describe(sub) {
+  if (sub.entries.length === 1) { const e = sub.entries[0]; return `${formatQty(e.qty)} ${e.unit} ${e.material_name}`; }
+  return `a submission of ${sub.entries.length} materials`;
+}
+
 function EditRequests({ pending, pendingLogs }) {
   const { projects, approveEdit, showToast, reloadMaterialLogs } = useApp();
   const [busy, setBusy] = useState(null);
 
-  // Approve: an edit is granted (they may edit once); a delete removes the entry.
-  const resolve = async (log, approve) => {
-    const what = log.requestType === 'delete' ? 'delete' : 'edit';
-    if (approve && what === 'delete' && !window.confirm(`Delete ${formatQty(log.qty)} ${log.unit} ${log.material_name} (${log.site}) permanently?`)) return;
-    setBusy(log.id);
+  // One request per submission. Approve: an edit is granted (they may
+  // edit the submission once); a delete removes the whole submission.
+  const resolve = async (sub, approve) => {
+    const what = sub.request.type === 'delete' ? 'delete' : 'edit';
+    if (approve && what === 'delete' && !window.confirm(`Delete ${describe(sub)} (${sub.site}) permanently?`)) return;
+    setBusy(sub.key);
     try {
-      const res = await apiMutate({ action: 'resolveMaterialLogRequest', id: log.id, approve });
-      showToast(res.result === 'deleted' ? '🗑️ Entry deleted' : res.result === 'granted' ? `✅ ${log.requestedBy || 'They'} can now edit this entry` : 'Request declined');
+      const res = await apiMutate({ action: 'resolveMaterialLogRequest', ids: sub.entries.map(e => e.id), approve });
+      showToast(res.result === 'deleted' ? '🗑️ Submission deleted' : res.result === 'granted' ? `✅ ${sub.request.by || 'They'} can now edit this submission` : 'Request declined');
       reloadMaterialLogs();
     } catch (err) {
       showToast(`⚠️ ${err.message || 'Action failed'}`);
@@ -57,19 +64,19 @@ function EditRequests({ pending, pendingLogs }) {
         <section>
           <div className="list-bar"><h2 className="panel-title">Material consumption <em>({pendingLogs.length})</em></h2></div>
           <div className="list">
-            {pendingLogs.map(log => {
-              const del = log.requestType === 'delete';
+            {pendingLogs.map(sub => {
+              const del = sub.request.type === 'delete';
               return (
-                <div key={log.id} className="lrow simple">
+                <div key={sub.key} className="lrow simple">
                   <div>
-                    <b>{log.requestedBy || 'Someone'}</b> wants to <b>{del ? 'delete' : 'edit'}</b> {formatQty(log.qty)} {log.unit} <b>{log.material_name}</b> — {siteDisplayName(log.site, projects)}, {formatDisplayDate(log.date)}
+                    <b>{sub.request.by || 'Someone'}</b> wants to <b>{del ? 'delete' : 'edit'}</b> <b>{describe(sub)}</b> — {siteDisplayName(sub.site, projects)}, {formatDisplayDate(sub.date)}
                     <div className="sub">
-                      <span className={`tag ${del ? 'danger' : 'warn'}`}>{del ? 'Delete' : 'Edit'}</span> {log.ownership}{log.contractor ? ` · ${log.contractor}` : ''} · logged by {log.loggedBy || '—'}
+                      <span className={`tag ${del ? 'danger' : 'warn'}`}>{del ? 'Delete' : 'Edit'}</span> {sub.entries.map(e => `${e.material_name} ${formatQty(e.qty)} ${e.unit}`.trim()).join(', ')} · logged by {sub.loggedBy || '—'}
                     </div>
                   </div>
                   <div className="row">
-                    <button type="button" className="btn sm danger" onClick={() => resolve(log, false)} disabled={busy === log.id}>Decline</button>
-                    <button type="button" className="btn sm primary" onClick={() => resolve(log, true)} disabled={busy === log.id}>
+                    <button type="button" className="btn sm danger" onClick={() => resolve(sub, false)} disabled={busy === sub.key}>Decline</button>
+                    <button type="button" className="btn sm primary" onClick={() => resolve(sub, true)} disabled={busy === sub.key}>
                       <Icon name={del ? 'trash' : 'check'} />{del ? 'Approve & delete' : 'Allow edit'}
                     </button>
                   </div>
@@ -86,7 +93,8 @@ function EditRequests({ pending, pendingLogs }) {
 export default function AdminPanel() {
   const { history, materialLogs } = useApp();
   const pending = useMemo(() => history.filter(h => h.editPermission === 'pending'), [history]);
-  const pendingLogs = useMemo(() => materialLogs.filter(l => l.requestStatus === 'pending'), [materialLogs]);
+  // Whole submissions with a waiting request (all their entries, for context).
+  const pendingLogs = useMemo(() => groupSubmissions(materialLogs).filter(s => s.request.status === 'pending'), [materialLogs]);
   const pendingCount = pending.length + pendingLogs.length;
   const [tab, setTab] = useState('requests');
 

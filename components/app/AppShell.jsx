@@ -9,6 +9,7 @@ import MaterialsScreen from '../materials/MaterialsScreen';
 import ErrorBoundary from '../ui/ErrorBoundary';
 import Icon from '../ui/Icon';
 import { toYMD } from '../../lib/report/reportModel';
+import { groupSubmissions } from '../../lib/materials/consumption';
 import { useApp } from './AppContext';
 import LoginScreen from './LoginScreen';
 import Toast from './Toast';
@@ -106,7 +107,7 @@ export default function AppShell() {
   const tabs = TABS.filter(t => !t.adminOnly || isAdmin);
 
   const pendingEdits = useMemo(
-    () => history.filter(h => h.editPermission === 'pending').length + materialLogs.filter(l => l.requestStatus === 'pending').length,
+    () => history.filter(h => h.editPermission === 'pending').length + groupSubmissions(materialLogs).filter(s => s.request.status === 'pending').length,
     [history, materialLogs]
   );
   const filedToday = useMemo(() => {

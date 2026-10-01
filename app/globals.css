@@ -511,3 +511,8 @@ table.dt .sub{font-size:13px;color:var(--muted)}
   .rp-gen{padding:9px 14px}
   .success-hero h1{font-size:24px}
 }
+/* Consumption log: one row per submission, its materials listed in the cell */
+table.dt .sub-mats{list-style:none;margin:2px 0 0;padding:0;display:grid;gap:2px}
+table.dt .sub-mats li{font-size:14px;line-height:1.35}
+table.dt .sub-mats li.ref{color:var(--muted)}
+table.dt .qty-sm{font-family:var(--font-cond);font-size:16px;font-weight:700;color:var(--ink)}

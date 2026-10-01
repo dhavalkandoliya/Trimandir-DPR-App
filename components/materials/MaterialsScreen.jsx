@@ -13,8 +13,8 @@ import Icon from '../ui/Icon';
 import { siteDisplayName } from '../../lib/report/reportModel';
 import { buildMaterialReport } from '../../lib/materials/materialReport';
 import {
-  OWNERSHIP_OPTIONS, batchEntries, consumptionAccess, emptyEntryRow, entryRowFrom, entryRowHasContent, filterLogs, formatOutput, formatQty,
-  normalizeOwnership, ownershipCounts, serializeEntryRows, sortLogsNewestFirst, trustTotals, validateEntryRows,
+  OWNERSHIP_OPTIONS, batchKey, emptyEntryRow, entryRowFrom, entryRowHasContent, filterLogs, formatOutput, formatQty,
+  groupSubmissions, normalizeOwnership, ownershipCounts, serializeEntryRows, sortLogsNewestFirst, submissionAccess, trustTotals, validateEntryRows,
 } from '../../lib/materials/consumption';
 
 const LOG_PAGE = 25;
@@ -74,22 +74,24 @@ function SavedView({ result, onBack }) {
   );
 }
 
-// Edit one consumption entry (material, qty, ownership, output, remarks).
-// Date and site stay as logged.
-function EditEntryDialog({ log, materials, contractorSuggestions, onClose, onSaved }) {
+// Edit one submission: every material saved with it, which can be changed,
+// removed or added to. Date, site and logger stay as logged.
+function EditSubmissionDialog({ submission, materials, contractorSuggestions, onClose, onSaved }) {
   const { showToast } = useApp();
-  const [row, setRow] = useState(() => entryRowFrom(log));
+  const [rows, setRows] = useState(() => submission.entries.map(e => ({ ...entryRowFrom(e), id: e.id })));
   const [busy, setBusy] = useState(false);
+  const updateRow = (k, next) => setRows(rs => rs.map(r => (r.key === k ? next : r)));
+  const removeRow = (k) => setRows(rs => (rs.length > 1 ? rs.filter(r => r.key !== k) : rs));
 
   const save = async () => {
-    const invalid = validateEntryRows([row]);
+    const invalid = validateEntryRows(rows);
     if (invalid) { showToast(invalid); return; }
-    const [entry] = serializeEntryRows([row]);
-    if (!entry) { showToast('⚠️ Enter a material and a quantity'); return; }
+    const entries = rows.flatMap(r => serializeEntryRows([r]).map(e => ({ ...e, id: r.id || '' })));
+    if (!entries.length) { showToast('⚠️ Keep at least one material with a quantity'); return; }
     setBusy(true);
     try {
-      await apiMutate({ action: 'updateMaterialLog', id: log.id, entry });
-      showToast('✅ Consumption entry updated');
+      await apiMutate({ action: 'updateMaterialSubmission', ids: submission.entries.map(e => e.id), entries });
+      showToast('✅ Submission updated');
       onSaved();
     } catch (err) {
       showToast(`⚠️ ${err.message || 'Update failed'}`);
@@ -100,30 +102,42 @@ function EditEntryDialog({ log, materials, contractorSuggestions, onClose, onSav
 
   return (
     <Dialog
-      title={`Edit entry — ${log.site}, ${shortDate(log.date)}`}
-      narrow
+      title={`Edit submission — ${submission.site}, ${shortDate(submission.date)}`}
       onClose={onClose}
       footer={<>
         <button type="button" className="btn" onClick={onClose}>Cancel</button>
         <button type="button" className="btn primary" onClick={save} disabled={busy}><Icon name="check" />{busy ? 'Saving…' : 'Save changes'}</button>
       </>}
     >
-      <p className="hint" style={{ marginBottom: 8 }}>Date and site stay as logged. Logged by {log.loggedBy || '—'}.</p>
-      <ConsumptionEntryRow index={0} row={row} materials={materials} contractorSuggestions={contractorSuggestions} onChange={setRow} canRemove={false} />
+      <p className="hint" style={{ marginBottom: 8 }}>Date and site stay as logged. Logged by {submission.loggedBy || '—'}.</p>
+      {rows.map((r, i) => (
+        <ConsumptionEntryRow
+          key={r.key}
+          index={i}
+          row={r}
+          materials={materials}
+          contractorSuggestions={contractorSuggestions}
+          onChange={(next) => updateRow(r.key, next)}
+          onRemove={() => removeRow(r.key)}
+          canRemove={rows.length > 1}
+        />
+      ))}
+      <button type="button" className="btn add mat" onClick={() => setRows(rs => [...rs, emptyEntryRow()])}><Icon name="plus" />Add material</button>
     </Dialog>
   );
 }
 
-// View / edit / delete buttons for one log row, per consumptionAccess().
-function LogActions({ log, user, onView, onEdit, onDelete, onRequest }) {
-  const access = consumptionAccess(log, user);
-  const pending = log.requestStatus === 'pending';
+// View / edit / delete buttons for one submission, per submissionAccess().
+function SubmissionActions({ submission, user, onView, onEdit, onDelete, onRequest }) {
+  const access = submissionAccess(submission.entries, user);
+  const pending = submission.request.status === 'pending';
+  const what = `${submission.site}, ${submission.date}`;
   return (
     <>
-      <button type="button" className="icon-btn" onClick={onView} title="View submission report" aria-label={`View the report for the submission with ${log.material_name}, ${log.site}, ${log.date}`}><Icon name="eye" /></button>
-      {access.edit === 'direct' && <button type="button" className="icon-btn" onClick={onEdit} title="Edit" aria-label="Edit entry"><Icon name="edit" /></button>}
+      <button type="button" className="icon-btn" onClick={onView} title="View submission report" aria-label={`View report for ${what}`}><Icon name="eye" /></button>
+      {access.edit === 'direct' && <button type="button" className="icon-btn" onClick={onEdit} title="Edit submission" aria-label={`Edit submission for ${what}`}><Icon name="edit" /></button>}
       {access.edit === 'request' && <button type="button" className="icon-btn" onClick={() => onRequest('edit')} title="Request edit from admin" aria-label="Request edit"><Icon name="edit" /></button>}
-      {access.delete === 'direct' && <button type="button" className="icon-btn danger" onClick={onDelete} title="Delete" aria-label="Delete entry"><Icon name="trash" /></button>}
+      {access.delete === 'direct' && <button type="button" className="icon-btn danger" onClick={onDelete} title="Delete submission" aria-label={`Delete submission for ${what}`}><Icon name="trash" /></button>}
       {access.delete === 'request' && <button type="button" className="icon-btn danger" onClick={() => onRequest('delete')} title="Request deletion from admin" aria-label="Request deletion"><Icon name="trash" /></button>}
       {pending && <button type="button" className="icon-btn" disabled title="Request waiting for admin" aria-label="Request waiting for admin"><Icon name="lock" /></button>}
     </>
@@ -140,10 +154,10 @@ export default function MaterialsScreen() {
   const [rows, setRows] = useState(() => [emptyEntryRow()]);
   const [saving, setSaving] = useState(false);
   const [filters, setFilters] = useState(EMPTY_FILTERS);
-  const [visibleLogs, setVisibleLogs] = useState(LOG_PAGE);
+  const [visibleLogs, setVisibleLogs] = useState(LOG_PAGE); // submissions shown
   const [saved, setSaved] = useState(null);     // { report, queued, count }
-  const [viewing, setViewing] = useState(null); // log row whose submission report is open
-  const [editing, setEditing] = useState(null); // log row being edited
+  const [viewingKey, setViewing] = useState(null); // batchKey of the submission whose report is open
+  const [editingKey, setEditing] = useState(null); // batchKey of the submission being edited
 
   // Leaving the tab closes any open dialog (they're portalled to <body>).
   useEffect(() => { if (app.activeTab !== 'Materials') { setViewing(null); setEditing(null); } }, [app.activeTab]);
@@ -180,16 +194,26 @@ export default function MaterialsScreen() {
   const totals = useMemo(() => trustTotals(summaryLogs), [summaryLogs]);
   const counts = useMemo(() => ownershipCounts(summaryLogs), [summaryLogs]);
 
+  // The log table lists submissions (one row each), newest first. A
+  // submission shows when any of its entries matches the filters, and
+  // then shows in full; the exports stay per entry (the matching ones).
+  const submissions = useMemo(() => groupSubmissions(sortLogsNewestFirst(data.logs)), [data.logs]);
+  const filteredSubs = useMemo(() => {
+    if (!isFiltered) return submissions;
+    const keys = new Set(filteredLogs.map(batchKey));
+    return submissions.filter(sub => keys.has(sub.key));
+  }, [submissions, filteredLogs, isFiltered]);
+  // Looked up by key so they follow reloads, and close once deleted.
+  const viewing = useMemo(() => submissions.find(sub => sub.key === viewingKey) || null, [submissions, viewingKey]);
+  const editing = useMemo(() => submissions.find(sub => sub.key === editingKey) || null, [submissions, editingKey]);
+
   const logSites = useMemo(() => [...new Set(data.logs.map(l => l.site).filter(Boolean))].sort(), [data.logs]);
   const logMaterials = useMemo(() => [...new Set(data.logs.map(l => l.material_name).filter(Boolean))].sort(), [data.logs]);
 
-  // The report for the log row being viewed — every entry saved in the same
-  // submission (all logs, not just the filtered ones).
-  const viewReport = useMemo(() => {
-    if (!viewing) return null;
-    const entries = batchEntries(data.logs, viewing);
-    return buildMaterialReport({ date: viewing.date, site: viewing.site, entries: entries.length ? entries : [viewing], projects: data.projects });
-  }, [viewing, data.logs, data.projects]);
+  // The report for the submission being viewed — all of its entries.
+  const viewReport = useMemo(() => (viewing
+    ? buildMaterialReport({ date: viewing.date, site: viewing.site, entries: viewing.entries, projects: data.projects })
+    : null), [viewing, data.projects]);
 
   const setFilter = (field) => (e) => { setFilters(f => ({ ...f, [field]: e.target.value })); setVisibleLogs(LOG_PAGE); };
   const updateRow = (k, next) => setRows(rs => rs.map(r => (r.key === k ? next : r)));
@@ -253,14 +277,16 @@ export default function MaterialsScreen() {
       return false;
     }
   };
-  const deleteLog = (log) => {
-    if (!window.confirm(`Delete ${formatQty(log.qty)} ${log.unit} ${log.material_name} (${log.site}, ${shortDate(log.date)})?`)) return;
-    run({ action: 'deleteMaterialLog', id: log.id }, '🗑️ Consumption entry deleted');
+  const deleteSubmission = (sub) => {
+    const n = sub.entries.length;
+    const what = n === 1 ? `${formatQty(sub.entries[0].qty)} ${sub.entries[0].unit} ${sub.entries[0].material_name}` : `this submission (${n} materials)`;
+    if (!window.confirm(`Delete ${what} — ${sub.site}, ${shortDate(sub.date)}?`)) return;
+    run({ action: 'deleteMaterialLog', ids: sub.entries.map(e => e.id) }, n === 1 ? '🗑️ Consumption entry deleted' : `🗑️ Submission deleted (${n} materials)`);
   };
-  const requestChange = (log, type) => {
+  const requestChange = (sub, type) => {
     const what = type === 'delete' ? 'deletion' : 'an edit';
-    if (!window.confirm(`The 24-hour window for this entry has passed. Send ${what} request to an admin?`)) return;
-    run({ action: 'requestMaterialLogChange', id: log.id, type }, `📤 ${type === 'delete' ? 'Delete' : 'Edit'} request sent to admin`);
+    if (!window.confirm(`The 24-hour window for this submission has passed. Send ${what} request to an admin?`)) return;
+    run({ action: 'requestMaterialLogChange', ids: sub.entries.map(e => e.id), type }, `📤 ${type === 'delete' ? 'Delete' : 'Edit'} request sent to admin`);
   };
 
   if (saved) return <SavedView result={saved} onBack={() => setSaved(null)} />;
@@ -277,50 +303,58 @@ export default function MaterialsScreen() {
     } else {
       logBody = <div className="list"><div className="empty"><h3>No consumption logged yet</h3><p className="muted">Use the form above to log today’s materials.</p></div></div>;
     }
-  } else if (!filteredLogs.length) {
+  } else if (!filteredSubs.length) {
     logBody = <div className="list"><div className="empty"><h3>No entries match these filters</h3><p className="muted">Clear a filter or widen the date range.</p><button type="button" className="btn" onClick={() => setFilters(EMPTY_FILTERS)}>Clear filters</button></div></div>;
   } else {
-    const shown = filteredLogs.slice(0, visibleLogs);
+    const shown = filteredSubs.slice(0, visibleLogs);
     logBody = (
       <>
         <div className="list tscroll">
           <table className="dt">
             <thead>
-              <tr><th>Date</th><th>Site</th><th>Material</th><th className="n">Quantity</th><th>Ownership</th><th>Contractor / output</th><th>Logged by</th><th /></tr>
+              <tr><th>Date</th><th>Site</th><th>Materials</th><th>Ownership</th><th>Logged by</th><th /></tr>
             </thead>
             <tbody>
-              {shown.map((l, i) => {
-                const output = formatOutput(l.outputQty, l.outputUnit);
-                const trust = normalizeOwnership(l.ownership) === 'Trust';
+              {shown.map(sub => {
+                const owners = OWNERSHIP_OPTIONS.filter(o => sub.entries.some(e => normalizeOwnership(e.ownership) === o));
+                const anyTrust = owners.includes('Trust');
+                const n = sub.entries.length;
                 return (
-                  <tr key={l.id || `${l.createdAt}-${i}`} className={trust ? '' : 'ref'}>
-                    <td style={{ whiteSpace: 'nowrap' }}><b>{shortDate(l.date)}</b></td>
-                    <td>{siteDisplayName(l.site, data.projects)}</td>
+                  <tr key={sub.key} className={anyTrust ? '' : 'ref'}>
+                    <td style={{ whiteSpace: 'nowrap' }}><b>{shortDate(sub.date)}</b></td>
+                    <td>{siteDisplayName(sub.site, data.projects)}</td>
                     <td>
-                      <b>{l.material_name}</b>
-                      {l.remarks && <div className="sub">“{l.remarks}”</div>}
+                      {n > 1 && <b>{n} materials</b>}
+                      <ul className="sub-mats">
+                        {sub.entries.map(e => {
+                          const output = formatOutput(e.outputQty, e.outputUnit);
+                          const contractor = normalizeOwnership(e.ownership) === 'Trust' ? '' : e.contractor;
+                          return (
+                            <li key={e.id} className={normalizeOwnership(e.ownership) === 'Trust' ? '' : 'ref'}>
+                              {n > 1 ? e.material_name : <b>{e.material_name}</b>}{' '}
+                              <span className="qty-sm">{formatQty(e.qty)}</span> <span className="muted">{e.unit}</span>
+                              {(contractor || output) && <span className="muted"> · {[contractor, output && `Output ${output}`].filter(Boolean).join(' · ')}</span>}
+                            </li>
+                          );
+                        })}
+                      </ul>
                     </td>
-                    <td className="n" style={{ whiteSpace: 'nowrap' }}><span className="qty">{formatQty(l.qty)}</span> <span className="muted">{l.unit}</span></td>
-                    <td><OwnershipBadge ownership={l.ownership} /></td>
+                    <td><div className="row" style={{ gap: 4, flexWrap: 'wrap' }}>{owners.map(o => <OwnershipBadge key={o} ownership={o} />)}</div></td>
                     <td>
-                      {l.contractor || <span className="muted">—</span>}
-                      {output && <div className="sub">Output: {output}</div>}
-                    </td>
-                    <td>
-                      {l.loggedBy || '—'}
-                      {l.editedBy && <div className="sub">Edited by {l.editedBy}</div>}
-                      {l.requestStatus === 'pending' && <div><span className="tag warn">{l.requestType === 'delete' ? 'Delete requested' : 'Edit requested'}</span></div>}
-                      {l.requestStatus === 'granted' && <div><span className="tag ok">Edit allowed</span></div>}
+                      {sub.loggedBy || '—'}
+                      {sub.editedBy && <div className="sub">Edited by {sub.editedBy}</div>}
+                      {sub.request.status === 'pending' && <div><span className="tag warn">{sub.request.type === 'delete' ? 'Delete requested' : 'Edit requested'}</span></div>}
+                      {sub.request.status === 'granted' && <div><span className="tag ok">Edit allowed</span></div>}
                     </td>
                     <td className="acts">
-                      {l.id && (
-                        <LogActions
-                          log={l}
+                      {sub.entries.every(e => e.id) && (
+                        <SubmissionActions
+                          submission={sub}
                           user={app.user}
-                          onView={() => setViewing(l)}
-                          onEdit={() => setEditing(l)}
-                          onDelete={() => deleteLog(l)}
-                          onRequest={(type) => requestChange(l, type)}
+                          onView={() => setViewing(sub.key)}
+                          onEdit={() => setEditing(sub.key)}
+                          onDelete={() => deleteSubmission(sub)}
+                          onRequest={(type) => requestChange(sub, type)}
                         />
                       )}
                     </td>
@@ -331,15 +365,15 @@ export default function MaterialsScreen() {
           </table>
         </div>
         <div className="more-wrap">
-          <span className="muted small">Showing {shown.length} of {filteredLogs.length}{isFiltered ? ` (${data.logs.length} total)` : ''}</span>
-          {filteredLogs.length > visibleLogs && (
+          <span className="muted small">Showing {shown.length} of {filteredSubs.length} submission{filteredSubs.length === 1 ? '' : 's'}{isFiltered ? ` (${submissions.length} total)` : ''}</span>
+          {filteredSubs.length > visibleLogs && (
             <button type="button" className="btn sm" onClick={() => setVisibleLogs(v => v + LOG_PAGE)}>
-              Show {Math.min(LOG_PAGE, filteredLogs.length - visibleLogs)} more
+              Show {Math.min(LOG_PAGE, filteredSubs.length - visibleLogs)} more
             </button>
           )}
         </div>
         <p className="hint" style={{ marginTop: 8 }}>
-          You can edit or delete your own entries for 24 hours after logging them. After that, the edit and delete buttons send a request to an admin.
+          One row per submission. You can edit or delete your own submissions for 24 hours after logging them. After that, the edit and delete buttons send a request to an admin.
         </p>
       </>
     );
@@ -430,7 +464,7 @@ export default function MaterialsScreen() {
         <div className="page-head" style={{ marginBottom: 12 }}>
           <div>
             <h2 className="panel-title">Consumption log</h2>
-            <p className="hint">{isFiltered ? `${filteredLogs.length} of ${data.logs.length} entries match — exports cover the matching entries.` : `${data.logs.length} entries. Exports cover the entries shown by the filters.`}</p>
+            <p className="hint">{isFiltered ? `${filteredSubs.length} of ${submissions.length} submissions have matching entries — exports cover the ${filteredLogs.length} matching entries.` : `${submissions.length} submissions, ${data.logs.length} entries. Exports list each entry shown by the filters.`}</p>
           </div>
           <div className="row">
             {isFiltered && <button type="button" className="btn ghost" onClick={() => { setFilters(EMPTY_FILTERS); setVisibleLogs(LOG_PAGE); }}><Icon name="x" />Clear filters</button>}
@@ -474,14 +508,14 @@ export default function MaterialsScreen() {
       </section>
 
       {viewReport && (
-        <Dialog title={`${viewReport.entries.length > 1 ? `${viewReport.entries.length} materials` : viewing.material_name} — ${viewReport.siteDisplay}, ${shortDate(viewReport.date)}`} paper onClose={() => setViewing(null)} footer={<ReportActionBar report={viewReport} />}>
+        <Dialog title={`${viewReport.entries.length > 1 ? `${viewReport.entries.length} materials` : viewing.entries[0].material_name} — ${viewReport.siteDisplay}, ${shortDate(viewReport.date)}`} paper onClose={() => setViewing(null)} footer={<ReportActionBar report={viewReport} />}>
           <MaterialReport report={viewReport} />
         </Dialog>
       )}
       {editing && (
-        <EditEntryDialog
-          key={editing.id}
-          log={editing}
+        <EditSubmissionDialog
+          key={editing.key}
+          submission={editing}
           materials={activeMaterials}
           contractorSuggestions={contractorSuggestions}
           onClose={() => setEditing(null)}
