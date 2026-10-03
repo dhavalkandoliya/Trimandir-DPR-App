@@ -121,7 +121,7 @@ function ReportingGroup({ group, open, onToggle }) {
 // under their parent project: a parent with sub-sites is the group header
 // (with its completion summary), never a pending site of its own.
 function TodayOverview() {
-  const { history, projects, user, switchTab } = useApp();
+  const { history, projects, user, openDprForm, openMaterialForm } = useApp();
   const isAdmin = user && user.role === 'admin';
   const [collapsed, setCollapsed] = useState(() => new Set());
   const toggleGroup = (name) => setCollapsed(prev => {
@@ -174,8 +174,8 @@ function TodayOverview() {
           <p className="lede">{isAdmin ? 'Today across all sites, then manpower and conditions over time.' : 'Your sites today, then manpower and conditions over time.'}</p>
         </div>
         <div className="row">
-          <button type="button" className="btn primary" onClick={() => switchTab('Form', { fromTabBar: true })}><Icon name="plus" />New DPR Report</button>
-          <button type="button" className="btn" onClick={() => switchTab('Materials')}><Icon name="plus" />Log Material Consumption</button>
+          <button type="button" className="btn primary" onClick={openDprForm}><Icon name="plus" />New DPR Report</button>
+          <button type="button" className="btn" onClick={openMaterialForm}><Icon name="plus" />Log Material Consumption</button>
         </div>
       </div>
 

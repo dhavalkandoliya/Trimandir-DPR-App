@@ -6,6 +6,7 @@ import { formatQty, groupSubmissions } from '../../lib/materials/consumption';
 import { useApp } from '../app/AppContext';
 import Icon from '../ui/Icon';
 import { siteDisplayName, toYMD, formatDisplayDate } from '../../lib/report/reportModel';
+import ContractorsAdmin from './ContractorsAdmin';
 import HierarchyAdmin from './HierarchyAdmin';
 import MaterialsAdmin from './MaterialsAdmin';
 import UsersAdmin from './UsersAdmin';
@@ -90,36 +91,44 @@ function EditRequests({ pending, pendingLogs }) {
   );
 }
 
+// Same order as the sidebar's System / Admin group (AppShell).
+const SECTIONS = {
+  contractors: { tab: 'Contractors', title: 'Contractors', lede: 'Contractors and the sites they work on. The DPR and Materials forms offer only the contractors allocated to the chosen site.' },
+  users: { tab: 'Users', title: 'Users & site assignments', lede: 'Who can sign in, and which sites each supervisor sees and reports on.' },
+  sites: { tab: 'Sites', title: 'Sites', lede: 'Projects and their sub-sites. Reports are filed on sub-sites; a parent groups them.' },
+  activities: { tab: 'Activities', title: 'Activities', lede: 'The activity list offered on manpower rows.' },
+  materials: { tab: 'Material catalogue', title: 'Material catalogue', lede: 'The materials offered when logging consumption.' },
+  requests: { tab: 'Edit requests', title: 'Edit requests', lede: 'Supervisors asking to change a locked report or consumption entry.' },
+};
+
+// The section comes from the sidebar (or, on phones, the tabs below the
+// heading) via AppContext.adminSection.
 export default function AdminPanel() {
-  const { history, materialLogs } = useApp();
+  const { history, materialLogs, adminSection, switchTab } = useApp();
   const pending = useMemo(() => history.filter(h => h.editPermission === 'pending'), [history]);
   // Whole submissions with a waiting request (all their entries, for context).
   const pendingLogs = useMemo(() => groupSubmissions(materialLogs).filter(s => s.request.status === 'pending'), [materialLogs]);
   const pendingCount = pending.length + pendingLogs.length;
-  const [tab, setTab] = useState('requests');
-
-  const tabs = [
-    ['requests', `Edit requests${pendingCount ? ` (${pendingCount})` : ''}`],
-    ['users', 'Users'],
-    ['sites', 'Sites'],
-    ['activities', 'Activities'],
-    ['materials', 'Material catalogue'],
-  ];
+  const tab = SECTIONS[adminSection] ? adminSection : 'requests';
+  const sec = SECTIONS[tab];
 
   return (
     <>
       <div className="page-head">
         <div>
-          <h1>Admin</h1>
-          <p className="lede">Approve edit requests and manage people, sites, the activity list and the material catalogue. Today’s stats are on the Dashboard; log exports are on History and Materials.</p>
+          <h1>{sec.title}</h1>
+          <p className="lede">{sec.lede}</p>
         </div>
       </div>
-      <div className="tabs" role="tablist" aria-label="Admin sections">
-        {tabs.map(([k, label]) => (
-          <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{label}</button>
+      <div className="tabs admin-tabs" role="tablist" aria-label="Admin sections">
+        {Object.entries(SECTIONS).map(([k, { tab: label }]) => (
+          <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'on' : ''} onClick={() => switchTab('Admin', { section: k })}>
+            {label}{k === 'requests' && pendingCount ? ` (${pendingCount})` : ''}
+          </button>
         ))}
       </div>
       <div role="tabpanel">
+        {tab === 'contractors' && <ContractorsAdmin />}
         {tab === 'requests' && <EditRequests pending={pending} pendingLogs={pendingLogs} />}
         {tab === 'users' && <UsersAdmin />}
         {tab === 'sites' && <HierarchyAdmin kind="projects" />}

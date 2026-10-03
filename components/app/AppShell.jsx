@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import AnalyticsDashboard from '../dashboard/AnalyticsDashboard';
 import AdminPanel from '../admin/AdminPanel';
-import DprEntryForm from '../dpr/DprEntryForm';
 import HistoryScreen from '../history/HistoryScreen';
 import MaterialsScreen from '../materials/MaterialsScreen';
 import ErrorBoundary from '../ui/ErrorBoundary';
@@ -14,12 +13,25 @@ import { useApp } from './AppContext';
 import LoginScreen from './LoginScreen';
 import Toast from './Toast';
 
+// Pages. DPR and Materials each hold their entry form and their log.
 const TABS = [
   { id: 'Dashboard', label: 'Dashboard', short: 'Dashboard', icon: 'dashboard' },
-  { id: 'Form', label: 'New report', short: 'Report', icon: 'entry' },
-  { id: 'History', label: 'History', short: 'History', icon: 'history' },
+  { id: 'DPR', label: 'DPR', short: 'DPR', icon: 'entry' },
   { id: 'Materials', label: 'Materials', short: 'Materials', icon: 'materials' },
   { id: 'Admin', label: 'Admin', short: 'Admin', icon: 'admin', adminOnly: true },
+];
+
+// Sidebar: Operations for everyone, then each Admin section as its own
+// item (admins only). The phone's bottom bar has the four pages instead;
+// the Admin page shows its sections as tabs there.
+const OPERATIONS = TABS.filter(t => !t.adminOnly);
+const SYSTEM = [
+  { section: 'contractors', label: 'Contractors', icon: 'hardhat' },
+  { section: 'users', label: 'Users & Site Assignments', icon: 'users' },
+  { section: 'sites', label: 'Sites', icon: 'site' },
+  { section: 'activities', label: 'Activities', icon: 'list' },
+  { section: 'materials', label: 'Material Catalogue', icon: 'box' },
+  { section: 'requests', label: 'Edit Requests', icon: 'inbox' },
 ];
 
 function todayYMD() {
@@ -101,7 +113,7 @@ function UserMenu() {
 }
 
 export default function AppShell() {
-  const { authStatus, user, theme, toggleTheme, activeTab, switchTab, history, materialLogs } = useApp();
+  const { authStatus, user, theme, toggleTheme, activeTab, adminSection, switchTab, history, materialLogs } = useApp();
   const signedIn = authStatus === 'signedIn' && user;
   const isAdmin = signedIn && user.role === 'admin';
   const tabs = TABS.filter(t => !t.adminOnly || isAdmin);
@@ -117,8 +129,13 @@ export default function AppShell() {
 
   useEffect(() => { window.scrollTo(0, 0); }, [activeTab]);
 
-  const go = (id) => switchTab(id, { fromTabBar: true });
-  const count = (t) => (t.id === 'Admin' && pendingEdits ? <span className="count" aria-label={`${pendingEdits} pending`}>{pendingEdits}</span> : null);
+  const go = (id) => switchTab(id);
+  const badge = (show) => (show && pendingEdits ? <span className="count" aria-label={`${pendingEdits} pending`}>{pendingEdits}</span> : null);
+  const navItem = (key, on, onClick, icon, label, count) => (
+    <button key={key} type="button" className={on ? 'on' : ''} aria-current={on ? 'page' : undefined} onClick={onClick}>
+      <Icon name={icon} /><span>{label}</span>{count}
+    </button>
+  );
 
   return (
     <>
@@ -134,11 +151,15 @@ export default function AppShell() {
                 <div className="brand-sub">Construction site reporting</div>
               </div>
               <nav className="nav" aria-label="Main">
-                {tabs.map(t => (
-                  <button key={t.id} type="button" className={activeTab === t.id ? 'on' : ''} aria-current={activeTab === t.id ? 'page' : undefined} onClick={() => go(t.id)}>
-                    <Icon name={t.icon} /><span>{t.label}</span>{count(t)}
-                  </button>
-                ))}
+                <div className="nav-group">Operations</div>
+                {OPERATIONS.map(t => navItem(t.id, activeTab === t.id, () => go(t.id), t.icon, t.label))}
+                {isAdmin && (
+                  <>
+                    <div className="nav-group">System / Admin</div>
+                    {SYSTEM.map(a => navItem(a.section, activeTab === 'Admin' && adminSection === a.section,
+                      () => switchTab('Admin', { section: a.section }), a.icon, a.label, badge(a.section === 'requests')))}
+                  </>
+                )}
               </nav>
               <div className="side-foot">
                 {filedToday === 1 ? '1 site reported today' : `${filedToday} sites reported today`}
@@ -158,8 +179,7 @@ export default function AppShell() {
 
               <main className="content" id="view" tabIndex={-1}>
                 <TabPage id="Dashboard"><AnalyticsDashboard /></TabPage>
-                <TabPage id="Form"><DprEntryForm /></TabPage>
-                <TabPage id="History"><HistoryScreen /></TabPage>
+                <TabPage id="DPR"><HistoryScreen /></TabPage>
                 <TabPage id="Materials"><MaterialsScreen /></TabPage>
                 {isAdmin && <TabPage id="Admin"><AdminPanel /></TabPage>}
               </main>
@@ -167,11 +187,7 @@ export default function AppShell() {
           </div>
 
           <nav className="bottom-nav" aria-label="Main" style={{ gridTemplateColumns: `repeat(${tabs.length},1fr)` }}>
-            {tabs.map(t => (
-              <button key={t.id} type="button" className={activeTab === t.id ? 'on' : ''} aria-current={activeTab === t.id ? 'page' : undefined} onClick={() => go(t.id)}>
-                <Icon name={t.icon} /><span>{t.short}</span>{count(t)}
-              </button>
-            ))}
+            {tabs.map(t => navItem(t.id, activeTab === t.id, () => go(t.id), t.icon, t.short, badge(t.id === 'Admin')))}
           </nav>
         </>
       )}

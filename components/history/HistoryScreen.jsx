@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useApp } from '../app/AppContext';
 import ExecutiveReport, { ConditionBadge } from '../report/ExecutiveReport';
 import ReportActionBar from '../report/ReportActionBar';
+import DprEntryForm from '../dpr/DprEntryForm';
 import Dialog from '../ui/Dialog';
 import ExportButtons from '../ui/ExportButtons';
 import { exportDprLogCsv, exportDprLogExcel, exportDprLogPdf } from '../../lib/exports/logExports';
@@ -128,8 +129,10 @@ function HistoryRow({ item, projects, user, onView, onAction }) {
   );
 }
 
-// Report history: filters, newest-first list, per-record actions and the
-// report viewer (paper card + exports).
+// The DPR page: "+ New DPR Report" opens the entry form in a section above
+// the log (it stays mounted when closed, so a draft or an edit survives);
+// below it, the report log — filters, newest-first list, per-record actions
+// and the report viewer (paper card + exports).
 export default function HistoryScreen() {
   const app = useApp();
   const [filters, setFilters] = useState(EMPTY_FILTERS);
@@ -138,7 +141,7 @@ export default function HistoryScreen() {
   const closeViewer = useCallback(() => setViewing(null), []);
 
   // Leaving the tab closes the viewer (it's portalled to <body>).
-  useEffect(() => { if (app.activeTab !== 'History') closeViewer(); }, [app.activeTab, closeViewer]);
+  useEffect(() => { if (app.activeTab !== 'DPR') closeViewer(); }, [app.activeTab, closeViewer]);
 
   const data = useMemo(() => ({
     history: app.history, projects: app.projects, users: app.users, materialLogs: app.materialLogs,
@@ -205,7 +208,7 @@ export default function HistoryScreen() {
     else if (data.status === 'error') {
       list = <div className="list"><div className="empty"><h3>Couldn’t load reports</h3><p className="muted">Check your connection and try again.</p><button type="button" className="btn" onClick={app.reloadHistory}><Icon name="refresh" />Retry</button></div></div>;
     } else {
-      list = <div className="list"><div className="empty"><h3>No reports yet</h3><p className="muted">Reports appear here once they’re submitted from the New report tab.</p></div></div>;
+      list = <div className="list"><div className="empty"><h3>No reports yet</h3><p className="muted">Use + New DPR Report above to file the first one.</p></div></div>;
     }
   } else if (!filtered.length) {
     list = <div className="list"><div className="empty"><h3>No reports match these filters</h3><p className="muted">Clear a filter or widen the date range.</p><button type="button" className="btn" onClick={clearFilters}>Clear filters</button></div></div>;
@@ -235,10 +238,11 @@ export default function HistoryScreen() {
     <>
       <div className="page-head">
         <div>
-          <h1>Report history</h1>
-          <p className="lede">Every daily report filed across your sites. Open one to view, share or edit.</p>
+          <h1>Daily progress reports</h1>
+          <p className="lede">File today’s report, and find every report filed across your sites. Open one to view, share or edit.</p>
         </div>
         <div className="row">
+          <button type="button" className="btn primary" onClick={app.openDprForm} aria-expanded={app.dprFormOpen}><Icon name="plus" />New DPR Report</button>
           <ExportButtons
             noun="report"
             count={filtered.length}
@@ -254,6 +258,13 @@ export default function HistoryScreen() {
         </div>
       </div>
 
+      <section className="form-drawer" aria-label="DPR entry form" hidden={!app.dprFormOpen}>
+        <DprEntryForm onClose={app.closeDprForm} />
+      </section>
+
+      <div className="list-bar log-head">
+        <h2 className="panel-title">Report log</h2>
+      </div>
       <div className="filters five">
         <label className="field">
           <span>Site</span>

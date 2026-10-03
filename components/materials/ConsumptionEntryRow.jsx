@@ -9,7 +9,31 @@ import Icon from '../ui/Icon';
 // One consumption entry: Material · Qty · Unit, then Ownership ·
 // Contractor · Output / Work Done (qty + unit), then Remarks. Shared by the
 // Materials screen and the Entry form's materials section.
-export default function ConsumptionEntryRow({ index, row, materials, contractorSuggestions = [], onChange, onRemove, canRemove = true }) {
+//
+// contractors: names of the contractors allocated to the chosen site
+// (lib/sites.js contractorsForSite); null while no site is chosen.
+// Contractor picker: the site's allocated contractors only. A value that
+// isn't one of them (an older entry, or a site change) stays visible and
+// marked, so it's never silently dropped. compact: no visible label (a
+// manpower row), so the empty choice names the field instead.
+export function ContractorSelect({ value, contractors, required = false, onChange, compact = false }) {
+  const list = contractors || [];
+  const placeholder = !contractors ? 'Choose a site first'
+    : !list.length ? 'No contractors on this site'
+    : required ? 'Choose contractor' : compact ? 'Contractor — none' : 'None';
+  return (
+    <label className={`field${compact ? ' compact' : ''}`}>
+      <span className={compact ? 'sr' : undefined}>Contractor {required ? '' : <em>(optional)</em>}</span>
+      <select className="select" value={value || ''} onChange={(e) => onChange(e.target.value)} aria-required={required} disabled={!contractors && !value}>
+        <option value="">{placeholder}</option>
+        {list.map(n => <option key={n} value={n}>{n}</option>)}
+        {value && !list.includes(value) && <option value={value}>{value} (not on this site)</option>}
+      </select>
+    </label>
+  );
+}
+
+export default function ConsumptionEntryRow({ index, row, materials, contractors = null, onChange, onRemove, canRemove = true }) {
   const uid = useId();
   const ownership = normalizeOwnership(row.ownership);
   const isContractor = ownership === 'Contractor';
@@ -66,19 +90,7 @@ export default function ConsumptionEntryRow({ index, row, materials, contractorS
             {OWNERSHIP_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
           </select>
         </label>
-        <label className="field">
-          <span>Contractor {isContractor ? '' : <em>(optional)</em>}</span>
-          <input
-            className="input"
-            list={`${uid}-cons`}
-            value={row.contractor}
-            onChange={(e) => update({ contractor: e.target.value })}
-            placeholder={isContractor ? 'Contractor name' : 'Who used it'}
-            aria-required={isContractor}
-            autoComplete="off"
-          />
-          <datalist id={`${uid}-cons`}>{contractorSuggestions.map(c => <option key={c} value={c} />)}</datalist>
-        </label>
+        <ContractorSelect value={row.contractor} contractors={contractors} required={isContractor} onChange={(contractor) => update({ contractor })} />
         <label className="field">
           <span>Output <em>(optional)</em></span>
           <input className="input" type="number" min="0" step="any" inputMode="decimal" value={row.outputQty} onChange={(e) => update({ outputQty: e.target.value })} placeholder="e.g. 62" />

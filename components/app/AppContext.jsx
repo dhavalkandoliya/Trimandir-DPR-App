@@ -21,18 +21,23 @@ export const useApp = () => {
 
 export const OFFLINE_QUEUE_KEY = 'dprOfflineQ';
 const EDIT_WINDOW_MS = 15 * 60 * 1000;
-const EMPTY_MASTER = { projects: [], activities: [], materials: [], users: [] };
+const EMPTY_MASTER = { projects: [], activities: [], materials: [], users: [], contractors: [] };
 
-// Tabs ↔ URL hash (#/dashboard …), so a reload stays on the same screen.
-// Signing in always lands on the Dashboard.
+// Tabs ↔ URL hash (#/dashboard, #/dpr, #/admin/users …), so a reload stays
+// on the same screen. Signing in always lands on the Dashboard.
+// DPR and Materials each hold their entry form and their log on one page.
 export const DEFAULT_TAB = 'Dashboard';
-const TAB_SLUGS = { Dashboard: 'dashboard', Form: 'report', History: 'history', Materials: 'materials', Admin: 'admin' };
-function tabFromHash(user) {
-  if (typeof window === 'undefined') return DEFAULT_TAB;
-  const slug = window.location.hash.replace(/^#\/?/, '').split(/[?/]/)[0].toLowerCase();
-  const tab = Object.keys(TAB_SLUGS).find(t => TAB_SLUGS[t] === slug);
-  if (!tab || (tab === 'Admin' && (!user || user.role !== 'admin'))) return DEFAULT_TAB;
-  return tab;
+const TAB_SLUGS = { Dashboard: 'dashboard', DPR: 'dpr', Materials: 'materials', Admin: 'admin' };
+const LEGACY_SLUGS = { report: 'DPR', history: 'DPR' }; // the old separate New report / History tabs
+export const ADMIN_SECTIONS = ['contractors', 'users', 'sites', 'activities', 'materials', 'requests'];
+export const DEFAULT_ADMIN_SECTION = 'requests';
+function routeFromHash(user) {
+  const fallback = { tab: DEFAULT_TAB, section: DEFAULT_ADMIN_SECTION };
+  if (typeof window === 'undefined') return fallback;
+  const [slug = '', sub = ''] = window.location.hash.replace(/^#\/?/, '').toLowerCase().split(/[?/]/);
+  const tab = Object.keys(TAB_SLUGS).find(t => TAB_SLUGS[t] === slug) || LEGACY_SLUGS[slug];
+  if (!tab || (tab === 'Admin' && (!user || user.role !== 'admin'))) return fallback;
+  return { tab, section: ADMIN_SECTIONS.includes(sub) ? sub : DEFAULT_ADMIN_SECTION, openForm: slug === 'report' };
 }
 
 export function recordKey(item) {
@@ -70,6 +75,10 @@ export function AppProvider({ children }) {
   const [materialLogsStatus, setMaterialLogsStatus] = useState('idle');
 
   const [activeTab, setActiveTab] = useState(DEFAULT_TAB);
+  const [adminSection, setAdminSection] = useState(DEFAULT_ADMIN_SECTION);
+  // The entry form on the DPR / Materials page: open (shown above the log) or closed.
+  const [dprFormOpen, setDprFormOpen] = useState(false);
+  const [materialFormOpen, setMaterialFormOpen] = useState(false);
   const [toast, setToast] = useState(null); // { id, msg, action?: { label, onClick } }
   const [entryCommand, setEntryCommand] = useState(null); // { seq, cmd }
   const [theme, setTheme] = useState('light');
@@ -114,6 +123,7 @@ export function AppProvider({ children }) {
           activities: Array.isArray(res.activities) ? res.activities : prev.activities,
           materials: Array.isArray(res.materials) ? res.materials : prev.materials,
           users: Array.isArray(res.users) ? res.users : prev.users,
+          contractors: Array.isArray(res.contractors) ? res.contractors : prev.contractors,
         };
         return merged;
       });
@@ -158,7 +168,11 @@ export function AppProvider({ children }) {
   const beginSession = useCallback((u, { restored = false } = {}) => {
     epoch.current += 1;
     setUser(u);
-    setActiveTab(restored ? tabFromHash(u) : DEFAULT_TAB);
+    const route = restored ? routeFromHash(u) : { tab: DEFAULT_TAB, section: DEFAULT_ADMIN_SECTION };
+    setActiveTab(route.tab);
+    setAdminSection(route.section);
+    setDprFormOpen(!!route.openForm);
+    setMaterialFormOpen(false);
     setAuthMessage('');
     setAuthStatus('signedIn');
   }, []);
@@ -285,16 +299,35 @@ export function AppProvider({ children }) {
   // ── Tabs & cross-screen actions ─────────────────────────────────────
   useEffect(() => {
     if (authStatus !== 'signedIn') return;
-    const hash = `#/${TAB_SLUGS[activeTab] || TAB_SLUGS[DEFAULT_TAB]}`;
+    const slug = TAB_SLUGS[activeTab] || TAB_SLUGS[DEFAULT_TAB];
+    const hash = `#/${slug}${activeTab === 'Admin' ? `/${adminSection}` : ''}`;
     if (window.location.hash !== hash) window.history.replaceState(null, '', hash);
-  }, [activeTab, authStatus]);
+  }, [activeTab, adminSection, authStatus]);
 
-  const switchTab = useCallback((tab, { fromTabBar = false } = {}) => {
+  // section: which Admin section to show (Admin only).
+  const switchTab = useCallback((tab, { section } = {}) => {
     setActiveTab(tab);
-    // Clicking "New DPR" restores the draft (or a blank form), leaving any edit.
-    if (tab === 'Form' && fromTabBar) sendEntryCommand({ type: 'init' });
+    if (tab === 'Admin' && section) setAdminSection(section);
     if (tab === 'Materials') reloadMaterialLogs();
-  }, [sendEntryCommand, reloadMaterialLogs]);
+  }, [reloadMaterialLogs]);
+
+  // "+ New DPR Report": open the form on the DPR page with the draft (or a
+  // blank form), leaving any edit in progress.
+  const openDprForm = useCallback(() => {
+    setActiveTab('DPR');
+    setDprFormOpen(true);
+    sendEntryCommand({ type: 'init' });
+    if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [sendEntryCommand]);
+  const closeDprForm = useCallback(() => setDprFormOpen(false), []);
+
+  const openMaterialForm = useCallback(() => {
+    setActiveTab('Materials');
+    setMaterialFormOpen(true);
+    reloadMaterialLogs();
+    if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [reloadMaterialLogs]);
+  const closeMaterialForm = useCallback(() => setMaterialFormOpen(false), []);
 
   const canEdit = useCallback((item) => {
     if (!user) return { ok: false, reason: '⚠️ Please sign in first' };
@@ -309,8 +342,10 @@ export function AppProvider({ children }) {
     const check = canEdit(item); // the server enforces the same rule
     if (!check.ok) { showToast(check.reason); return; }
     sendEntryCommand({ type: 'edit', record: item });
-    setActiveTab('Form');
-    showToast('✏️ Loaded for editing — click Update DPR when done');
+    setActiveTab('DPR');
+    setDprFormOpen(true);
+    if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
+    showToast('✏️ Loaded for editing — click Save changes when done');
   }, [canEdit, sendEntryCommand, showToast]);
 
   const requestEdit = useCallback(async (item) => {
@@ -351,16 +386,19 @@ export function AppProvider({ children }) {
     user, authStatus, authMessage, login, logout,
     // data
     projects: master.projects, activities: master.activities, materials: master.materials, users: master.users,
+    contractors: master.contractors || [],
     history, historyStatus, materialLogs, materialLogsStatus,
     reloadMaster, reloadHistory, reloadMaterialLogs,
     // ui
-    activeTab, switchTab, toast, showToast, showActionToast, hideToast, theme, toggleTheme, online,
+    activeTab, switchTab, adminSection, toast, showToast, showActionToast, hideToast, theme, toggleTheme, online,
     entryCommand, sendEntryCommand,
+    dprFormOpen, openDprForm, closeDprForm, materialFormOpen, openMaterialForm, closeMaterialForm,
     // DPR actions
     canEdit, editDpr, requestEdit, approveEdit, deleteDpr, syncOfflineQueue,
   }), [user, authStatus, authMessage, login, logout, master, history, historyStatus, materialLogs, materialLogsStatus,
-    reloadMaster, reloadHistory, reloadMaterialLogs, activeTab, switchTab, toast, showToast, showActionToast, hideToast,
-    theme, toggleTheme, online, entryCommand, sendEntryCommand, canEdit, editDpr, requestEdit, approveEdit, deleteDpr, syncOfflineQueue]);
+    reloadMaster, reloadHistory, reloadMaterialLogs, activeTab, switchTab, adminSection, toast, showToast, showActionToast, hideToast,
+    theme, toggleTheme, online, entryCommand, sendEntryCommand,
+    dprFormOpen, openDprForm, closeDprForm, materialFormOpen, openMaterialForm, closeMaterialForm, canEdit, editDpr, requestEdit, approveEdit, deleteDpr, syncOfflineQueue]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }

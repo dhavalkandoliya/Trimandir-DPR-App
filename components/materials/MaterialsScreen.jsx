@@ -12,6 +12,7 @@ import { exportMaterialLogCsv, exportMaterialLogExcel } from '../../lib/exports/
 import Icon from '../ui/Icon';
 import SiteOptions from '../ui/SiteOptions';
 import { siteDisplayName } from '../../lib/report/reportModel';
+import { contractorsForSite } from '../../lib/sites';
 import { buildMaterialReport } from '../../lib/materials/materialReport';
 import {
   OWNERSHIP_OPTIONS, batchKey, emptyEntryRow, entryRowFrom, entryRowHasContent, filterLogs, formatOutput, formatQty,
@@ -46,14 +47,14 @@ export function OwnershipBadge({ ownership }) {
 }
 
 // After a save: the day's consumption report and its export actions.
-function SavedView({ result, onBack }) {
+function SavedView({ result, onBack, onClose }) {
   const { report, queued, count } = result;
   return (
     <>
       <div className="success-hero">
         <div className={`tick${queued ? ' warn' : ''}`}><Icon name="check" /></div>
         <div>
-          <h1>{queued ? 'Consumption saved offline' : 'Consumption saved'}</h1>
+          <h2 className="form-title">{queued ? 'Consumption saved offline' : 'Consumption saved'}</h2>
           <p className="lede">
             {count} entr{count === 1 ? 'y' : 'ies'} for {report.siteDisplay}, {report.displayDate}.
             {queued ? ' They sync automatically when you’re back online.' : ` The report below covers ${count === 1 ? 'this entry' : 'these entries'} only.`}
@@ -68,6 +69,7 @@ function SavedView({ result, onBack }) {
             <ReportActionBar report={report} layout="list" />
           </section>
           <button type="button" className="btn ghost" onClick={onBack}><Icon name="plus" />Log more consumption</button>
+          <button type="button" className="btn ghost" onClick={() => { onBack(); onClose(); }}>Done — back to the log</button>
         </div>
       </div>
     </>
@@ -76,7 +78,8 @@ function SavedView({ result, onBack }) {
 
 // Edit one submission: every material saved with it, which can be changed,
 // removed or added to. Date, site and logger stay as logged.
-function EditSubmissionDialog({ submission, materials, contractorSuggestions, onClose, onSaved }) {
+// contractors: the submission's site's contractors (its own older values stay selectable).
+function EditSubmissionDialog({ submission, materials, contractors, onClose, onSaved }) {
   const { showToast } = useApp();
   const [rows, setRows] = useState(() => submission.entries.map(e => ({ ...entryRowFrom(e), id: e.id })));
   const [busy, setBusy] = useState(false);
@@ -116,7 +119,7 @@ function EditSubmissionDialog({ submission, materials, contractorSuggestions, on
           index={i}
           row={r}
           materials={materials}
-          contractorSuggestions={contractorSuggestions}
+          contractors={contractors}
           onChange={(next) => updateRow(r.key, next)}
           onRemove={() => removeRow(r.key)}
           canRemove={rows.length > 1}
@@ -162,6 +165,7 @@ export default function MaterialsScreen() {
   // Leaving the tab closes any open dialog (they're portalled to <body>).
   useEffect(() => { if (app.activeTab !== 'Materials') { setViewing(null); setEditing(null); } }, [app.activeTab]);
   useEffect(() => { if (saved) window.scrollTo({ top: 0, behavior: 'smooth' }); }, [saved]);
+  useEffect(() => { if (!app.materialFormOpen) setSaved(null); }, [app.materialFormOpen]);
 
   const data = useMemo(() => ({
     logs: app.materialLogs, status: app.materialLogsStatus, materials: app.materials, projects: app.projects,
@@ -172,10 +176,9 @@ export default function MaterialsScreen() {
     [data.materials]
   );
 
-  const contractorSuggestions = useMemo(
-    () => [...new Set(data.logs.map(l => String(l.contractor || '').trim()).filter(Boolean))].sort(),
-    [data.logs]
-  );
+  // Contractors allocated to a site (lib/sites.js); null while no site is chosen.
+  const contractorsAt = (s) => (s ? contractorsForSite(app.contractors, data.projects, s).map(c => c.name) : null);
+  const siteContractors = useMemo(() => contractorsAt(site), [site, app.contractors, data.projects]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const isFiltered = Object.values(filters).some(Boolean);
   const filteredLogs = useMemo(() => sortLogsNewestFirst(filterLogs(data.logs, filters)), [data.logs, filters]);
@@ -221,6 +224,8 @@ export default function MaterialsScreen() {
     if (invalid) { app.showToast(invalid); return; }
     const materialsUsed = serializeEntryRows(rows);
     if (!materialsUsed.length) { app.showToast('⚠️ Add at least one consumption entry'); return; }
+    const stray = materialsUsed.map(m => m.contractor).find(c => c && !(siteContractors || []).includes(c));
+    if (stray) { app.showToast(`⚠️ ${stray} isn't allocated to ${site} — pick one of its contractors`); return; }
 
     // One submission = one batch, so its report is the same one the eye
     // button opens from any of its log rows later.
@@ -280,8 +285,6 @@ export default function MaterialsScreen() {
     run({ action: 'requestMaterialLogChange', ids: sub.entries.map(e => e.id), type }, `📤 ${type === 'delete' ? 'Delete' : 'Edit'} request sent to admin`);
   };
 
-  if (saved) return <SavedView result={saved} onBack={() => setSaved(null)} />;
-
   const excluded = counts.Contractor + counts.Other;
   const loading = !data.logs.length && (data.status === 'loading' || data.status === 'idle');
 
@@ -292,7 +295,7 @@ export default function MaterialsScreen() {
     } else if (data.status === 'error') {
       logBody = <div className="list"><div className="empty"><h3>Couldn’t load consumption entries</h3><p className="muted">Check your connection and try again.</p><button type="button" className="btn" onClick={app.reloadMaterialLogs}><Icon name="refresh" />Retry</button></div></div>;
     } else {
-      logBody = <div className="list"><div className="empty"><h3>No consumption logged yet</h3><p className="muted">Use the form above to log today’s materials.</p></div></div>;
+      logBody = <div className="list"><div className="empty"><h3>No consumption logged yet</h3><p className="muted">Use + Log Material Consumption above to log today’s materials.</p></div></div>;
     }
   } else if (!filteredSubs.length) {
     logBody = <div className="list"><div className="empty"><h3>No entries match these filters</h3><p className="muted">Clear a filter or widen the date range.</p><button type="button" className="btn" onClick={() => setFilters(EMPTY_FILTERS)}>Clear filters</button></div></div>;
@@ -367,49 +370,109 @@ export default function MaterialsScreen() {
       <div className="page-head">
         <div>
           <h1>Material consumption</h1>
-          <p className="lede">Log what each site used. Only Trust-supplied material counts toward the totals; contractor and other entries are kept for reference.</p>
+          <p className="lede">Log what each site used, and find every entry logged. Only Trust-supplied material counts toward the totals; contractor and other entries are kept for reference.</p>
         </div>
-        <button type="button" className="btn" onClick={app.reloadMaterialLogs} disabled={data.status === 'loading'}>
-          <Icon name="refresh" />{data.status === 'loading' ? 'Refreshing…' : 'Refresh'}
-        </button>
+        <div className="row">
+          <button type="button" className="btn primary" onClick={app.openMaterialForm} aria-expanded={app.materialFormOpen}><Icon name="plus" />Log Material Consumption</button>
+          <ExportButtons
+            noun="entry"
+            plural="entries"
+            count={filteredLogs.length}
+            formats={[
+              { kind: 'csv', label: 'CSV', run: () => exportMaterialLogCsv(filteredLogs) },
+              { kind: 'excel', label: 'Excel', run: () => exportMaterialLogExcel(filteredLogs) },
+            ]}
+          />
+          <button type="button" className="btn ghost" onClick={app.reloadMaterialLogs} disabled={data.status === 'loading'}>
+            <Icon name="refresh" />{data.status === 'loading' ? 'Refreshing…' : 'Refresh'}
+          </button>
+        </div>
       </div>
 
-      <div className="mat-grid">
-        <section className="panel mat-panel">
-          <h2 className="panel-title">Log consumption</h2>
-          <div className="grid2" style={{ marginBottom: 6 }}>
-            <label className="field">
-              <span>Date</span>
-              <input className="input" type="date" value={date} max={getLocalTodayYMD()} onChange={(e) => setDate(e.target.value)} />
-            </label>
-            <label className="field">
-              <span>Site</span>
-              <select className="select" value={site} onChange={(e) => setSite(e.target.value)}>
-                <SiteOptions projects={data.projects} current={site} />
-              </select>
-            </label>
-          </div>
-          {rows.map((r, i) => (
-            <ConsumptionEntryRow
-              key={r.key}
-              index={i}
-              row={r}
-              materials={activeMaterials}
-              contractorSuggestions={contractorSuggestions}
-              onChange={(next) => updateRow(r.key, next)}
-              onRemove={() => removeRow(r.key)}
-              canRemove={rows.length > 1}
-            />
-          ))}
-          <button type="button" className="btn add mat" onClick={() => setRows(rs => [...rs, emptyEntryRow()])}><Icon name="plus" />Add material</button>
-          <div className="row between" style={{ marginTop: 16 }}>
-            <span className="muted small">{ready ? `${ready} entr${ready === 1 ? 'y' : 'ies'} ready to save` : 'Add at least one material with a quantity'}</span>
-            <button type="button" className="btn primary" onClick={save} disabled={saving || !rows.some(entryRowHasContent)}>
-              <Icon name="check" />{saving ? 'Saving…' : 'Save consumption'}
-            </button>
-          </div>
-        </section>
+      <section className="form-drawer" aria-label="Material consumption entry form" hidden={!app.materialFormOpen}>
+        {saved ? <SavedView result={saved} onBack={() => setSaved(null)} onClose={app.closeMaterialForm} /> : (
+          <>
+            <div className="page-head">
+              <div>
+                <h2 className="form-title">Log consumption</h2>
+                <p className="lede">One submission per site and day. Contractors are limited to the ones allocated to the chosen site.</p>
+              </div>
+              <button type="button" className="icon-btn" onClick={app.closeMaterialForm} aria-label="Close the form" title="Close — entries you’ve typed are kept"><Icon name="x" /></button>
+            </div>
+            <section className="panel mat-panel" style={{ marginBottom: 16 }}>
+              <div className="grid2" style={{ marginBottom: 6 }}>
+                <label className="field">
+                  <span>Date</span>
+                  <input className="input" type="date" value={date} max={getLocalTodayYMD()} onChange={(e) => setDate(e.target.value)} />
+                </label>
+                <label className="field">
+                  <span>Site</span>
+                  <select className="select" value={site} onChange={(e) => setSite(e.target.value)}>
+                    <SiteOptions projects={data.projects} current={site} />
+                  </select>
+                </label>
+              </div>
+              {rows.map((r, i) => (
+                <ConsumptionEntryRow
+                  key={r.key}
+                  index={i}
+                  row={r}
+                  materials={activeMaterials}
+                  contractors={siteContractors}
+                  onChange={(next) => updateRow(r.key, next)}
+                  onRemove={() => removeRow(r.key)}
+                  canRemove={rows.length > 1}
+                />
+              ))}
+              <button type="button" className="btn add mat" onClick={() => setRows(rs => [...rs, emptyEntryRow()])}><Icon name="plus" />Add material</button>
+              <div className="row between" style={{ marginTop: 16 }}>
+                <span className="muted small">{ready ? `${ready} entr${ready === 1 ? 'y' : 'ies'} ready to save` : 'Add at least one material with a quantity'}</span>
+                <button type="button" className="btn primary" onClick={save} disabled={saving || !rows.some(entryRowHasContent)}>
+                  <Icon name="check" />{saving ? 'Saving…' : 'Save consumption'}
+                </button>
+              </div>
+            </section>
+          </>
+        )}
+      </section>
 
+      <section>
+        <div className="list-bar log-head">
+          <div>
+            <h2 className="panel-title">Consumption log</h2>
+            <p className="hint">{isFiltered ? `${filteredSubs.length} of ${submissions.length} submissions have matching entries — exports cover the ${filteredLogs.length} matching entries.` : `${submissions.length} submissions, ${data.logs.length} entries. Exports list each entry shown by the filters.`}</p>
+          </div>
+          {isFiltered && <button type="button" className="btn sm ghost" onClick={() => { setFilters(EMPTY_FILTERS); setVisibleLogs(LOG_PAGE); }}><Icon name="x" />Clear filters</button>}
+        </div>
+        <div className="filters five">
+          <label className="field">
+            <span>Site</span>
+            <select className="select" value={filters.site} onChange={setFilter('site')}>
+              <option value="">All sites</option>
+              {logSites.map(s => <option key={s} value={s}>{siteDisplayName(s, data.projects)}</option>)}
+            </select>
+          </label>
+          <label className="field">
+            <span>Material</span>
+            <select className="select" value={filters.material} onChange={setFilter('material')}>
+              <option value="">All materials</option>
+              {logMaterials.map(n => <option key={n} value={n}>{n}</option>)}
+            </select>
+          </label>
+          <label className="field">
+            <span>Ownership</span>
+            <select className="select" value={filters.ownership} onChange={setFilter('ownership')}>
+              <option value="">All</option>
+              {OWNERSHIP_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+            </select>
+          </label>
+          <label className="field"><span>From</span><input className="input" type="date" value={filters.start} onChange={setFilter('start')} /></label>
+          <label className="field"><span>To</span><input className="input" type="date" value={filters.end} onChange={setFilter('end')} /></label>
+        </div>
+        {logBody}
+      </section>
+
+      <div className="section-gap">
         <section className="panel">
           <div className="panel-head">
             <h2 className="panel-title">Trust material totals</h2>
@@ -442,53 +505,6 @@ export default function MaterialsScreen() {
         </section>
       </div>
 
-      <section className="section-gap">
-        <div className="page-head" style={{ marginBottom: 12 }}>
-          <div>
-            <h2 className="panel-title">Consumption log</h2>
-            <p className="hint">{isFiltered ? `${filteredSubs.length} of ${submissions.length} submissions have matching entries — exports cover the ${filteredLogs.length} matching entries.` : `${submissions.length} submissions, ${data.logs.length} entries. Exports list each entry shown by the filters.`}</p>
-          </div>
-          <div className="row">
-            {isFiltered && <button type="button" className="btn ghost" onClick={() => { setFilters(EMPTY_FILTERS); setVisibleLogs(LOG_PAGE); }}><Icon name="x" />Clear filters</button>}
-            <ExportButtons
-              noun="entry"
-              plural="entries"
-              count={filteredLogs.length}
-              formats={[
-                { kind: 'csv', label: 'CSV', run: () => exportMaterialLogCsv(filteredLogs) },
-                { kind: 'excel', label: 'Excel', run: () => exportMaterialLogExcel(filteredLogs) },
-              ]}
-            />
-          </div>
-        </div>
-        <div className="filters five">
-          <label className="field">
-            <span>Site</span>
-            <select className="select" value={filters.site} onChange={setFilter('site')}>
-              <option value="">All sites</option>
-              {logSites.map(s => <option key={s} value={s}>{siteDisplayName(s, data.projects)}</option>)}
-            </select>
-          </label>
-          <label className="field">
-            <span>Material</span>
-            <select className="select" value={filters.material} onChange={setFilter('material')}>
-              <option value="">All materials</option>
-              {logMaterials.map(n => <option key={n} value={n}>{n}</option>)}
-            </select>
-          </label>
-          <label className="field">
-            <span>Ownership</span>
-            <select className="select" value={filters.ownership} onChange={setFilter('ownership')}>
-              <option value="">All</option>
-              {OWNERSHIP_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
-            </select>
-          </label>
-          <label className="field"><span>From</span><input className="input" type="date" value={filters.start} onChange={setFilter('start')} /></label>
-          <label className="field"><span>To</span><input className="input" type="date" value={filters.end} onChange={setFilter('end')} /></label>
-        </div>
-        {logBody}
-      </section>
-
       {viewReport && (
         <Dialog title={`${viewReport.entries.length > 1 ? `${viewReport.entries.length} materials` : viewing.entries[0].material_name} — ${viewReport.siteDisplay}, ${shortDate(viewReport.date)}`} paper onClose={() => setViewing(null)} footer={<ReportActionBar report={viewReport} />}>
           <MaterialReport report={viewReport} />
@@ -499,7 +515,7 @@ export default function MaterialsScreen() {
           key={editing.key}
           submission={editing}
           materials={activeMaterials}
-          contractorSuggestions={contractorSuggestions}
+          contractors={contractorsAt(editing.site)}
           onClose={() => setEditing(null)}
           onSaved={() => { setEditing(null); app.reloadMaterialLogs(); }}
         />

@@ -10,7 +10,8 @@ import SiteOptions from '../ui/SiteOptions';
 import {
   CONDITIONS, buildReport, consumptionForRecord, formatDisplayDate, recordActivities,
 } from '../../lib/report/reportModel';
-import ConsumptionEntryRow from '../materials/ConsumptionEntryRow';
+import ConsumptionEntryRow, { ContractorSelect } from '../materials/ConsumptionEntryRow';
+import { contractorsForSite } from '../../lib/sites';
 import {
   emptyEntryRow, entryRowFrom, entryRowHasContent, serializeEntryRows, validateEntryRows,
 } from '../../lib/materials/consumption';
@@ -44,7 +45,7 @@ let _keySeq = 0;
 const nextKey = () => `r${++_keySeq}`;
 
 function emptyActivityRow() {
-  return { key: nextKey(), main: '', sub: '', skilled: '0', unskilled: '0', plannedQty: '', note: '', open: false };
+  return { key: nextKey(), main: '', sub: '', contractor: '', skilled: '0', unskilled: '0', plannedQty: '', note: '', open: false };
 }
 
 // Accepts both the draft shape ({main_activity, sub_activity, ...}) and the
@@ -61,6 +62,7 @@ function activityRowFrom(a) {
     key: nextKey(),
     main,
     sub,
+    contractor: String(a.contractor || '').trim(),
     skilled: String(a.skilled != null ? toCount(a.skilled) : 0),
     unskilled: String(a.unskilled != null ? toCount(a.unskilled) : 0),
     plannedQty,
@@ -79,6 +81,7 @@ function serializeActivity(r) {
   return {
     main_activity: r.main.trim(),
     sub_activity: r.sub.trim(),
+    contractor: (r.contractor || '').trim(),
     skilled: toCount(r.skilled),
     unskilled: toCount(r.unskilled),
     note: r.note.trim(),
@@ -150,7 +153,9 @@ function Stepper({ label, value, onChange, onStep }) {
   );
 }
 
-function ActivityRow({ index, row, mains, subsFor, onChange, onStep, onRemove }) {
+// contractors: the site's allocated contractor names (null: no site yet).
+// The contractor picker only shows once the site has some to choose from.
+function ActivityRow({ index, row, mains, subsFor, contractors, onChange, onStep, onRemove }) {
   const total = toCount(row.skilled) + toCount(row.unskilled);
   const update = (patch) => onChange({ ...row, ...patch });
   const value = row.main ? `${row.main}${SEP}${row.sub}` : '';
@@ -162,30 +167,35 @@ function ActivityRow({ index, row, mains, subsFor, onChange, onStep, onRemove })
   return (
     <div className="arow">
       <div className="arow-main">
-        <label className="field">
-          <span className="sr">Activity {index + 1}</span>
-          <select
-            className="select"
-            value={value}
-            onChange={(e) => {
-              const [main, sub = ''] = e.target.value.split(SEP);
-              update({ main: main || '', sub: e.target.value ? sub : '' });
-            }}
-          >
-            <option value="">Choose activity</option>
-            {mains.map(m => {
-              const subs = subsFor(m.activity_name);
-              if (!subs.length) return <option key={m.id} value={`${m.activity_name}${SEP}`}>{m.activity_name}</option>;
-              return (
-                <optgroup key={m.id} label={m.activity_name}>
-                  <option value={`${m.activity_name}${SEP}`}>{m.activity_name} — general</option>
-                  {subs.map(s => <option key={s.id} value={`${m.activity_name}${SEP}${s.activity_name}`}>{s.activity_name}</option>)}
-                </optgroup>
-              );
-            })}
-            {!known && <option value={value}>{row.sub ? `${row.main} / ${row.sub}` : row.main} (inactive)</option>}
-          </select>
-        </label>
+        <div className="act-cell">
+          <label className="field">
+            <span className="sr">Activity {index + 1}</span>
+            <select
+              className="select"
+              value={value}
+              onChange={(e) => {
+                const [main, sub = ''] = e.target.value.split(SEP);
+                update({ main: main || '', sub: e.target.value ? sub : '' });
+              }}
+            >
+              <option value="">Choose activity</option>
+              {mains.map(m => {
+                const subs = subsFor(m.activity_name);
+                if (!subs.length) return <option key={m.id} value={`${m.activity_name}${SEP}`}>{m.activity_name}</option>;
+                return (
+                  <optgroup key={m.id} label={m.activity_name}>
+                    <option value={`${m.activity_name}${SEP}`}>{m.activity_name} — general</option>
+                    {subs.map(s => <option key={s.id} value={`${m.activity_name}${SEP}${s.activity_name}`}>{s.activity_name}</option>)}
+                  </optgroup>
+                );
+              })}
+              {!known && <option value={value}>{row.sub ? `${row.main} / ${row.sub}` : row.main} (inactive)</option>}
+            </select>
+          </label>
+          {((contractors && contractors.length > 0) || row.contractor) && (
+            <ContractorSelect compact value={row.contractor} contractors={contractors} onChange={(contractor) => update({ contractor })} />
+          )}
+        </div>
         <Stepper label="Skilled" value={row.skilled} onChange={(v) => update({ skilled: v })} onStep={(d) => onStep('skilled', d)} />
         <Stepper label="Unskilled" value={row.unskilled} onChange={(v) => update({ unskilled: v })} onStep={(d) => onStep('unskilled', d)} />
         <div className={`total${total ? '' : ' zero'}`} aria-label={`Total ${total}`}>{total}</div>
@@ -226,7 +236,7 @@ function ActivityRow({ index, row, mains, subsFor, onChange, onStep, onRemove })
 
 // After a save: the submitted report, share/download actions, and a way
 // back to a fresh form.
-function SuccessView({ result, onNew }) {
+function SuccessView({ result, onNew, onClose }) {
   const { report, queued, isEdit } = result;
   const t = report.totals;
   const title = queued ? 'Report saved offline' : isEdit ? 'Changes saved' : 'Report submitted';
@@ -237,7 +247,7 @@ function SuccessView({ result, onNew }) {
     <>
       <div className="success-hero">
         <div className={`tick${queued ? ' warn' : ''}`}><Icon name="check" /></div>
-        <div><h1>{title}</h1><p className="lede">{lede}</p></div>
+        <div><h2 className="form-title">{title}</h2><p className="lede">{lede}</p></div>
       </div>
       <div className="success">
         <ExecutiveReport report={report} />
@@ -247,6 +257,7 @@ function SuccessView({ result, onNew }) {
             <ReportActionBar report={report} layout="list" />
           </section>
           <button type="button" className="btn ghost" onClick={onNew}><Icon name="plus" />Start another report</button>
+          {onClose && <button type="button" className="btn ghost" onClick={() => { onNew(); onClose(); }}>Done — back to the log</button>}
         </div>
       </div>
     </>
@@ -257,7 +268,11 @@ function SuccessView({ result, onNew }) {
 
 // New DPR form: activity rows, consumption entries, draft, live preview,
 // save + success view.
-export default function DprEntryForm() {
+//
+// Lives in a collapsible section at the top of the DPR page (HistoryScreen);
+// onClose collapses it. It stays mounted while closed, so the draft and
+// any edit in progress survive.
+export default function DprEntryForm({ onClose }) {
   const app = useApp();
 
   const [date, setDate] = useState(getLocalTodayYMD);
@@ -282,9 +297,10 @@ export default function DprEntryForm() {
     history: app.history,
   }), [app.projects, app.activities, app.materials, app.history]);
 
-  const contractorSuggestions = useMemo(
-    () => [...new Set(app.materialLogs.map(l => String(l.contractor || '').trim()).filter(Boolean))].sort(),
-    [app.materialLogs]
+  // Contractors allocated to the chosen site, for manpower rows and material entries.
+  const siteContractors = useMemo(
+    () => (site ? contractorsForSite(app.contractors, master.projects, site).map(c => c.name) : null),
+    [site, app.contractors, master.projects]
   );
 
   const mains = useMemo(
@@ -336,7 +352,7 @@ export default function DprEntryForm() {
     setMaterialRows([]);
   }, []);
 
-  // Commands from the app (boot 'init', New report tab 'init', History → 'edit').
+  // Commands from the app (boot 'init', + New DPR Report 'init', the log's Edit → 'edit').
   const lastSeq = useRef(0);
   useEffect(() => {
     const c = app.entryCommand;
@@ -447,6 +463,7 @@ export default function DprEntryForm() {
   };
 
   // ── Save ──
+  const materialsUsedContractors = () => (editingKey ? [] : serializeEntryRows(materialRows).map(m => m.contractor));
   const submit = async () => {
     if (saving) return;
     const user = app.user;
@@ -460,6 +477,16 @@ export default function DprEntryForm() {
 
     const invalidMaterial = editingKey ? null : validateEntryRows(materialRows);
     if (invalidMaterial) { app.showToast(invalidMaterial); return; }
+    // Contractors must be allocated to this site. An edit may keep one the
+    // report already had (allocations change over time).
+    const allowed = new Set(siteContractors || []);
+    if (editingKey) {
+      const original = master.history.find(h => toYMD(h.date) === date && String(h.site || '').trim() === site.trim());
+      if (original) rowsFromRecord(original).forEach(r => r.contractor && allowed.add(r.contractor));
+    }
+    const tagged = [...rows.filter(r => r.main.trim()).map(r => r.contractor), ...materialsUsedContractors()];
+    const stray = tagged.map(c => String(c || '').trim()).find(c => c && !allowed.has(c));
+    if (stray) { app.showToast(`⚠️ ${stray} isn't allocated to ${site} — pick one of its contractors`); return; }
     const materialsUsed = editingKey ? [] : serializeEntryRows(materialRows);
 
     const total = activities.reduce((s, a) => s + a.skilled + a.unskilled, 0);
@@ -530,7 +557,7 @@ export default function DprEntryForm() {
         }
       }
 
-      if (materialError) app.showToast(`⚠️ DPR saved, but materials failed (${materialError}) — log them from the Materials tab`);
+      if (materialError) app.showToast(`⚠️ DPR saved, but materials failed (${materialError}) — log them from the Materials page`);
       else app.showToast(isEdit ? '✅ DPR updated' : '✅ Report submitted');
       finish({ report, queued: false, isEdit });
       app.reloadHistory();
@@ -542,7 +569,7 @@ export default function DprEntryForm() {
     }
   };
 
-  if (submitted) return <SuccessView result={submitted} onNew={() => setSubmitted(null)} />;
+  if (submitted) return <SuccessView result={submitted} onNew={() => setSubmitted(null)} onClose={onClose} />;
 
   const existingEdit = existing ? app.canEdit(existing) : null;
 
@@ -550,7 +577,7 @@ export default function DprEntryForm() {
     <>
       <div className="page-head">
         <div>
-          <h1>{editingKey ? 'Edit daily report' : 'New daily report'}</h1>
+          <h2 className="form-title">{editingKey ? 'Edit daily report' : 'New daily report'}</h2>
           <p className="lede">
             {editingKey
               ? `Changes replace the report filed for ${site} on ${formatDisplayDate(date)}.`
@@ -562,13 +589,14 @@ export default function DprEntryForm() {
             ? <button type="button" className="btn" onClick={loadDraftOrReset}>Cancel editing</button>
             : <button type="button" className="btn" onClick={duplicateLast}><Icon name="copy" />Copy last report</button>}
           {!editingKey && <button type="button" className="btn ghost" onClick={clearForm}>Clear form</button>}
+          {onClose && <button type="button" className="icon-btn" onClick={onClose} aria-label="Close the form" title="Close — your draft is kept"><Icon name="x" /></button>}
         </div>
       </div>
 
       {editingKey && (
         <div className="banner info">
           <Icon name="edit" />
-          <div className="btxt"><b>Editing a submitted report</b>Date and site are locked. Consumption entries aren’t changed here — log extra entries from the Materials tab.</div>
+          <div className="btxt"><b>Editing a submitted report</b>Date and site are locked. Consumption entries aren’t changed here — log extra entries from the Materials page.</div>
         </div>
       )}
       {existing && (
@@ -638,6 +666,7 @@ export default function DprEntryForm() {
                 row={row}
                 mains={mains}
                 subsFor={subsFor}
+                contractors={siteContractors}
                 onChange={(next) => updateRow(row.key, next)}
                 onStep={(field, delta) => stepRow(row.key, field, delta)}
                 onRemove={() => removeRow(row.key)}
@@ -653,7 +682,7 @@ export default function DprEntryForm() {
               {!editingKey && materialRows.length > 0 && <span className="muted small">{materialRows.length} entr{materialRows.length === 1 ? 'y' : 'ies'}</span>}
             </div>
             {editingKey ? (
-              <p className="hint">Consumption entries aren’t changed when editing a report — log extra entries from the Materials tab.</p>
+              <p className="hint">Consumption entries aren’t changed when editing a report — log extra entries from the Materials page.</p>
             ) : (
               <>
                 {materialRows.map((m, i) => (
@@ -662,12 +691,12 @@ export default function DprEntryForm() {
                     index={i}
                     row={m}
                     materials={master.materials}
-                    contractorSuggestions={contractorSuggestions}
+                    contractors={siteContractors}
                     onChange={(next) => updateMaterial(m.key, next)}
                     onRemove={() => removeMaterial(m.key)}
                   />
                 ))}
-                {!materialRows.length && <p className="hint">Log consumption here, or later from the Materials tab. Site and date come from this report.</p>}
+                {!materialRows.length && <p className="hint">Log consumption here, or later from the Materials page. Site and date come from this report.</p>}
                 <button type="button" className="btn add mat" onClick={addMaterial}><Icon name="plus" />Add material</button>
               </>
             )}
