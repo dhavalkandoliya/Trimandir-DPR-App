@@ -12,6 +12,7 @@ import {
 } from '../../lib/report/reportModel';
 import ConsumptionEntryRow, { ContractorSelect } from '../materials/ConsumptionEntryRow';
 import { contractorsForSite } from '../../lib/sites';
+import { taskName } from '../../lib/activities';
 import {
   emptyEntryRow, entryRowFrom, entryRowHasContent, serializeEntryRows, validateEntryRows,
 } from '../../lib/materials/consumption';
@@ -160,8 +161,10 @@ function ActivityRow({ index, row, mains, subsFor, contractors, onChange, onStep
   const update = (patch) => onChange({ ...row, ...patch });
   const value = row.main ? `${row.main}${SEP}${row.sub}` : '';
 
-  // Grouped picker: a main activity with sub-activities becomes an
-  // optgroup (its first option logs the main activity on its own).
+  // Grouped picker: a category with tasks becomes an optgroup — a bold,
+  // unselectable header — over its tasks, shown without the category
+  // prefix their stored names carry. Its first option logs the category on
+  // its own. Option values keep the stored names.
   const known = !row.main || mains.some(m => m.activity_name === row.main && (!row.sub || subsFor(m.activity_name).some(s => s.activity_name === row.sub)));
 
   return (
@@ -185,11 +188,11 @@ function ActivityRow({ index, row, mains, subsFor, contractors, onChange, onStep
                 return (
                   <optgroup key={m.id} label={m.activity_name}>
                     <option value={`${m.activity_name}${SEP}`}>{m.activity_name} — general</option>
-                    {subs.map(s => <option key={s.id} value={`${m.activity_name}${SEP}${s.activity_name}`}>{s.activity_name}</option>)}
+                    {subs.map(s => <option key={s.id} value={`${m.activity_name}${SEP}${s.activity_name}`}>{taskName(s.activity_name, m.activity_name)}</option>)}
                   </optgroup>
                 );
               })}
-              {!known && <option value={value}>{row.sub ? `${row.main} / ${row.sub}` : row.main} (inactive)</option>}
+              {!known && <option value={value}>{row.sub ? `${row.main} › ${taskName(row.sub, row.main)}` : row.main} (inactive)</option>}
             </select>
           </label>
           {((contractors && contractors.length > 0) || row.contractor) && (

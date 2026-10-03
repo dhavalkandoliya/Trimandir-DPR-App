@@ -415,14 +415,42 @@ table.dt .sub{font-size:13px;color:var(--muted)}
 .tabs button{padding:10px 14px;font-weight:600;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap}
 .tabs button.on{color:var(--ink);border-color:var(--primary)}
 .admin-tabs{display:none} /* the sidebar lists the admin sections; phones get these tabs */
-.tree-main{padding:12px 0;border-top:1px solid var(--line)}
-.tree-main:first-child{border-top:0;padding-top:0}
-.tree-line{display:flex;align-items:center;gap:6px;min-height:38px}
-.tree-line .name{flex:1;font-weight:600;min-width:0;overflow-wrap:anywhere}
-.tree-line .name .tag{margin-left:6px}
-.tree-sub{margin:6px 0 0 22px;border-left:2px solid var(--line);padding-left:12px}
-.tree-sub .tree-line{padding:2px 0}
-.tree-sub .name{font-weight:500}
+/* Sites / Activities: a collapsible card per top-level item */
+.cat-list{display:flex;flex-direction:column;gap:10px}
+.cat-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--sh-1);overflow:hidden;transition:box-shadow .15s,opacity .15s}
+.cat-card.misfiled{border-color:var(--warn);margin-bottom:14px}
+.cat-head{display:flex;align-items:center;gap:6px;padding:8px 10px 8px 6px;min-height:58px}
+.cat-head > .inline-form{padding:2px 6px}
+.cat-head.static{padding:12px 16px;gap:12px;background:var(--warn-soft);color:var(--warn)}
+.cat-head.static > svg{width:20px;height:20px;flex:none}
+.cat-head.static .cat-title{flex-direction:column;align-items:flex-start;gap:2px}
+.cat-head.static b{color:var(--ink)}
+.cat-toggle{flex:1;display:flex;align-items:center;gap:10px;min-width:0;text-align:left;padding:6px 4px;border-radius:var(--r-md)}
+.cat-toggle:hover .chev{color:var(--ink)}
+.cat-toggle .chev{color:var(--muted);transition:transform .15s;display:flex;flex:none}
+.cat-toggle .chev svg{width:16px;height:16px}
+.cat-toggle[aria-expanded="true"] .chev{transform:rotate(90deg)}
+.cat-title{display:flex;align-items:center;gap:10px;flex-wrap:wrap;min-width:0}
+.cat-title b{font-size:16px;font-weight:700;overflow-wrap:anywhere}
+.cat-badges{display:inline-flex;gap:6px;flex-wrap:wrap}
+.cat-body{background:var(--surface-2);border-top:1px solid var(--line);padding:10px 12px 12px 40px;display:flex;flex-direction:column;gap:6px}
+.task-row{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);padding:4px 6px 4px 4px;min-height:46px;transition:box-shadow .15s,opacity .15s}
+.task-row > .inline-form{padding:2px 4px}
+.task-name{flex:1;min-width:0;font-weight:500;overflow-wrap:anywhere;display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding-left:4px}
+.task-name .sub{width:100%;font-size:12px;color:var(--muted);font-weight:400}
+.grip{color:var(--line-strong);cursor:grab;display:flex;padding:5px 3px;border-radius:4px;flex:none}
+.grip:hover{color:var(--muted);background:var(--surface-3)}
+.grip:active{cursor:grabbing}
+.grip svg{width:16px;height:16px}
+.task-add{display:flex;align-items:center;gap:8px;margin-top:2px;padding:0 6px 0 8px;color:var(--muted)}
+.task-add > svg{width:16px;height:16px;flex:none}
+.task-add .input{height:38px;background:transparent;border-style:dashed}
+.task-add .input:focus{background:var(--surface);border-style:solid}
+.select.sm{height:34px;font-size:13px;width:auto;max-width:220px}
+.dragging{opacity:.4}
+.drop-before{box-shadow:inset 0 3px 0 var(--primary)}
+.drop-after{box-shadow:inset 0 -3px 0 var(--primary)}
+@media (hover:none){.grip{display:none}}
 .tree-empty{font-size:13px;color:var(--muted);padding:4px 0}
 .tree-tools{display:flex;gap:2px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
 .tree-tools .icon-btn{width:34px;height:34px}
@@ -483,6 +511,11 @@ table.dt .sub{font-size:13px;color:var(--muted)}
   .shell{grid-template-columns:1fr}
   .side{display:none}
   .admin-tabs{display:flex}
+  .cat-head{flex-wrap:wrap;padding:6px 8px}
+  .cat-head > .tree-tools{width:100%;justify-content:flex-end}
+  .cat-body{padding:10px}
+  .task-row{flex-wrap:wrap;padding:6px 8px}
+  .task-row > .tree-tools{width:100%}
   .topbar{padding:10px 16px}
   .topbar .mobile-brand{display:block;white-space:nowrap}
   .user-meta{display:none}

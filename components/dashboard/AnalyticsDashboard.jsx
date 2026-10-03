@@ -13,6 +13,7 @@ import { useApp } from '../app/AppContext';
 import Icon from '../ui/Icon';
 import { CONDITIONS, conditionClass, recordActivities, siteDisplayName } from '../../lib/report/reportModel';
 import { reportingSiteGroups, reportingSites } from '../../lib/sites';
+import { taskName } from '../../lib/activities';
 
 Chart.register(CategoryScale, LinearScale, BarElement, BarController, Tooltip);
 
@@ -356,7 +357,7 @@ export default function AnalyticsDashboard() {
 
       const details = Array.isArray(item.details) ? item.details : [];
       details.forEach(det => {
-        const actName = det.activity || 'Unknown';
+        const actName = det.activity ? taskName(det.activity) : 'Unknown';
         const actTotal = Number(det.total) || (Number(det.skilled) || 0) + (Number(det.unskilled) || 0);
         map[mainName].subs[subName].activities[actName] = (map[mainName].subs[subName].activities[actName] || 0) + actTotal;
       });
