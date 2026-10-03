@@ -12,7 +12,7 @@ import {
 import { useApp } from '../app/AppContext';
 import Icon from '../ui/Icon';
 import { CONDITIONS, conditionClass, recordActivities, siteDisplayName } from '../../lib/report/reportModel';
-import { reportingSites } from '../../lib/sites';
+import { reportingSiteGroups, reportingSites } from '../../lib/sites';
 
 Chart.register(CategoryScale, LinearScale, BarElement, BarController, Tooltip);
 
@@ -83,13 +83,52 @@ const timeOf = (v) => {
   return ms ? new Date(ms).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' }) : '';
 };
 
+function SiteStatusRow({ site, label, filed: h, sub }) {
+  return (
+    <div className={`site-status${sub ? ' sub' : ''}`}>
+      <div>
+        <b>{label || site}</b>
+        <div className="small muted">{h ? `${h.by || '—'}${timeOf(h.submittedAt) ? ` at ${timeOf(h.submittedAt)}` : ''}` : 'No report yet'}</div>
+      </div>
+      {h
+        ? <span className="row" style={{ gap: 8 }}><span className="kpi-num">{fmt(h.total)}</span><span className="tag ok">Filed</span></span>
+        : <span className="tag warn">Pending</span>}
+    </div>
+  );
+}
+
+// A parent project: header with its completion summary, sub-sites below.
+function ReportingGroup({ group, open, onToggle }) {
+  const done = group.sites.filter(s => s.filed).length;
+  const total = group.sites.length;
+  return (
+    <div className="rep-group">
+      <button type="button" className="rep-head" aria-expanded={open} onClick={onToggle}>
+        <span className="name" title={group.name}>{group.name}</span>
+        <span className="track"><span className="fill" style={{ width: `${Math.round(done / total * 100)}%` }} /></span>
+        <span className="small muted count">{done} of {total} reported</span>
+        {done === total ? <span className="tag ok">All filed</span> : <span className="tag warn">{total - done} pending</span>}
+        <span className="chev"><Icon name="chev" /></span>
+      </button>
+      {open && group.sites.map(s => <SiteStatusRow key={s.site} {...s} sub />)}
+    </div>
+  );
+}
+
 // Today at a glance, scoped to the viewer. The server already limits
 // projects and history to a supervisor's assigned sites (admins get all),
-// so both see "their" sites here. Only reporting sites are listed: a
-// parent with sub-sites is a container, never a pending site of its own.
+// so both see "their" sites here. Only reporting sites are listed, grouped
+// under their parent project: a parent with sub-sites is the group header
+// (with its completion summary), never a pending site of its own.
 function TodayOverview() {
   const { history, projects, user, switchTab } = useApp();
   const isAdmin = user && user.role === 'admin';
+  const [collapsed, setCollapsed] = useState(() => new Set());
+  const toggleGroup = (name) => setCollapsed(prev => {
+    const next = new Set(prev);
+    if (next.has(name)) next.delete(name); else next.add(name);
+    return next;
+  });
 
   const view = useMemo(() => {
     const t = todayYMD();
@@ -116,12 +155,16 @@ function TodayOverview() {
       mineTotal: mine.length,
       last,
       sites: sites.map(s => ({ site: s, filed: filedBySite.get(s) || null })),
+      // Parent projects in list order; a site with no parent stands alone.
+      groups: reportingSiteGroups(projects).map(g => ({
+        name: g.group,
+        sites: g.options.map(o => ({ site: o.value, filed: filedBySite.get(o.value) || null })),
+      })),
       filedCount: sites.filter(s => filedBySite.has(s)).length,
     };
   }, [history, projects, user]);
 
   const pending = view.sites.filter(s => !s.filed);
-  const filed = view.sites.filter(s => s.filed);
 
   return (
     <>
@@ -167,17 +210,9 @@ function TodayOverview() {
           {pending.length > 0 && <span className="tag warn">{pending.length} pending</span>}
         </div>
         {!view.sites.length && <p className="muted">{isAdmin ? 'No active sites yet.' : 'No sites are assigned to your account yet — ask an admin to add yours.'}</p>}
-        {[...pending, ...filed].map(({ site, filed: h }) => (
-          <div key={site} className="site-status">
-            <div>
-              <b>{siteDisplayName(site, projects)}</b>
-              <div className="small muted">{h ? `${h.by || '—'}${timeOf(h.submittedAt) ? ` at ${timeOf(h.submittedAt)}` : ''}` : 'No report yet'}</div>
-            </div>
-            {h
-              ? <span className="row" style={{ gap: 8 }}><span className="kpi-num">{fmt(h.total)}</span><span className="tag ok">Filed</span></span>
-              : <span className="tag warn">Pending</span>}
-          </div>
-        ))}
+        {view.groups.map(g => (g.name
+          ? <ReportingGroup key={g.name} group={g} open={!collapsed.has(g.name)} onToggle={() => toggleGroup(g.name)} />
+          : g.sites.map(st => <SiteStatusRow key={st.site} {...st} />)))}
       </section>
     </>
   );
