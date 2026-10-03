@@ -10,6 +10,7 @@ import Dialog from '../ui/Dialog';
 import ExportButtons from '../ui/ExportButtons';
 import { exportMaterialLogCsv, exportMaterialLogExcel } from '../../lib/exports/logExports';
 import Icon from '../ui/Icon';
+import SiteOptions from '../ui/SiteOptions';
 import { siteDisplayName } from '../../lib/report/reportModel';
 import { buildMaterialReport } from '../../lib/materials/materialReport';
 import {
@@ -37,7 +38,6 @@ function newBatchId() {
   return '10000000-1000-4000-8000-100000000000'.replace(/[018]/g, c => (c ^ (Math.random() * 16) >> (c / 4)).toString(16));
 }
 
-const isTopLevel =(p) => !p.parent_id || String(p.parent_id).trim() === '';
 const OWNER_TAG = { Trust: 'info', Contractor: 'warn', Other: '' };
 
 export function OwnershipBadge({ ownership }) {
@@ -171,15 +171,6 @@ export default function MaterialsScreen() {
     () => data.materials.filter(m => m.status !== 'inactive').slice().sort((a, b) => String(a.material_name).localeCompare(String(b.material_name))),
     [data.materials]
   );
-
-  const siteOptions = useMemo(() => {
-    const active = data.projects.filter(p => p.status === 'active');
-    return active.filter(isTopLevel).flatMap(top => [
-      { value: top.project_name, label: top.project_name },
-      ...active.filter(p => String(p.parent_id).trim() === String(top.id).trim())
-        .map(s => ({ value: s.project_name, label: `  ↳ ${s.project_name}` })),
-    ]);
-  }, [data.projects]);
 
   const contractorSuggestions = useMemo(
     () => [...new Set(data.logs.map(l => String(l.contractor || '').trim()).filter(Boolean))].sort(),
@@ -394,8 +385,7 @@ export default function MaterialsScreen() {
             <label className="field">
               <span>Site</span>
               <select className="select" value={site} onChange={(e) => setSite(e.target.value)}>
-                <option value="">{data.projects.length ? 'Choose site' : 'Loading sites…'}</option>
-                {siteOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                <SiteOptions projects={data.projects} current={site} />
               </select>
             </label>
           </div>

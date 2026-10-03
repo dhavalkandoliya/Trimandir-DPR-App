@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import {
   ADMIN_POST_ACTIONS, SUPABASE_GET_ACTIONS, SUPABASE_POST_ACTIONS, runSupabaseGetAction, runSupabasePostAction,
 } from '../../../lib/dprSupabaseApi';
-import { createUser, deleteUser, getUsers, login, resetPassword } from '../../../lib/authSupabaseApi';
+import { createUser, deleteUser, getUsers, login, resetPassword, setUserSites } from '../../../lib/authSupabaseApi';
 import { clearSessionCookie, getSession, isSameOrigin, needsRefresh, setSessionCookie } from '../../../lib/session';
 
 // Single backend endpoint for the app. Everything is served from Supabase:
@@ -12,10 +12,11 @@ import { clearSessionCookie, getSession, isSameOrigin, needsRefresh, setSessionC
 // Every action except login/logout/session requires a signed-in session
 // (lib/session.js); admin-only actions also require role=admin. Authorship
 // (by / editedBy / requestedBy / loggedBy) comes from the session, never
-// from the request body. The Google Apps Script backend is no longer called
-// at runtime.
+// from the request body. Supervisors are scoped to their assigned sites
+// (user_sites) inside lib/dprSupabaseApi.js — for reads and writes alike.
+// The Google Apps Script backend is no longer called at runtime.
 
-const USER_ADMIN_ACTIONS = { createUser, deleteUser, resetPassword };
+const USER_ADMIN_ACTIONS = { createUser, deleteUser, resetPassword, setUserSites };
 
 const json = (data, status = 200) => NextResponse.json(data, { status });
 const authRequired = () => json({ error: 'Please sign in again — your session has expired.', code: 'AUTH_REQUIRED' }, 401);
@@ -55,7 +56,7 @@ export async function POST(request) {
 
     const session = await sessionOrNull(request);
     if (!session) return authRequired();
-    const actor = session.user;
+    const actor = { ...session.user, id: session.userId };
 
     if (USER_ADMIN_ACTIONS[action]) {
       if (actor.role !== 'admin') return forbidden();
@@ -88,14 +89,16 @@ export async function GET(request) {
     const session = await sessionOrNull(request);
     if (!session) return authRequired(); // no account names (or anything else) before sign-in
 
-    if (action === 'getUsers') return json(await getUsers());
+    const actor = { ...session.user, id: session.userId };
+    const withSites = actor.role === 'admin'; // only admins see who is assigned where
+    if (action === 'getUsers') return json(await getUsers({ withSites }));
 
     if (SUPABASE_GET_ACTIONS.has(action)) {
       if (action === 'getBootstrapData') {
-        const [bootstrap, users] = await Promise.all([runSupabaseGetAction('getBootstrapData'), getUsers()]);
+        const [bootstrap, users] = await Promise.all([runSupabaseGetAction('getBootstrapData', actor), getUsers({ withSites })]);
         return json({ ...bootstrap, users });
       }
-      return json(await runSupabaseGetAction(action));
+      return json(await runSupabaseGetAction(action, actor));
     }
     return json({ error: `Unknown action "${action}"` }, 400);
   } catch (error) {

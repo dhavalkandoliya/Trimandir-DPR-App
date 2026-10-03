@@ -10,6 +10,7 @@ import { exportDprLogCsv, exportDprLogExcel, exportDprLogPdf } from '../../lib/e
 import Icon from '../ui/Icon';
 import { runReportAction } from '../../lib/report/exportReport';
 import { CONDITIONS, recordActivities, reportFromRecord, siteDisplayName, toYMD } from '../../lib/report/reportModel';
+import { isContainer, siteFilterNames } from '../../lib/sites';
 
 const PAGE_SIZE = 15;
 const EDIT_WINDOW_MS = 15 * 60 * 1000;
@@ -144,10 +145,12 @@ export default function HistoryScreen() {
     status: app.historyStatus, user: app.user,
   }), [app.history, app.projects, app.users, app.materialLogs, app.historyStatus, app.user]);
 
+  // A parent site filters to all of its sub-sites (plus any older report
+  // filed on the parent itself).
   const siteOptions = useMemo(() => {
     const tops = data.projects.filter(p => !p.parent_id || String(p.parent_id).trim() === '');
     return tops.flatMap(top => [
-      { value: top.project_name, label: top.project_name + (top.status === 'inactive' ? ' (inactive)' : '') },
+      { value: top.project_name, label: top.project_name + (isContainer(top, data.projects) ? ' — all sub-sites' : '') + (top.status === 'inactive' ? ' (inactive)' : '') },
       ...data.projects
         .filter(p => String(p.parent_id) === String(top.id))
         .map(s => ({ value: s.project_name, label: `  ↳ ${s.project_name}${s.status === 'inactive' ? ' (inactive)' : ''}` })),
@@ -162,21 +165,20 @@ export default function HistoryScreen() {
   }, [data.users, data.history]);
 
   const filtered = useMemo(() => {
-    const site = filters.site.toLowerCase().trim();
+    const sites = filters.site ? siteFilterNames(filters.site, data.projects) : null;
     const sup = filters.supervisor.toLowerCase().trim();
     return data.history
       .filter(item => {
         const d = toYMD(item.date);
         if (filters.start && d < filters.start) return false;
         if (filters.end && d > filters.end) return false;
-        // Substring match, as before: picking a parent project also matches its sub-projects' names.
-        if (site && !String(item.site || '').toLowerCase().includes(site)) return false;
+        if (sites && !sites.has(String(item.site || '').trim().toLowerCase())) return false;
         if (sup && String(item.by || '').toLowerCase() !== sup) return false;
         if (filters.condition && item.siteCondition !== filters.condition) return false;
         return true;
       })
       .sort((a, b) => toYMD(b.date).localeCompare(toYMD(a.date)) || submittedMs(b) - submittedMs(a));
-  }, [data.history, filters]);
+  }, [data.history, data.projects, filters]);
 
   const shown = filtered.slice(0, limit);
   const isFiltered = Object.values(filters).some(Boolean);

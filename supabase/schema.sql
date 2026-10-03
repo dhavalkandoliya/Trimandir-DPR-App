@@ -60,6 +60,17 @@ create table if not exists projects (
 create index if not exists idx_projects_parent_id on projects (parent_id);
 create index if not exists idx_projects_status     on projects (status);
 
+-- ── USER_SITES (which sites a supervisor may see and report on) ──
+-- Admins need no rows. An assigned parent site covers its sub-sites.
+-- See migrations/006_user_sites.sql.
+create table if not exists user_sites (
+  user_id    uuid   not null references users (id) on delete cascade,
+  project_id bigint not null references projects (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (user_id, project_id)
+);
+create index if not exists idx_user_sites_project_id on user_sites (project_id);
+
 -- ── ACTIVITIES (work-category tree) ──────────────────────────────
 -- "by default" identity — see the projects table comment above.
 create table if not exists activities (

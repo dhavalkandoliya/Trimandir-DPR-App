@@ -125,13 +125,13 @@ export function AppProvider({ children }) {
   }, []);
 
   const reloadHistory = useCallback(async () => {
-    const set = guardFor(epoch, setHistory), setStatus = guardFor(epoch, setHistoryStatus);
+    const set = guardFor(epoch, setHistory), setStatus = guardFor(epoch, setHistoryStatus), store = guardFor(epoch, cacheSet);
     setStatus('loading');
     try {
       const res = await apiGet('');
       if (!Array.isArray(res)) throw new Error(res && res.error);
       set(res);
-      cacheSet('dprHistory', res);
+      store('dprHistory', res);
       setStatus('ok');
     } catch {
       setStatus('error');
@@ -139,13 +139,13 @@ export function AppProvider({ children }) {
   }, []);
 
   const reloadMaterialLogs = useCallback(async () => {
-    const set = guardFor(epoch, setMaterialLogs), setStatus = guardFor(epoch, setMaterialLogsStatus);
+    const set = guardFor(epoch, setMaterialLogs), setStatus = guardFor(epoch, setMaterialLogsStatus), store = guardFor(epoch, cacheSet);
     setStatus('loading');
     try {
       const res = await apiGet('getMaterialLogs');
       if (!Array.isArray(res)) throw new Error(res && res.error);
       set(res);
-      cacheSet('materialLogs', res);
+      store('materialLogs', res);
       setStatus('ok');
     } catch {
       setStatus('error');
@@ -209,7 +209,11 @@ export function AppProvider({ children }) {
   useEffect(() => {
     if (authStatus !== 'signedIn') return;
     const at = epoch.current;
+    const owner = user ? user.username.toLowerCase() : '';
     (async () => {
+      // The cache is scoped to whoever filled it (their sites only): a
+      // different user on this device starts from a clean cache.
+      if ((await cacheGet('owner')) !== owner) { await cacheClear(); await cacheSet('owner', owner); }
       const [b, h, m] = await Promise.all([cacheGet('bootstrap'), cacheGet('dprHistory'), cacheGet('materialLogs')]);
       if (epoch.current !== at) return;
       if (b && Array.isArray(b.projects)) setMaster({ ...EMPTY_MASTER, ...b });
@@ -220,7 +224,7 @@ export function AppProvider({ children }) {
       const results = await Promise.all([reloadMaster(), reloadHistory(), reloadMaterialLogs()]);
       if (!results[0] && !b && epoch.current === at) showToast('⚠️ Could not reach server');
     })();
-  }, [authStatus, reloadMaster, reloadHistory, reloadMaterialLogs, sendEntryCommand, showToast]);
+  }, [authStatus, reloadMaster, reloadHistory, reloadMaterialLogs, sendEntryCommand, showToast]); // eslint-disable-line react-hooks/exhaustive-deps -- `user` is set with authStatus
 
   // ── Theme ───────────────────────────────────────────────────────────
   useEffect(() => {

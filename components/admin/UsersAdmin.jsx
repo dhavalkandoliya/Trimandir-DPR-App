@@ -4,6 +4,7 @@ import { Fragment, useMemo, useState } from 'react';
 import { useApp } from '../app/AppContext';
 import Icon from '../ui/Icon';
 import { toTitleCase, toYMD } from '../../lib/report/reportModel';
+import { childrenOf, isTopLevel } from '../../lib/sites';
 import { useAdminAction } from './useAdminAction';
 
 const PROTECTED = 'tpd-admin'; // also enforced server-side (lib/authSupabaseApi.js)
@@ -16,7 +17,68 @@ function formatDate(ymd) {
   return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-function UserRow({ u, stats, me, run, busy }) {
+// Which sites a supervisor sees and reports on (server: user_sites). A
+// ticked parent covers all of its sub-sites, so they show as included.
+function SitePicker({ u, projects, run, busy, onDone }) {
+  const [picked, setPicked] = useState(() => new Set((u.sites || []).map(String)));
+  const toggle = (id) => setPicked(cur => {
+    const next = new Set(cur);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
+  const save = async () => {
+    const ok = await run(
+      { action: 'setUserSites', username: u.username, projectIds: [...picked].map(Number) },
+      { success: `✅ Sites updated for ${u.username}` }
+    );
+    if (ok) onDone();
+  };
+  const box = (p, inherited) => {
+    const id = String(p.id);
+    return (
+      <label key={id} className={`site-pick${isTopLevel(p) ? '' : ' sub'}`}>
+        <input type="checkbox" checked={inherited || picked.has(id)} disabled={inherited} onChange={() => toggle(id)} />
+        <span>{p.project_name}{p.status === 'inactive' ? ' (inactive)' : ''}{inherited ? <em> — included</em> : null}</span>
+      </label>
+    );
+  };
+  const tops = projects.filter(isTopLevel);
+  return (
+    <div className="stack">
+      <div className="site-picker">
+        {!tops.length && <p className="muted">No sites yet — add them under Sites.</p>}
+        {tops.map(top => {
+          const covered = picked.has(String(top.id));
+          const subs = childrenOf(top, projects);
+          return (
+            <div key={top.id}>
+              {box(top, false)}
+              {subs.map(s => box(s, covered))}
+            </div>
+          );
+        })}
+      </div>
+      <div className="row">
+        <button type="button" className="btn sm primary" onClick={save} disabled={busy}>Save sites</button>
+        <button type="button" className="btn sm ghost" onClick={onDone}>Cancel</button>
+        <span className="hint">Ticking a parent site covers all of its sub-sites.</span>
+      </div>
+    </div>
+  );
+}
+
+function siteSummary(u, projects) {
+  if (u.role === 'admin') return <span className="muted">All sites</span>;
+  const byId = new Map(projects.map(p => [String(p.id), p]));
+  const names = (u.sites || []).map(id => byId.get(String(id))).filter(Boolean).map(p => {
+    const parent = byId.get(String(p.parent_id || ''));
+    return parent ? `${parent.project_name} › ${p.project_name}` : (childrenOf(p, projects).length ? `${p.project_name} (all)` : p.project_name);
+  });
+  return names.length ? names.join(', ') : <span className="tag danger">None assigned</span>;
+}
+
+function UserRow({ u, stats, me, run, busy, projects }) {
+  const [assigning, setAssigning] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [newPass, setNewPass] = useState('');
   const isProtected = u.username.toLowerCase() === PROTECTED;
@@ -44,6 +106,12 @@ function UserRow({ u, stats, me, run, busy }) {
           <div className="sub">{u.username}</div>
         </td>
         <td>{u.role === 'admin' ? <span className="tag warn">Administrator</span> : <span className="tag">Site supervisor</span>}</td>
+        <td className="sites-cell">
+          {siteSummary(u, projects)}
+          {u.role !== 'admin' && (
+            <div><button type="button" className="btn sm ghost" onClick={() => setAssigning(a => !a)} aria-expanded={assigning}>{assigning ? 'Close' : 'Assign sites'}</button></div>
+          )}
+        </td>
         <td className="n">{stats.total}</td>
         <td>{stats.last || <span className="muted">Never</span>}</td>
         <td>{stats.inactive ? <span className="tag danger">Inactive</span> : <span className="tag ok">Active</span>}</td>
@@ -56,9 +124,16 @@ function UserRow({ u, stats, me, run, busy }) {
           )}
         </td>
       </tr>
+      {assigning && (
+        <tr>
+          <td colSpan={7}>
+            <SitePicker u={u} projects={projects} run={run} busy={busy} onDone={() => setAssigning(false)} />
+          </td>
+        </tr>
+      )}
       {resetting && (
         <tr>
-          <td colSpan={6}>
+          <td colSpan={7}>
             <form className="inline-form" onSubmit={(e) => { e.preventDefault(); resetPassword(); }}>
               <input className="input" type="text" value={newPass} onChange={(e) => setNewPass(e.target.value)} placeholder={`New password for ${u.username}`} autoComplete="new-password" aria-label="New password" autoFocus />
               <button type="submit" className="btn sm primary" disabled={busy || !newPass.trim()}>Save password</button>
@@ -72,7 +147,7 @@ function UserRow({ u, stats, me, run, busy }) {
 }
 
 export default function UsersAdmin() {
-  const { users, history, user: me, showToast } = useApp();
+  const { users, history, projects, user: me, showToast } = useApp();
   const { run, busy } = useAdminAction();
   const [form, setForm] = useState(EMPTY);
 
@@ -138,7 +213,7 @@ export default function UsersAdmin() {
           </label>
           <button type="submit" className="btn primary" disabled={busy}><Icon name="plus" />Add user</button>
         </div>
-        <p className="hint" style={{ marginTop: 10 }}>Supervisors can create and view reports. Administrators also manage users, sites, lists and edit approvals.</p>
+        <p className="hint" style={{ marginTop: 10 }}>Supervisors see and report on only the sites assigned to them — assign them below once the user is added. Administrators see every site and also manage users, sites, lists and edit approvals.</p>
       </form>
 
       <div className="list-bar section-gap">
@@ -147,10 +222,10 @@ export default function UsersAdmin() {
       <div className="list tscroll">
         <table className="dt">
           <thead>
-            <tr><th>User</th><th>Role</th><th className="n">Reports filed</th><th>Last report</th><th>Status</th><th /></tr>
+            <tr><th>User</th><th>Role</th><th>Sites</th><th className="n">Reports filed</th><th>Last report</th><th>Status</th><th /></tr>
           </thead>
           <tbody>
-            {sorted.map(u => <UserRow key={u.username} u={u} stats={statsFor(u)} me={me} run={run} busy={busy} />)}
+            {sorted.map(u => <UserRow key={u.username} u={u} stats={statsFor(u)} me={me} run={run} busy={busy} projects={projects} />)}
           </tbody>
         </table>
       </div>

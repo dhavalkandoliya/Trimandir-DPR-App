@@ -403,6 +403,13 @@ table.dt .sub{font-size:13px;color:var(--muted)}
 .tree-tools .icon-btn{width:34px;height:34px}
 .inline-form{display:flex;gap:8px;align-items:center;flex:1;flex-wrap:wrap}
 .inline-form .input{flex:1;min-width:140px;height:36px}
+.site-picker{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px 20px}
+.site-pick{display:flex;align-items:center;gap:8px;padding:4px 0;cursor:pointer}
+.site-pick.sub{padding-left:24px}
+.site-pick em{font-style:normal;color:var(--muted);font-size:12px}
+.site-pick input:disabled + span{color:var(--ink-2)}
+.sites-cell{max-width:260px;font-size:13px}
+.sites-cell .btn{margin-top:4px}
 .form-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1fr) minmax(0,.9fr) auto;gap:12px;align-items:end}
 .form-grid.three{grid-template-columns:minmax(0,1fr) minmax(0,1.4fr) auto}
 

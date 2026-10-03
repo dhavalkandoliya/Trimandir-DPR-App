@@ -12,6 +12,7 @@ import {
 import { useApp } from '../app/AppContext';
 import Icon from '../ui/Icon';
 import { CONDITIONS, conditionClass, recordActivities, siteDisplayName } from '../../lib/report/reportModel';
+import { reportingSites } from '../../lib/sites';
 
 Chart.register(CategoryScale, LinearScale, BarElement, BarController, Tooltip);
 
@@ -82,33 +83,22 @@ const timeOf = (v) => {
   return ms ? new Date(ms).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' }) : '';
 };
 
-// Today at a glance, scoped to the viewer. Admins: every active site and
-// the global record. Supervisors: the active sites they report on (all
-// active sites until they've filed one) and their own reports.
+// Today at a glance, scoped to the viewer. The server already limits
+// projects and history to a supervisor's assigned sites (admins get all),
+// so both see "their" sites here. Only reporting sites are listed: a
+// parent with sub-sites is a container, never a pending site of its own.
 function TodayOverview() {
   const { history, projects, user, switchTab } = useApp();
   const isAdmin = user && user.role === 'admin';
 
   const view = useMemo(() => {
     const t = todayYMD();
-    const active = projects.filter(p => p.status === 'active');
-    // Reportable sites: active projects with no active sub-sites, plus any
-    // active project that reports are actually filed against (a parent site
-    // can be reported on directly). Kept in the projects list's order.
-    const parentIds = new Set(active.map(p => String(p.parent_id || '').trim()).filter(Boolean));
-    const reportedOn = new Set(history.map(h => String(h.site || '').trim()));
-    const reportable = active
-      .filter(p => !parentIds.has(String(p.id).trim()) || reportedOn.has(String(p.project_name).trim()))
-      .map(p => String(p.project_name).trim());
-    const mine = history.filter(h => user && sameName(h.by, user.username));
-    const mineSites = new Set(mine.map(h => String(h.site || '').trim()));
-    const mySites = active.map(p => String(p.project_name).trim()).filter(n => mineSites.has(n));
-    const sites = isAdmin || !mySites.length ? reportable : mySites;
+    const sites = reportingSites(projects).map(o => o.value);
     const siteSet = new Set(sites);
+    const mine = history.filter(h => user && sameName(h.by, user.username));
 
     const today = history.filter(h => toYMD(h.date) === t);
-    const todayInScope = isAdmin ? today : today.filter(h => siteSet.has(String(h.site || '').trim()));
-    const filedBySite = new Map(todayInScope.map(h => [String(h.site || '').trim(), h]));
+    const filedBySite = new Map(today.filter(h => siteSet.has(String(h.site || '').trim())).map(h => [String(h.site || '').trim(), h]));
 
     const counts = new Map();
     history.forEach(h => { if (h.site) counts.set(h.site, (counts.get(h.site) || 0) + 1); });
@@ -116,20 +106,19 @@ function TodayOverview() {
     const last = mine.slice().sort((a, b) => toYMD(b.date).localeCompare(toYMD(a.date)))[0];
 
     return {
-      workforce: todayInScope.reduce((s, h) => s + (Number(h.total) || 0), 0),
-      reportsToday: todayInScope.length,
+      workforce: today.reduce((s, h) => s + (Number(h.total) || 0), 0),
+      reportsToday: today.length,
       mostActive: top ? siteDisplayName(top[0], projects) : '—',
       mostActiveCount: top ? top[1] : 0,
-      activeCount: active.length,
-      totalCount: projects.length,
+      activeCount: sites.length,
+      totalCount: reportingSites(projects, { activeOnly: false }).length,
       mineToday: mine.filter(h => toYMD(h.date) === t).length,
       mineTotal: mine.length,
       last,
       sites: sites.map(s => ({ site: s, filed: filedBySite.get(s) || null })),
       filedCount: sites.filter(s => filedBySite.has(s)).length,
-      scopedToMine: !isAdmin && mySites.length > 0,
     };
-  }, [history, projects, user, isAdmin]);
+  }, [history, projects, user]);
 
   const pending = view.sites.filter(s => !s.filed);
   const filed = view.sites.filter(s => s.filed);
@@ -149,7 +138,7 @@ function TodayOverview() {
 
       <div className="grid4">
         <div className="kpi accent">
-          <span>{isAdmin || !view.scopedToMine ? 'Workforce today' : 'Workforce at your sites today'}</span>
+          <span>{isAdmin ? 'Workforce today' : 'Workforce at your sites today'}</span>
           <b>{fmt(view.workforce)}</b>
           <small>{view.reportsToday} report{view.reportsToday === 1 ? '' : 's'} filed today</small>
         </div>
@@ -167,17 +156,17 @@ function TodayOverview() {
               <b className="text" title={view.last ? view.last.site : ''}>{view.last ? formatShortDate(toYMD(view.last.date)) : '—'}</b>
               <small>{view.last ? siteDisplayName(view.last.site, projects) : 'Nothing filed yet'}</small>
             </div>
-            <div className="kpi"><span>{view.scopedToMine ? 'Your sites reported' : 'Sites reported today'}</span><b>{view.filedCount}/{view.sites.length}</b><small>{pending.length ? `${pending.length} still pending` : 'All reported'}</small></div>
+            <div className="kpi"><span>{isAdmin ? 'Sites reported today' : 'Your sites reported'}</span><b>{view.filedCount}/{view.sites.length}</b><small>{pending.length ? `${pending.length} still pending` : 'All reported'}</small></div>
           </>
         )}
       </div>
 
       <section className="panel" style={{ marginTop: 16 }}>
         <div className="panel-head">
-          <h2 className="panel-title">Today’s reporting <em>({view.filedCount} of {view.sites.length} {view.scopedToMine ? 'of your sites' : 'sites'})</em></h2>
+          <h2 className="panel-title">Today’s reporting <em>({view.filedCount} of {view.sites.length} {isAdmin ? 'sites' : 'of your sites'})</em></h2>
           {pending.length > 0 && <span className="tag warn">{pending.length} pending</span>}
         </div>
-        {!view.sites.length && <p className="muted">No active sites yet.</p>}
+        {!view.sites.length && <p className="muted">{isAdmin ? 'No active sites yet.' : 'No sites are assigned to your account yet — ask an admin to add yours.'}</p>}
         {[...pending, ...filed].map(({ site, filed: h }) => (
           <div key={site} className="site-status">
             <div>

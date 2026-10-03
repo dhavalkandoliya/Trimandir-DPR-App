@@ -6,6 +6,7 @@ import { enqueueOffline, useApp } from '../app/AppContext';
 import ExecutiveReport from '../report/ExecutiveReport';
 import ReportActionBar from '../report/ReportActionBar';
 import Icon from '../ui/Icon';
+import SiteOptions from '../ui/SiteOptions';
 import {
   CONDITIONS, buildReport, consumptionForRecord, formatDisplayDate, recordActivities,
 } from '../../lib/report/reportModel';
@@ -281,16 +282,6 @@ export default function DprEntryForm() {
     history: app.history,
   }), [app.projects, app.activities, app.materials, app.history]);
 
-  const siteOptions = useMemo(() => {
-    const active = master.projects.filter(p => p.status === 'active');
-    return active.filter(isTopLevel).flatMap(top => [
-      { value: top.project_name, label: top.project_name },
-      ...active
-        .filter(p => String(p.parent_id).trim() === String(top.id).trim())
-        .map(s => ({ value: s.project_name, label: `  ↳ ${s.project_name}` })),
-    ]);
-  }, [master.projects]);
-
   const contractorSuggestions = useMemo(
     () => [...new Set(app.materialLogs.map(l => String(l.contractor || '').trim()).filter(Boolean))].sort(),
     [app.materialLogs]
@@ -553,7 +544,6 @@ export default function DprEntryForm() {
 
   if (submitted) return <SuccessView result={submitted} onNew={() => setSubmitted(null)} />;
 
-  const siteKnown = siteOptions.some(o => o.value === site);
   const existingEdit = existing ? app.canEdit(existing) : null;
 
   return (
@@ -612,9 +602,7 @@ export default function DprEntryForm() {
                 <label className="field">
                   <span>Site</span>
                   <select className="select" value={site} onChange={(e) => setSite(e.target.value)} disabled={!!editingKey}>
-                    <option value="">{master.projects.length ? 'Choose site' : 'Loading sites…'}</option>
-                    {siteOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                    {site && !siteKnown && <option value={site}>{site}</option>}
+                    <SiteOptions projects={master.projects} current={site} />
                   </select>
                 </label>
               </div>
