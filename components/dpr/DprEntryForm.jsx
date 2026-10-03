@@ -155,7 +155,7 @@ function Stepper({ label, value, onChange, onStep }) {
 }
 
 // contractors: the site's allocated contractor names (null: no site yet).
-// The contractor picker only shows once the site has some to choose from.
+// Contractor is optional per row: "None / In-house / Direct" by default.
 function ActivityRow({ index, row, mains, subsFor, contractors, onChange, onStep, onRemove }) {
   const total = toCount(row.skilled) + toCount(row.unskilled);
   const update = (patch) => onChange({ ...row, ...patch });
@@ -170,35 +170,31 @@ function ActivityRow({ index, row, mains, subsFor, contractors, onChange, onStep
   return (
     <div className="arow">
       <div className="arow-main">
-        <div className="act-cell">
-          <label className="field">
-            <span className="sr">Activity {index + 1}</span>
-            <select
-              className="select"
-              value={value}
-              onChange={(e) => {
-                const [main, sub = ''] = e.target.value.split(SEP);
-                update({ main: main || '', sub: e.target.value ? sub : '' });
-              }}
-            >
-              <option value="">Choose activity</option>
-              {mains.map(m => {
-                const subs = subsFor(m.activity_name);
-                if (!subs.length) return <option key={m.id} value={`${m.activity_name}${SEP}`}>{m.activity_name}</option>;
-                return (
-                  <optgroup key={m.id} label={m.activity_name}>
-                    <option value={`${m.activity_name}${SEP}`}>{m.activity_name} — general</option>
-                    {subs.map(s => <option key={s.id} value={`${m.activity_name}${SEP}${s.activity_name}`}>{taskName(s.activity_name, m.activity_name)}</option>)}
-                  </optgroup>
-                );
-              })}
-              {!known && <option value={value}>{row.sub ? `${row.main} › ${taskName(row.sub, row.main)}` : row.main} (inactive)</option>}
-            </select>
-          </label>
-          {((contractors && contractors.length > 0) || row.contractor) && (
-            <ContractorSelect compact value={row.contractor} contractors={contractors} onChange={(contractor) => update({ contractor })} />
-          )}
-        </div>
+        <label className="field">
+          <span className="sr">Activity {index + 1}</span>
+          <select
+            className="select"
+            value={value}
+            onChange={(e) => {
+              const [main, sub = ''] = e.target.value.split(SEP);
+              update({ main: main || '', sub: e.target.value ? sub : '' });
+            }}
+          >
+            <option value="">Choose activity</option>
+            {mains.map(m => {
+              const subs = subsFor(m.activity_name);
+              if (!subs.length) return <option key={m.id} value={`${m.activity_name}${SEP}`}>{m.activity_name}</option>;
+              return (
+                <optgroup key={m.id} label={m.activity_name}>
+                  <option value={`${m.activity_name}${SEP}`}>{m.activity_name} — general</option>
+                  {subs.map(s => <option key={s.id} value={`${m.activity_name}${SEP}${s.activity_name}`}>{taskName(s.activity_name, m.activity_name)}</option>)}
+                </optgroup>
+              );
+            })}
+            {!known && <option value={value}>{row.sub ? `${row.main} › ${taskName(row.sub, row.main)}` : row.main} (inactive)</option>}
+          </select>
+        </label>
+        <ContractorSelect hideLabel value={row.contractor} contractors={contractors} onChange={(contractor) => update({ contractor })} />
         <Stepper label="Skilled" value={row.skilled} onChange={(v) => update({ skilled: v })} onStep={(d) => onStep('skilled', d)} />
         <Stepper label="Unskilled" value={row.unskilled} onChange={(v) => update({ unskilled: v })} onStep={(d) => onStep('unskilled', d)} />
         <div className={`total${total ? '' : ' zero'}`} aria-label={`Total ${total}`}>{total}</div>
@@ -423,6 +419,16 @@ export default function DprEntryForm({ onClose }) {
     });
   }, [date, site, condition, rows, materialRows, editingKey, preparedBy, master.projects, app.materialLogs]);
 
+  // Picking another site drops contractors that aren't allocated to it
+  // (activity rows and material entries), rather than failing the save.
+  const changeSite = (next) => {
+    const allowed = new Set(next ? contractorsForSite(app.contractors, master.projects, next).map(c => c.name) : []);
+    const keep = (r) => (!r.contractor || allowed.has(r.contractor) ? r : { ...r, contractor: '' });
+    setSite(next);
+    setRows(rs => rs.map(keep));
+    setMaterialRows(ms => ms.map(keep));
+  };
+
   // ── Row mutations ──
   const updateRow = (key, next) => setRows(rs => rs.map(r => (r.key === key ? next : r)));
   const stepRow = useCallback((key, field, delta) => {
@@ -632,7 +638,7 @@ export default function DprEntryForm({ onClose }) {
                 </label>
                 <label className="field">
                   <span>Site</span>
-                  <select className="select" value={site} onChange={(e) => setSite(e.target.value)} disabled={!!editingKey}>
+                  <select className="select" value={site} onChange={(e) => changeSite(e.target.value)} disabled={!!editingKey}>
                     <SiteOptions projects={master.projects} current={site} />
                   </select>
                 </label>
@@ -661,7 +667,7 @@ export default function DprEntryForm({ onClose }) {
               <h2 className="panel-title">Manpower by activity</h2>
               <span className="muted small">{rows.length} row{rows.length === 1 ? '' : 's'}</span>
             </div>
-            <div className="rows-head" aria-hidden="true"><span>Activity</span><span>Skilled</span><span>Unskilled</span><span>Total</span><span /></div>
+            <div className="rows-head" aria-hidden="true"><span>Activity</span><span>Contractor</span><span>Skilled</span><span>Unskilled</span><span>Total</span><span /></div>
             {rows.map((row, i) => (
               <ActivityRow
                 key={row.key}

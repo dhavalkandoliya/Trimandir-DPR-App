@@ -192,15 +192,15 @@ textarea.input{height:auto;min-height:70px;padding:10px 12px;resize:vertical}
 .banner b{display:block}
 
 /* ================= ENTRY ================= */
-.entry-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,460px);gap:20px;align-items:start;padding-bottom:96px}
+.entry-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:20px;align-items:start;padding-bottom:96px}
+/* The live preview sits beside the form only where the manpower row (activity, contractor, two counters) still has room */
+@media (min-width:1600px){.entry-grid{grid-template-columns:minmax(0,1fr) minmax(0,400px)}}
 .entry-preview{position:sticky;top:84px;max-height:calc(100vh - 190px);overflow:auto;background:var(--surface-3);border:1px solid var(--line);border-radius:var(--r-lg);padding:14px}
 .preview-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:8px}
-.rows-head{display:grid;grid-template-columns:minmax(0,1fr) 132px 132px 54px 76px;gap:10px;font-size:13px;font-weight:600;color:var(--muted);padding:0 0 8px}
-.rows-head span:nth-child(n+2){text-align:center}
+.rows-head{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr) 116px 116px 48px 76px;gap:10px;font-size:13px;font-weight:600;color:var(--muted);padding:0 0 8px}
+.rows-head span:nth-child(n+3){text-align:center}
 .arow{border-top:1px solid var(--line);padding:12px 0}
-.arow-main{display:grid;grid-template-columns:minmax(0,1fr) 132px 132px 54px 76px;gap:10px;align-items:center}
-.act-cell{display:flex;flex-direction:column;gap:6px;min-width:0}
-.field.compact .select{height:34px;font-size:13px;color:var(--ink-2)}
+.arow-main{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr) 116px 116px 48px 76px;gap:10px;align-items:center}
 .arow .total{font-family:var(--font-cond);font-size:22px;font-weight:700;text-align:center}
 .arow .total.zero{color:var(--line-strong)}
 .arow-tools{display:flex;justify-content:flex-end;gap:2px}
@@ -291,6 +291,7 @@ textarea.input{height:auto;min-height:70px;padding:10px 12px;resize:vertical}
 .rp-table tr.grp td{background:var(--rp-soft);font-weight:700;border-bottom:1px solid var(--rp-line)}
 .rp-table td.con{color:#3B4955;font-size:12px;font-weight:500}
 .rp-table tr.grp td.con{font-weight:600}
+.rp-table td.con.none{color:#8A96A0}
 .rp-table tr.sub td:first-child{padding-left:24px;color:var(--rp-ink2)}
 .rp-table tr.ref td{color:var(--rp-muted)}
 .rp-table tfoot td{font-weight:700;background:#E7ECEA;border-top:2px solid #15212B;border-bottom:0;font-size:13.5px}
@@ -535,7 +536,7 @@ table.dt .sub{font-size:13px;color:var(--muted)}
   .grid4{grid-template-columns:1fr 1fr}
   .rows-head{display:none}
   .arow-main{grid-template-columns:1fr 1fr;row-gap:10px}
-  .arow-main > .field,.arow-main > .act-cell{grid-column:1/-1}
+  .arow-main > .field{grid-column:1/-1}
   .arow .total{display:none}
   .arow-tools{grid-column:1/-1;justify-content:space-between;align-items:center}
   .arow-tools .rt{display:inline-flex}

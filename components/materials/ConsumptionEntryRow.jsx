@@ -14,16 +14,19 @@ import Icon from '../ui/Icon';
 // (lib/sites.js contractorsForSite); null while no site is chosen.
 // Contractor picker: the site's allocated contractors only. A value that
 // isn't one of them (an older entry, or a site change) stays visible and
-// marked, so it's never silently dropped. compact: no visible label (a
-// manpower row), so the empty choice names the field instead.
-export function ContractorSelect({ value, contractors, required = false, onChange, compact = false }) {
+// marked, so it's never silently dropped. Unless required, the empty
+// choice is an explicit "None / In-house / Direct" — work by the Trust's own
+// crew. hideLabel: the label is a column header instead (manpower rows).
+export const NO_CONTRACTOR = 'None / In-house / Direct';
+
+export function ContractorSelect({ value, contractors, required = false, onChange, hideLabel = false }) {
   const list = contractors || [];
   const placeholder = !contractors ? 'Choose a site first'
-    : !list.length ? 'No contractors on this site'
-    : required ? 'Choose contractor' : compact ? 'Contractor — none' : 'None';
+    : required ? (list.length ? 'Choose contractor' : 'No contractors on this site')
+    : NO_CONTRACTOR;
   return (
-    <label className={`field${compact ? ' compact' : ''}`}>
-      <span className={compact ? 'sr' : undefined}>Contractor {required ? '' : <em>(optional)</em>}</span>
+    <label className="field">
+      <span className={hideLabel ? 'sr' : undefined}>Contractor {required ? '' : <em>(optional)</em>}</span>
       <select className="select" value={value || ''} onChange={(e) => onChange(e.target.value)} aria-required={required} disabled={!contractors && !value}>
         <option value="">{placeholder}</option>
         {list.map(n => <option key={n} value={n}>{n}</option>)}

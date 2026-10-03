@@ -213,6 +213,12 @@ export default function MaterialsScreen() {
   const updateRow = (k, next) => setRows(rs => rs.map(r => (r.key === k ? next : r)));
   const removeRow = (k) => setRows(rs => (rs.length > 1 ? rs.filter(r => r.key !== k) : rs));
   const ready = serializeEntryRows(rows).length;
+  // Picking another site drops contractors that aren't allocated to it.
+  const changeSite = (next) => {
+    const allowed = new Set(contractorsAt(next) || []);
+    setSite(next);
+    setRows(rs => rs.map(r => (!r.contractor || allowed.has(r.contractor) ? r : { ...r, contractor: '' })));
+  };
 
   const save = async () => {
     if (saving) return;
@@ -407,7 +413,7 @@ export default function MaterialsScreen() {
                 </label>
                 <label className="field">
                   <span>Site</span>
-                  <select className="select" value={site} onChange={(e) => setSite(e.target.value)}>
+                  <select className="select" value={site} onChange={(e) => changeSite(e.target.value)}>
                     <SiteOptions projects={data.projects} current={site} />
                   </select>
                 </label>

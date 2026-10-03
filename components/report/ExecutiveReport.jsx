@@ -88,8 +88,9 @@ export default function ExecutiveReport({ report }) {
 
   // Main-activity rows carry their group's totals, with sub-activities
   // indented underneath; plain rows alternate for a zebra read.
-  const withCon = report.hasContractors;
-  const con = (text) => (withCon ? <td className="con">{text}</td> : null);
+  // Contractor sits next to the activity; "—" is direct / in-house work.
+  // Category rows that total their tasks leave it blank.
+  const con = (text, total = false) => <td className={`con${text ? '' : ' none'}`}>{total ? '' : (text || '—')}</td>;
   let zebra = 0;
   const bodyRows = [];
   report.groups.forEach(g => {
@@ -105,7 +106,7 @@ export default function ExecutiveReport({ report }) {
     zebra = 0;
     bodyRows.push(
       <tr key={`${g.name}-h`} className="grp">
-        <td>{g.name}</td>{con('')}<td className="n">{g.totals.skilled}</td><td className="n">{g.totals.unskilled}</td><td className="n">{g.totals.total}</td>
+        <td>{g.name}</td>{con('', true)}<td className="n">{g.totals.skilled}</td><td className="n">{g.totals.unskilled}</td><td className="n">{g.totals.total}</td>
       </tr>
     );
     g.rows.forEach((r, i) => {
@@ -155,9 +156,9 @@ export default function ExecutiveReport({ report }) {
         <div className="rp-h">Manpower deployment</div>
         {report.groups.length ? (
           <table className="rp-table">
-            <thead><tr><th>Activity</th>{withCon && <th>Contractor</th>}<th className="n">Skilled</th><th className="n">Unskilled</th><th className="n">Total</th></tr></thead>
+            <thead><tr><th>Activity</th><th>Contractor</th><th className="n">Skilled</th><th className="n">Unskilled</th><th className="n">Total</th></tr></thead>
             <tbody>{bodyRows}</tbody>
-            <tfoot><tr><td>Total manpower</td>{con('')}<td className="n">{t.skilled}</td><td className="n">{t.unskilled}</td><td className="n">{t.total}</td></tr></tfoot>
+            <tfoot><tr><td>Total manpower</td><td /><td className="n">{t.skilled}</td><td className="n">{t.unskilled}</td><td className="n">{t.total}</td></tr></tfoot>
           </table>
         ) : (
           <div className="rp-closed">
