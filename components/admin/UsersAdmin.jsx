@@ -7,7 +7,7 @@ import { toTitleCase, toYMD } from '../../lib/report/reportModel';
 import SitePicker, { siteNames } from './SitePicker';
 import { useAdminAction } from './useAdminAction';
 
-const PROTECTED = 'tpd-admin'; // also enforced server-side (lib/authSupabaseApi.js)
+const PROTECTED = 'admin'; // the built-in admin account; also enforced server-side (lib/authSupabaseApi.js)
 const INACTIVE_AFTER_DAYS = 3;
 const EMPTY = { username: '', displayName: '', password: '', role: 'user' };
 
