@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { apiMutate, apiPost } from '../../lib/client/api';
 import { enqueueOffline, useApp } from '../app/AppContext';
 import ConsumptionEntryRow from './ConsumptionEntryRow';
@@ -12,15 +12,23 @@ import { exportMaterialLogCsv, exportMaterialLogExcel } from '../../lib/exports/
 import Icon from '../ui/Icon';
 import SiteOptions from '../ui/SiteOptions';
 import { siteDisplayName } from '../../lib/report/reportModel';
-import { contractorsForSite } from '../../lib/sites';
+import { contractorsForSite, siteFilterNames, siteFilterOptions } from '../../lib/sites';
 import { buildMaterialReport } from '../../lib/materials/materialReport';
 import {
-  OWNERSHIP_OPTIONS, batchKey, emptyEntryRow, entryRowFrom, entryRowHasContent, filterLogs, formatOutput, formatQty,
-  groupSubmissions, normalizeOwnership, ownershipCounts, serializeEntryRows, sortLogsNewestFirst, submissionAccess, submissionMaterialTotals, trustTotals, validateEntryRows,
+  DATE_PRESETS, OWNERSHIP_OPTIONS, TRUST, activePreset, batchKey, emptyEntryRow, entryRowFrom, entryRowHasContent, filterLogs, formatQty,
+  groupSubmissions, materialTotals, normalizeOwnership, ownershipCounts, presetRange, serializeEntryRows, sortLogsNewestFirst, submissionAccess,
+  submissionMaterialTotals, validateEntryRows,
 } from '../../lib/materials/consumption';
 
 const LOG_PAGE = 25;
-const EMPTY_FILTERS = { start: '', end: '', site: '', material: '', ownership: '' };
+// site, contractor, material and the date range are shared by the log and
+// the totals; ownership filters the log only (the totals have their own).
+const EMPTY_FILTERS = { start: '', end: '', site: '', contractor: '', material: '', ownership: '' };
+
+// Ownership the totals count: [value, button label, title noun].
+const TOTALS_OWNERSHIP = [[TRUST, 'Trust only', 'Trust material totals'], ['Contractor', 'Contractor only', 'Contractor material totals'], ['', 'All ownerships', 'Material totals — all ownerships']];
+
+const lower = (v) => String(v || '').trim().toLowerCase();
 
 function getLocalTodayYMD() {
   const d = new Date();
@@ -157,6 +165,9 @@ export default function MaterialsScreen() {
   const [rows, setRows] = useState(() => [emptyEntryRow()]);
   const [saving, setSaving] = useState(false);
   const [filters, setFilters] = useState(EMPTY_FILTERS);
+  const [totalsOwnership, setTotalsOwnership] = useState(TRUST); // '' = all ownerships
+  const [bySite, setBySite] = useState(false);  // totals split per site
+  const fromRef = useRef(null);
   const [visibleLogs, setVisibleLogs] = useState(LOG_PAGE); // submissions shown
   const [saved, setSaved] = useState(null);     // { report, queued, count }
   const [viewingKey, setViewing] = useState(null); // batchKey of the submission whose report is open
@@ -181,12 +192,17 @@ export default function MaterialsScreen() {
   const siteContractors = useMemo(() => contractorsAt(site), [site, app.contractors, data.projects]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const isFiltered = Object.values(filters).some(Boolean);
-  const filteredLogs = useMemo(() => sortLogsNewestFirst(filterLogs(data.logs, filters)), [data.logs, filters]);
-  // Totals follow the filters (except ownership, which can only ever
-  // narrow them to Trust or empty them) — totals are always Trust-only.
-  const summaryLogs = useMemo(() => filterLogs(data.logs, { ...filters, ownership: '' }), [data.logs, filters]);
-  const totals = useMemo(() => trustTotals(summaryLogs), [summaryLogs]);
+  // A parent site filters to all of its sub-sites.
+  const siteNames = useMemo(() => (filters.site ? siteFilterNames(filters.site, data.projects) : null), [filters.site, data.projects]);
+  const logFilters = useMemo(() => ({ ...filters, siteNames }), [filters, siteNames]);
+  const filteredLogs = useMemo(() => sortLogsNewestFirst(filterLogs(data.logs, logFilters)), [data.logs, logFilters]);
+  // Totals follow the shared filters; which ownership they count is the
+  // totals panel's own toggle (Trust by default), not the log's filter.
+  const summaryLogs = useMemo(() => filterLogs(data.logs, { ...logFilters, ownership: '' }), [data.logs, logFilters]);
+  const totals = useMemo(() => materialTotals(summaryLogs, { ownership: totalsOwnership }), [summaryLogs, totalsOwnership]);
   const counts = useMemo(() => ownershipCounts(summaryLogs), [summaryLogs]);
+  const multiSite = useMemo(() => new Set(summaryLogs.map(l => lower(l.site))).size > 1, [summaryLogs]);
+  const showBySite = bySite && multiSite;
 
   // The log table lists submissions (one row each), newest first. A
   // submission shows when any of its entries matches the filters, and
@@ -201,7 +217,32 @@ export default function MaterialsScreen() {
   const viewing = useMemo(() => submissions.find(sub => sub.key === viewingKey) || null, [submissions, viewingKey]);
   const editing = useMemo(() => submissions.find(sub => sub.key === editingKey) || null, [submissions, editingKey]);
 
-  const logSites = useMemo(() => [...new Set(data.logs.map(l => l.site).filter(Boolean))].sort(), [data.logs]);
+  // Project › sub-site options (already scoped to a supervisor's sites by
+  // the server), plus any older log site no longer in the project list.
+  const siteOptions = useMemo(() => {
+    const opts = siteFilterOptions(data.projects);
+    const known = new Set(opts.map(o => lower(o.value)));
+    const extra = [...new Set(data.logs.map(l => String(l.site || '').trim()).filter(s => s && !known.has(lower(s))))].sort();
+    return [...opts, ...extra.map(s => ({ value: s, label: s }))];
+  }, [data.projects, data.logs]);
+
+  // Contractors to filter by at a site filter value ('' = every site): the
+  // ones allocated there, plus any named on its logged entries.
+  const contractorOptionsFor = (siteValue) => {
+    const names = siteValue ? siteFilterNames(siteValue, data.projects) : null;
+    const byKey = new Map();
+    const add = (n) => { const k = lower(n); if (k && !byKey.has(k)) byKey.set(k, String(n).trim()); };
+    if (names) {
+      data.projects.filter(p => names.has(lower(p.project_name)))
+        .forEach(p => contractorsForSite(app.contractors, data.projects, p.project_name).forEach(c => add(c.name)));
+    } else {
+      (app.contractors || []).filter(c => c.status !== 'inactive').forEach(c => add(c.name));
+    }
+    data.logs.forEach(l => { if (l.contractor && (!names || names.has(lower(l.site)))) add(l.contractor); });
+    return [...byKey.values()].sort((a, b) => a.localeCompare(b));
+  };
+  const contractorOptions = useMemo(() => contractorOptionsFor(filters.site), [filters.site, data.projects, data.logs, app.contractors]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const logMaterials = useMemo(() => [...new Set(data.logs.map(l => l.material_name).filter(Boolean))].sort(), [data.logs]);
 
   // The report for the submission being viewed — all of its entries.
@@ -209,7 +250,16 @@ export default function MaterialsScreen() {
     ? buildMaterialReport({ date: viewing.date, site: viewing.site, entries: viewing.entries, projects: data.projects })
     : null), [viewing, data.projects]);
 
-  const setFilter = (field) => (e) => { setFilters(f => ({ ...f, [field]: e.target.value })); setVisibleLogs(LOG_PAGE); };
+  const patchFilters = (patch) => { setFilters(f => ({ ...f, ...patch })); setVisibleLogs(LOG_PAGE); };
+  const setFilter = (field) => (e) => patchFilters({ [field]: e.target.value });
+  // Another site drops a contractor filter that doesn't work there.
+  const setSiteFilter = (e) => {
+    const next = e.target.value;
+    const keep = !filters.contractor || contractorOptionsFor(next).some(c => lower(c) === lower(filters.contractor));
+    patchFilters(keep ? { site: next } : { site: next, contractor: '' });
+  };
+  const clearFilters = () => { setFilters(EMPTY_FILTERS); setVisibleLogs(LOG_PAGE); };
+  const preset = activePreset(filters);
   const updateRow = (k, next) => setRows(rs => rs.map(r => (r.key === k ? next : r)));
   const removeRow = (k) => setRows(rs => (rs.length > 1 ? rs.filter(r => r.key !== k) : rs));
   const ready = serializeEntryRows(rows).length;
@@ -291,7 +341,23 @@ export default function MaterialsScreen() {
     run({ action: 'requestMaterialLogChange', ids: sub.entries.map(e => e.id), type }, `📤 ${type === 'delete' ? 'Delete' : 'Edit'} request sent to admin`);
   };
 
-  const excluded = counts.Contractor + counts.Other;
+  // Entries the totals leave out under the current ownership toggle.
+  const excludedOwners = OWNERSHIP_OPTIONS.filter(o => totalsOwnership && o !== totalsOwnership);
+  const excluded = excludedOwners.reduce((n, o) => n + counts[o], 0);
+  const [, , totalsTitle] = TOTALS_OWNERSHIP.find(([v]) => v === totalsOwnership);
+  let rangeText = 'all dates';
+  if (preset === 'custom') {
+    if (filters.start && filters.end) rangeText = `${shortDate(filters.start)} – ${shortDate(filters.end)}`;
+    else rangeText = filters.start ? `from ${shortDate(filters.start)}` : `up to ${shortDate(filters.end)}`;
+  } else if (preset !== 'all') {
+    rangeText = DATE_PRESETS.find(([k]) => k === preset)[1].toLowerCase();
+  }
+  const scopeText = [
+    filters.site ? siteDisplayName(filters.site, data.projects) : 'all sites',
+    rangeText,
+    filters.contractor && `contractor ${filters.contractor}`,
+    filters.material,
+  ].filter(Boolean).join(' · ');
   const loading = !data.logs.length && (data.status === 'loading' || data.status === 'idle');
 
   let logBody;
@@ -304,7 +370,7 @@ export default function MaterialsScreen() {
       logBody = <div className="list"><div className="empty"><h3>No consumption logged yet</h3><p className="muted">Use + Log Material Consumption above to log today’s materials.</p></div></div>;
     }
   } else if (!filteredSubs.length) {
-    logBody = <div className="list"><div className="empty"><h3>No entries match these filters</h3><p className="muted">Clear a filter or widen the date range.</p><button type="button" className="btn" onClick={() => setFilters(EMPTY_FILTERS)}>Clear filters</button></div></div>;
+    logBody = <div className="list"><div className="empty"><h3>No entries match these filters</h3><p className="muted">Clear a filter or widen the date range.</p><button type="button" className="btn" onClick={clearFilters}>Clear filters</button></div></div>;
   } else {
     const shown = filteredSubs.slice(0, visibleLogs);
     logBody = (
@@ -376,7 +442,7 @@ export default function MaterialsScreen() {
       <div className="page-head">
         <div>
           <h1>Material consumption</h1>
-          <p className="lede">Log what each site used, and find every entry logged. Only Trust-supplied material counts toward the totals; contractor and other entries are kept for reference.</p>
+          <p className="lede">Log what each site used, and find every entry logged. Totals count Trust-supplied material by default — switch them to contractor or all ownerships, or split them per site.</p>
         </div>
         <div className="row">
           <button type="button" className="btn primary" onClick={app.openMaterialForm} aria-expanded={app.materialFormOpen}><Icon name="plus" />Log Material Consumption</button>
@@ -442,20 +508,33 @@ export default function MaterialsScreen() {
         )}
       </section>
 
-      <section>
-        <div className="list-bar log-head">
+      <section className="panel" aria-label="Filters">
+        <div className="panel-head">
           <div>
-            <h2 className="panel-title">Consumption log</h2>
-            <p className="hint">{isFiltered ? `${filteredSubs.length} of ${submissions.length} submissions have matching entries — exports cover the ${filteredLogs.length} matching entries.` : `${submissions.length} submissions, ${data.logs.length} entries. Exports list each entry shown by the filters.`}</p>
+            <h2 className="panel-title">Filters</h2>
+            <p className="hint">Apply to the material totals and the consumption log below.</p>
           </div>
-          {isFiltered && <button type="button" className="btn sm ghost" onClick={() => { setFilters(EMPTY_FILTERS); setVisibleLogs(LOG_PAGE); }}><Icon name="x" />Clear filters</button>}
+          {isFiltered && <button type="button" className="btn sm ghost" onClick={clearFilters}><Icon name="x" />Clear filters</button>}
+        </div>
+        <div className="seg" role="group" aria-label="Date range" style={{ flexWrap: 'wrap', marginBottom: 12 }}>
+          {DATE_PRESETS.map(([k, label]) => (
+            <button key={k} type="button" className={preset === k ? 'on' : ''} aria-pressed={preset === k} onClick={() => patchFilters(presetRange(k))}>{label}</button>
+          ))}
+          <button type="button" className={preset === 'custom' ? 'on' : ''} aria-pressed={preset === 'custom'} onClick={() => fromRef.current && fromRef.current.focus()}>Custom</button>
         </div>
         <div className="filters five">
           <label className="field">
             <span>Site</span>
-            <select className="select" value={filters.site} onChange={setFilter('site')}>
+            <select className="select" value={filters.site} onChange={setSiteFilter}>
               <option value="">All sites</option>
-              {logSites.map(s => <option key={s} value={s}>{siteDisplayName(s, data.projects)}</option>)}
+              {siteOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </label>
+          <label className="field">
+            <span>Contractor</span>
+            <select className="select" value={filters.contractor} onChange={setFilter('contractor')}>
+              <option value="">All contractors</option>
+              {contractorOptions.map(n => <option key={n} value={n}>{n}</option>)}
             </select>
           </label>
           <label className="field">
@@ -465,51 +544,82 @@ export default function MaterialsScreen() {
               {logMaterials.map(n => <option key={n} value={n}>{n}</option>)}
             </select>
           </label>
-          <label className="field">
+          <label className="field"><span>From</span><input ref={fromRef} className="input" type="date" value={filters.start} max={filters.end || undefined} onChange={setFilter('start')} /></label>
+          <label className="field"><span>To</span><input className="input" type="date" value={filters.end} min={filters.start || undefined} onChange={setFilter('end')} /></label>
+        </div>
+      </section>
+
+      <div className="section-gap">
+        <section className="panel">
+          <div className="panel-head">
+            <h2 className="panel-title">{totalsTitle}</h2>
+            <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+              <div className="seg" role="group" aria-label="Ownership counted in the totals" style={{ flexWrap: 'wrap' }}>
+                {TOTALS_OWNERSHIP.map(([v, label]) => (
+                  <button key={label} type="button" className={totalsOwnership === v ? 'on' : ''} aria-pressed={totalsOwnership === v} onClick={() => setTotalsOwnership(v)}>{label}</button>
+                ))}
+              </div>
+              {multiSite && (
+                <div className="seg" role="group" aria-label="Group the totals">
+                  <button type="button" className={showBySite ? '' : 'on'} aria-pressed={!showBySite} onClick={() => setBySite(false)}>Total</button>
+                  <button type="button" className={showBySite ? 'on' : ''} aria-pressed={showBySite} onClick={() => setBySite(true)}>By site</button>
+                </div>
+              )}
+            </div>
+          </div>
+          {totals.length ? (
+            <div className="tscroll">
+              <table className="dt">
+                <thead><tr><th>{showBySite ? 'Material / site' : 'Material'}</th><th className="n">Total</th><th className="n">Entries</th></tr></thead>
+                <tbody>
+                  {totals.map(t => {
+                    const key = `${t.material}|${t.unit}`;
+                    return [
+                      <tr key={key} className={showBySite ? 'grp' : ''}>
+                        <td>{t.material}</td>
+                        <td className="n" style={{ whiteSpace: 'nowrap' }}><span className="qty">{formatQty(t.qty)}</span> <span className="muted">{t.unit || '—'}</span></td>
+                        <td className="n">{t.entries}</td>
+                      </tr>,
+                      ...(showBySite ? t.sites.map(st => (
+                        <tr key={`${key}|${st.site}`} className="site-split">
+                          <td>{siteDisplayName(st.site, data.projects)}</td>
+                          <td className="n" style={{ whiteSpace: 'nowrap' }}>{formatQty(st.qty)} <span className="muted">{t.unit || '—'}</span></td>
+                          <td className="n">{st.entries}</td>
+                        </tr>
+                      )) : []),
+                    ];
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="muted">{loading ? 'Loading…' : `No ${totalsOwnership ? `${totalsOwnership}-supplied ` : ''}consumption in this selection.`}</p>
+          )}
+          <p className="hint" style={{ marginTop: 12 }}>
+            Cumulative for {scopeText}.{' '}
+            {excludedOwners.length > 0 && (excluded > 0
+              ? `${excluded} ${excludedOwners.join('/')} entr${excluded === 1 ? 'y is' : 'ies are'} excluded from these totals.`
+              : `${excludedOwners.join('/')} entries are excluded from these totals.`)}
+          </p>
+        </section>
+      </div>
+
+      <section className="section-gap">
+        <div className="list-bar log-head">
+          <div>
+            <h2 className="panel-title">Consumption log</h2>
+            <p className="hint">{isFiltered ? `${filteredSubs.length} of ${submissions.length} submissions have matching entries — exports cover the ${filteredLogs.length} matching entries.` : `${submissions.length} submissions, ${data.logs.length} entries. Exports list each entry shown by the filters.`}</p>
+          </div>
+          <label className="field log-owner">
             <span>Ownership</span>
             <select className="select" value={filters.ownership} onChange={setFilter('ownership')}>
               <option value="">All</option>
               {OWNERSHIP_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
             </select>
           </label>
-          <label className="field"><span>From</span><input className="input" type="date" value={filters.start} onChange={setFilter('start')} /></label>
-          <label className="field"><span>To</span><input className="input" type="date" value={filters.end} onChange={setFilter('end')} /></label>
         </div>
         {logBody}
       </section>
-
-      <div className="section-gap">
-        <section className="panel">
-          <div className="panel-head">
-            <h2 className="panel-title">Trust material totals</h2>
-            <span className="tag mat">Trust only</span>
-          </div>
-          {totals.length ? (
-            <div className="tscroll">
-              <table className="dt">
-                <thead><tr><th>Material</th><th className="n">Total</th><th className="n">Entries</th></tr></thead>
-                <tbody>
-                  {totals.map(t => (
-                    <tr key={`${t.material}|${t.unit}`}>
-                      <td>{t.material}</td>
-                      <td className="n" style={{ whiteSpace: 'nowrap' }}><span className="qty">{formatQty(t.qty)}</span> <span className="muted">{t.unit || '—'}</span></td>
-                      <td className="n">{t.entries}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <p className="muted">{loading ? 'Loading…' : 'No Trust-supplied consumption in this selection.'}</p>
-          )}
-          <p className="hint" style={{ marginTop: 12 }}>
-            {filters.start || filters.end || filters.site || filters.material ? 'Cumulative for the filtered selection. ' : 'Cumulative for all logged entries. '}
-            {excluded > 0
-              ? `${excluded} Contractor/Other entr${excluded === 1 ? 'y is' : 'ies are'} excluded from these totals.`
-              : 'Contractor/Other entries are excluded from these totals.'}
-          </p>
-        </section>
-      </div>
 
       {viewReport && (
         <Dialog title={`${viewReport.entries.length > 1 ? `${viewReport.entries.length} materials` : viewing.entries[0].material_name} — ${viewReport.siteDisplay}, ${shortDate(viewReport.date)}`} paper onClose={() => setViewing(null)} footer={<ReportActionBar report={viewReport} />}>

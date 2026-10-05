@@ -11,7 +11,7 @@ import { exportDprLogCsv, exportDprLogExcel, exportDprLogPdf } from '../../lib/e
 import Icon from '../ui/Icon';
 import { runReportAction } from '../../lib/report/exportReport';
 import { CONDITIONS, recordActivities, reportFromRecord, siteDisplayName, toYMD } from '../../lib/report/reportModel';
-import { isContainer, siteFilterNames } from '../../lib/sites';
+import { siteFilterNames, siteFilterOptions } from '../../lib/sites';
 
 const PAGE_SIZE = 15;
 const EDIT_WINDOW_MS = 15 * 60 * 1000;
@@ -150,15 +150,7 @@ export default function HistoryScreen() {
 
   // A parent site filters to all of its sub-sites (plus any older report
   // filed on the parent itself).
-  const siteOptions = useMemo(() => {
-    const tops = data.projects.filter(p => !p.parent_id || String(p.parent_id).trim() === '');
-    return tops.flatMap(top => [
-      { value: top.project_name, label: top.project_name + (isContainer(top, data.projects) ? ' — all sub-sites' : '') + (top.status === 'inactive' ? ' (inactive)' : '') },
-      ...data.projects
-        .filter(p => String(p.parent_id) === String(top.id))
-        .map(s => ({ value: s.project_name, label: `  ↳ ${s.project_name}${s.status === 'inactive' ? ' (inactive)' : ''}` })),
-    ]);
-  }, [data.projects]);
+  const siteOptions = useMemo(() => siteFilterOptions(data.projects), [data.projects]);
 
   const supervisors = useMemo(() => {
     const set = new Set();

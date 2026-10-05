@@ -354,6 +354,11 @@ table.dt .n{text-align:right}
 table.dt td.acts{white-space:nowrap;text-align:right}
 table.dt td.acts .icon-btn{display:inline-grid;width:34px;height:34px;vertical-align:middle}
 table.dt tr.ref td{color:var(--muted)}
+table.dt tr.grp td{background:var(--surface-2)}
+table.dt tr.grp td:first-child{font-weight:600}
+table.dt tr.site-split td{padding-top:7px;padding-bottom:7px;font-size:14px;color:var(--ink-2)}
+table.dt tr.site-split td:first-child{padding-left:30px}
+.log-owner{width:160px}
 table.dt .qty{font-family:var(--font-cond);font-size:18px;font-weight:700;color:var(--ink)}
 table.dt .sub{font-size:13px;color:var(--muted)}
 .tscroll{overflow-x:auto}
