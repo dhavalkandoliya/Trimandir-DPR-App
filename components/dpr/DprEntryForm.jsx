@@ -6,7 +6,7 @@ import { enqueueOffline, useApp } from '../app/AppContext';
 import ExecutiveReport from '../report/ExecutiveReport';
 import ReportActionBar from '../report/ReportActionBar';
 import Icon from '../ui/Icon';
-import SiteOptions from '../ui/SiteOptions';
+import SiteSelect from '../ui/SiteSelect';
 import {
   CONDITIONS, buildReport, consumptionForRecord, formatDisplayDate, isNonWorking, recordActivities,
 } from '../../lib/report/reportModel';
@@ -654,12 +654,10 @@ export default function DprEntryForm({ onClose }) {
                   <span>Report date</span>
                   <input className="input" type="date" value={date} max={getLocalTodayYMD()} onChange={(e) => setDate(e.target.value)} disabled={!!editingKey} />
                 </label>
-                <label className="field">
-                  <span>Site</span>
-                  <select className="select" value={site} onChange={(e) => changeSite(e.target.value)} disabled={!!editingKey}>
-                    <SiteOptions projects={master.projects} current={site} />
-                  </select>
-                </label>
+                <div className="field">
+                  <span id="dprEntrySiteLabel">Site</span>
+                  <SiteSelect mode="report" projects={master.projects} value={site} onChange={changeSite} disabled={!!editingKey} labelledBy="dprEntrySiteLabel" />
+                </div>
               </div>
               <div className="field">
                 <span>Site condition <em>(optional)</em></span>

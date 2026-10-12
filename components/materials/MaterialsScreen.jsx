@@ -12,10 +12,9 @@ import Dialog from '../ui/Dialog';
 import ExportButtons from '../ui/ExportButtons';
 import { exportMaterialLogCsv, exportMaterialLogExcel } from '../../lib/exports/logExports';
 import Icon from '../ui/Icon';
-import SiteOptions from '../ui/SiteOptions';
 import { siteDisplayName } from '../../lib/report/reportModel';
-import { contractorsForSite, isArchivedSite, siteFilterOptions, siteFilterPaths, siteKey, sitePaths as sitePathsOf } from '../../lib/sites';
-import SiteFilterOptions from '../ui/SiteFilterOptions';
+import { contractorsForSite, isArchivedSite, siteFilterPaths, siteKey, sitePaths as sitePathsOf } from '../../lib/sites';
+import SiteSelect from '../ui/SiteSelect';
 import { buildMaterialReport } from '../../lib/materials/materialReport';
 import {
   DATE_PRESETS, OWNERSHIP_OPTIONS, TRUST, activePreset, batchKey, emptyEntryRow, entryRowFrom, entryRowHasContent, filterLogs, formatQty,
@@ -220,12 +219,11 @@ export default function MaterialsScreen() {
 
   // Project › sub-site options (already scoped to a supervisor's sites by
   // the server), plus any older log site no longer in the project list.
-  const siteOptions = useMemo(() => siteFilterOptions(data.projects), [data.projects]);
-  const extraSiteOptions = useMemo(() => {
-    const known = new Set([...siteOptions.active, ...siteOptions.archived].map(o => lower(o.value)));
-    return [...new Set(data.logs.map(l => String(l.site || '').trim()).filter(s => s && !known.has(lower(s))))].sort()
-      .map(s => ({ value: s, label: s }));
-  }, [siteOptions, data.logs]);
+  // Log sites that name no current project (filterable on their own).
+  const unlinkedSites = useMemo(() => {
+    const known = new Set([...sitePathsOf(data.projects).values()].map(lower));
+    return [...new Set(data.logs.map(l => String(l.site || '').trim()).filter(s => s && !known.has(lower(s))))].sort();
+  }, [data.projects, data.logs]);
 
   // Contractors to filter by at a site filter value ('' = every site): the
   // ones allocated there, plus any named on its logged entries.
@@ -255,8 +253,7 @@ export default function MaterialsScreen() {
   const patchFilters = (patch) => { setFilters(f => ({ ...f, ...patch })); setVisibleLogs(LOG_PAGE); };
   const setFilter = (field) => (e) => patchFilters({ [field]: e.target.value });
   // Another site drops a contractor filter that doesn't work there.
-  const setSiteFilter = (e) => {
-    const next = e.target.value;
+  const setSiteFilter = (next) => {
     const keep = !filters.contractor || contractorOptionsFor(next).some(c => lower(c) === lower(filters.contractor));
     patchFilters(keep ? { site: next } : { site: next, contractor: '' });
   };
@@ -473,12 +470,10 @@ export default function MaterialsScreen() {
                   <span>Date</span>
                   <input className="input" type="date" value={date} max={getLocalTodayYMD()} onChange={(e) => setDate(e.target.value)} />
                 </label>
-                <label className="field">
-                  <span>Site</span>
-                  <select className="select" value={site} onChange={(e) => changeSite(e.target.value)}>
-                    <SiteOptions projects={data.projects} current={site} />
-                  </select>
-                </label>
+                <div className="field">
+                  <span id="matEntrySiteLabel">Site</span>
+                  <SiteSelect mode="report" projects={data.projects} value={site} onChange={changeSite} labelledBy="matEntrySiteLabel" />
+                </div>
               </div>
               {rows.map((r, i) => (
                 <ConsumptionEntryRow
@@ -519,12 +514,10 @@ export default function MaterialsScreen() {
           <button type="button" className={preset === 'custom' ? 'on' : ''} aria-pressed={preset === 'custom'} onClick={() => fromRef.current && fromRef.current.focus()}>Custom</button>
         </div>
         <div className="filters five">
-          <label className="field">
-            <span>Site</span>
-            <select className="select" value={filters.site} onChange={setSiteFilter}>
-              <SiteFilterOptions options={siteOptions} extra={extraSiteOptions} />
-            </select>
-          </label>
+          <div className="field">
+            <span id="matLogSiteLabel">Site</span>
+            <SiteSelect mode="filter" projects={data.projects} value={filters.site} onChange={setSiteFilter} extra={unlinkedSites} labelledBy="matLogSiteLabel" />
+          </div>
           <label className="field">
             <span>Contractor</span>
             <select className="select" value={filters.contractor} onChange={setFilter('contractor')}>

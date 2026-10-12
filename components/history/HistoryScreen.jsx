@@ -12,8 +12,8 @@ import { exportDprLogCsv, exportDprLogExcel, exportDprLogPdf } from '../../lib/e
 import Icon from '../ui/Icon';
 import { runReportAction } from '../../lib/report/exportReport';
 import { CONDITIONS, recordActivities, reportFromRecord, siteDisplayName, toYMD } from '../../lib/report/reportModel';
-import { isArchivedSite, siteFilterOptions, siteFilterPaths, siteKey } from '../../lib/sites';
-import SiteFilterOptions from '../ui/SiteFilterOptions';
+import { isArchivedSite, siteFilterPaths, siteKey } from '../../lib/sites';
+import SiteSelect from '../ui/SiteSelect';
 
 const PAGE_SIZE = 15;
 const EMPTY_FILTERS = { start: '', end: '', site: '', supervisor: '', condition: '' };
@@ -147,7 +147,6 @@ export default function HistoryScreen() {
   // Options are keyed by full site path, so Surat › Temple and Vasad ›
   // Temple stay distinct. A parent site filters to all of its sub-sites (plus any older report
   // filed on the parent itself).
-  const siteOptions = useMemo(() => siteFilterOptions(data.projects), [data.projects]);
 
   const supervisors = useMemo(() => {
     const set = new Set();
@@ -254,12 +253,16 @@ export default function HistoryScreen() {
         <h2 className="panel-title">Report log</h2>
       </div>
       <div className="filters five">
-        <label className="field">
-          <span>Site</span>
-          <select className="select" value={filters.site} onChange={setFilter('site')}>
-            <SiteFilterOptions options={siteOptions} />
-          </select>
-        </label>
+        <div className="field">
+          <span id="dprLogSiteLabel">Site</span>
+          <SiteSelect
+            mode="filter"
+            projects={data.projects}
+            value={filters.site}
+            onChange={(v) => { setFilters(f => ({ ...f, site: v })); setLimit(PAGE_SIZE); }}
+            labelledBy="dprLogSiteLabel"
+          />
+        </div>
         <label className="field">
           <span>Filed by</span>
           <select className="select" value={filters.supervisor} onChange={setFilter('supervisor')}>
