@@ -14,7 +14,8 @@ import { exportMaterialLogCsv, exportMaterialLogExcel } from '../../lib/exports/
 import Icon from '../ui/Icon';
 import SiteOptions from '../ui/SiteOptions';
 import { siteDisplayName } from '../../lib/report/reportModel';
-import { contractorsForSite, siteFilterOptions, siteFilterPaths, siteKey, sitePaths as sitePathsOf } from '../../lib/sites';
+import { contractorsForSite, isArchivedSite, siteFilterOptions, siteFilterPaths, siteKey, sitePaths as sitePathsOf } from '../../lib/sites';
+import SiteFilterOptions from '../ui/SiteFilterOptions';
 import { buildMaterialReport } from '../../lib/materials/materialReport';
 import {
   DATE_PRESETS, OWNERSHIP_OPTIONS, TRUST, activePreset, batchKey, emptyEntryRow, entryRowFrom, entryRowHasContent, filterLogs, formatQty,
@@ -141,8 +142,9 @@ function EditSubmissionDialog({ submission, materials, contractors, onClose, onS
 }
 
 // View / edit / delete buttons for one submission, per submissionAccess().
-function SubmissionActions({ submission, user, onView, onEdit, onDelete }) {
-  const access = submissionAccess(submission.entries, user);
+// archived: its site is inactive, so it's read-only (admins may delete).
+function SubmissionActions({ submission, user, archived, onView, onEdit, onDelete }) {
+  const access = submissionAccess(submission.entries, user, { archived });
   const what = `${submission.site}, ${submission.date}`;
   return (
     <>
@@ -218,12 +220,12 @@ export default function MaterialsScreen() {
 
   // Project › sub-site options (already scoped to a supervisor's sites by
   // the server), plus any older log site no longer in the project list.
-  const siteOptions = useMemo(() => {
-    const opts = siteFilterOptions(data.projects);
-    const known = new Set(opts.map(o => lower(o.value)));
-    const extra = [...new Set(data.logs.map(l => String(l.site || '').trim()).filter(s => s && !known.has(lower(s))))].sort();
-    return [...opts, ...extra.map(s => ({ value: s, label: `${s} (not linked to a site)` }))];
-  }, [data.projects, data.logs]);
+  const siteOptions = useMemo(() => siteFilterOptions(data.projects), [data.projects]);
+  const extraSiteOptions = useMemo(() => {
+    const known = new Set([...siteOptions.active, ...siteOptions.archived].map(o => lower(o.value)));
+    return [...new Set(data.logs.map(l => String(l.site || '').trim()).filter(s => s && !known.has(lower(s))))].sort()
+      .map(s => ({ value: s, label: s }));
+  }, [siteOptions, data.logs]);
 
   // Contractors to filter by at a site filter value ('' = every site): the
   // ones allocated there, plus any named on its logged entries.
@@ -395,15 +397,19 @@ export default function MaterialsScreen() {
                     <td><div className="row" style={{ gap: 4, flexWrap: 'wrap' }}>{owners.map(o => <OwnershipBadge key={o} ownership={o} />)}</div></td>
                     <td>
                       {sub.loggedBy || '—'}
-                      {sub.editedBy && <div className="sub">Edited by {sub.editedBy}</div>}                    </td>
+                      {sub.editedBy && <div className="sub">Edited by {sub.editedBy}</div>}
+                      {isArchivedSite(sub.site, data.projects) && <div><span className="tag" title="This site is inactive — its entries are read-only">Archived</span></div>}
+                    </td>
                     <td className="acts">
                       {sub.entries.every(e => e.id) && (
                         <SubmissionActions
                           submission={sub}
                           user={app.user}
+                          archived={isArchivedSite(sub.site, data.projects)}
                           onView={() => setViewing(sub.key)}
                           onEdit={() => setEditing(sub.key)}
-                          onDelete={() => deleteSubmission(sub)}                        />
+                          onDelete={() => deleteSubmission(sub)}
+                        />
                       )}
                     </td>
                   </tr>
@@ -516,8 +522,7 @@ export default function MaterialsScreen() {
           <label className="field">
             <span>Site</span>
             <select className="select" value={filters.site} onChange={setSiteFilter}>
-              <option value="">All sites</option>
-              {siteOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              <SiteFilterOptions options={siteOptions} extra={extraSiteOptions} />
             </select>
           </label>
           <label className="field">

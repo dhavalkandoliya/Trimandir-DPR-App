@@ -12,7 +12,8 @@ import { exportDprLogCsv, exportDprLogExcel, exportDprLogPdf } from '../../lib/e
 import Icon from '../ui/Icon';
 import { runReportAction } from '../../lib/report/exportReport';
 import { CONDITIONS, recordActivities, reportFromRecord, siteDisplayName, toYMD } from '../../lib/report/reportModel';
-import { siteFilterOptions, siteFilterPaths, siteKey } from '../../lib/sites';
+import { isArchivedSite, siteFilterOptions, siteFilterPaths, siteKey } from '../../lib/sites';
+import SiteFilterOptions from '../ui/SiteFilterOptions';
 
 const PAGE_SIZE = 15;
 const EMPTY_FILTERS = { start: '', end: '', site: '', supervisor: '', condition: '' };
@@ -43,8 +44,10 @@ const timeOf = (item) => {
 
 // Same edit rules as AppContext canEdit() and the server
 // (lib/dprSupabaseApi.js editDPR) — this only picks the button. Admins
-// edit any DPR; a supervisor edits their own, any time.
-function editAction(item, user) {
+// edit any DPR; a supervisor edits their own, any time. Reports on an
+// archived (inactive) site are read-only for everyone.
+function editAction(item, user, projects) {
+  if (isArchivedSite(item.site, projects)) return 'archived';
   const isAdmin = user && user.role === 'admin';
   if (isAdmin) return 'edit';
   const isOwn = user && item.by === user.username;
@@ -87,7 +90,7 @@ function SkeletonList() {
 }
 
 function HistoryRow({ item, projects, user, onView, onAction }) {
-  const edit = editAction(item, user);
+  const edit = editAction(item, user, projects);
   const ymd = toYMD(item.date);
   const mains = [...new Set(recordActivities(item).map(a => a.main_activity || a.activity).filter(Boolean))];
   const isAdmin = user && user.role === 'admin';
@@ -107,6 +110,7 @@ function HistoryRow({ item, projects, user, onView, onAction }) {
         <div className="sub">
           {timeOf(item)}
           {item.editedBy && item.editedBy !== item.by && <span className="tag">Edited</span>}
+          {edit === 'archived' && <span className="tag" title="This site is inactive — its reports are read-only">Archived</span>}
         </div>
       </div>
       <div className="acts">
@@ -216,7 +220,7 @@ export default function HistoryScreen() {
     );
   }
 
-  const viewingEdit = viewing ? editAction(viewing.item, data.user) === 'edit' : false;
+  const viewingEdit = viewing ? editAction(viewing.item, data.user, data.projects) === 'edit' : false;
 
   return (
     <>
@@ -253,8 +257,7 @@ export default function HistoryScreen() {
         <label className="field">
           <span>Site</span>
           <select className="select" value={filters.site} onChange={setFilter('site')}>
-            <option value="">All sites</option>
-            {siteOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            <SiteFilterOptions options={siteOptions} />
           </select>
         </label>
         <label className="field">

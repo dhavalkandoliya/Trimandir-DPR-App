@@ -11,6 +11,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { AUTH_EXPIRED_EVENT, apiGet, apiPost } from '../../lib/client/api';
 import { cacheClear, cacheGet, cacheSet } from '../../lib/client/idbCache';
+import { isArchivedSite } from '../../lib/sites';
 
 const AppContext = createContext(null);
 export const useApp = () => {
@@ -330,10 +331,11 @@ export function AppProvider({ children }) {
 
   const canEdit = useCallback((item) => {
     if (!user) return { ok: false, reason: '⚠️ Please sign in first' };
+    if (isArchivedSite(item.site, master.projects)) return { ok: false, reason: '🗄️ This site is inactive — its reports are read-only' };
     if (user.role === 'admin') return { ok: true };
     if (String(item.by || '').toLowerCase() !== user.username.toLowerCase()) return { ok: false, reason: '❌ You can only edit your own DPRs' };
     return { ok: true };
-  }, [user]);
+  }, [user, master.projects]);
 
   const editDpr = useCallback((item) => {
     const check = canEdit(item); // the server enforces the same rule
