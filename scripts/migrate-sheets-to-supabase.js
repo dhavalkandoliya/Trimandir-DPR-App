@@ -304,8 +304,6 @@ async function migrateDprRecordsAndEntries() {
     activity_details: d.activityDetails || '',
     total_manpower:   Number(d.total) || 0,
     submitted_at:     toIsoOrNull(d.submittedAt),
-    edit_permission:  d.editPermission || '',
-    requested_by:     d.requestedBy || '',
     site_condition:   d.siteCondition || ''
   })), 'dpr_records');
 

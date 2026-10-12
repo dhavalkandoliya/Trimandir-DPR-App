@@ -61,7 +61,6 @@ a{color:var(--primary)}
 .nav button.on{background:var(--side-hover);color:var(--side-ink-strong)}
 .nav button.on::before{content:"";position:absolute;left:-10px;top:8px;bottom:8px;width:3px;border-radius:0 3px 3px 0;background:var(--hivis)}
 .nav svg{width:20px;height:20px;flex:none}
-.nav .count{margin-left:auto;background:var(--hivis);color:#15212B;font-size:12px;font-weight:700;border-radius:10px;padding:0 7px;line-height:20px}
 .side-foot{padding:14px 20px;border-top:1px solid rgba(255,255,255,.08);font-size:13px}
 .main{min-width:0;display:flex;flex-direction:column}
 .topbar{display:flex;align-items:center;gap:12px;padding:12px 28px;border-bottom:1px solid var(--line);background:var(--surface);position:sticky;top:env(safe-area-inset-top,0px);z-index:30}
@@ -532,7 +531,6 @@ table.dt .sub{font-size:13px;color:var(--muted)}
   .bottom-nav button svg{width:22px;height:22px}
   .bottom-nav button.on{color:var(--primary)}
   .bottom-nav button.on::before{content:"";position:absolute;top:0;left:30%;right:30%;height:3px;background:var(--hivis);border-radius:0 0 3px 3px}
-  .bottom-nav .count{position:absolute;top:6px;left:calc(50% + 6px);background:var(--hivis);color:#15212B;font-size:10.5px;font-weight:700;border-radius:8px;padding:0 5px;line-height:16px}
   .summary-bar{left:0;bottom:calc(var(--nav-h) + env(safe-area-inset-bottom,0px));padding:10px 16px}
   .summary-inner{gap:14px}
   .sum-split,.draft-state{display:none}

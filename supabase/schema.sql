@@ -134,8 +134,6 @@ create table if not exists dpr_records (
   activity_details  text not null default '',
   total_manpower    numeric(10, 2) not null default 0,  -- not integer: real data includes half-day labor (e.g. 16.5)
   submitted_at      timestamptz,
-  edit_permission   text not null default '' check (edit_permission in ('', 'pending', 'granted')),
-  requested_by      text not null default '',
   site_condition    text not null default '',
   created_at        timestamptz not null default now(),
   updated_at        timestamptz not null default now(),
@@ -182,12 +180,7 @@ create table if not exists material_logs (
   remarks        text,
   logged_by      text not null default '',
   created_at     timestamptz not null default now(),
-  -- edit/delete lifecycle (migration 004): pending = edit_requested_by set, approved = edit_granted_to set
-  edit_requested_by text,
-  edit_requested_at timestamptz,
-  edit_request_type text,               -- 'edit' | 'delete'
-  edit_granted_to   text,
-  edit_granted_at   timestamptz,
+  -- last edit (migration 004; its request columns were dropped by 010)
   edited_by         text,
   edited_at         timestamptz,
   -- submission batch (migration 005): rows saved together share batch_id; batch_line = form order

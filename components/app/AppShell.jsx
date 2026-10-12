@@ -8,7 +8,6 @@ import MaterialsScreen from '../materials/MaterialsScreen';
 import ErrorBoundary from '../ui/ErrorBoundary';
 import Icon from '../ui/Icon';
 import { toYMD } from '../../lib/report/reportModel';
-import { groupSubmissions } from '../../lib/materials/consumption';
 import { useApp } from './AppContext';
 import LoginScreen from './LoginScreen';
 import Toast from './Toast';
@@ -31,7 +30,6 @@ const SYSTEM = [
   { section: 'sites', label: 'Sites', icon: 'site' },
   { section: 'activities', label: 'Activities', icon: 'list' },
   { section: 'materials', label: 'Material Catalogue', icon: 'box' },
-  { section: 'requests', label: 'Edit Requests', icon: 'inbox' },
 ];
 
 function todayYMD() {
@@ -113,15 +111,11 @@ function UserMenu() {
 }
 
 export default function AppShell() {
-  const { authStatus, user, theme, toggleTheme, activeTab, adminSection, switchTab, history, materialLogs } = useApp();
+  const { authStatus, user, theme, toggleTheme, activeTab, adminSection, switchTab, history } = useApp();
   const signedIn = authStatus === 'signedIn' && user;
   const isAdmin = signedIn && user.role === 'admin';
   const tabs = TABS.filter(t => !t.adminOnly || isAdmin);
 
-  const pendingEdits = useMemo(
-    () => history.filter(h => h.editPermission === 'pending').length + groupSubmissions(materialLogs).filter(s => s.request.status === 'pending').length,
-    [history, materialLogs]
-  );
   const filedToday = useMemo(() => {
     const t = todayYMD();
     return new Set(history.filter(h => toYMD(h.date) === t).map(h => String(h.site || '').trim())).size;
@@ -130,10 +124,9 @@ export default function AppShell() {
   useEffect(() => { window.scrollTo(0, 0); }, [activeTab]);
 
   const go = (id) => switchTab(id);
-  const badge = (show) => (show && pendingEdits ? <span className="count" aria-label={`${pendingEdits} pending`}>{pendingEdits}</span> : null);
-  const navItem = (key, on, onClick, icon, label, count) => (
+  const navItem = (key, on, onClick, icon, label) => (
     <button key={key} type="button" className={on ? 'on' : ''} aria-current={on ? 'page' : undefined} onClick={onClick}>
-      <Icon name={icon} /><span>{label}</span>{count}
+      <Icon name={icon} /><span>{label}</span>
     </button>
   );
 
@@ -157,7 +150,7 @@ export default function AppShell() {
                   <>
                     <div className="nav-group">System / Admin</div>
                     {SYSTEM.map(a => navItem(a.section, activeTab === 'Admin' && adminSection === a.section,
-                      () => switchTab('Admin', { section: a.section }), a.icon, a.label, badge(a.section === 'requests')))}
+                      () => switchTab('Admin', { section: a.section }), a.icon, a.label))}
                   </>
                 )}
               </nav>
@@ -187,7 +180,7 @@ export default function AppShell() {
           </div>
 
           <nav className="bottom-nav" aria-label="Main" style={{ gridTemplateColumns: `repeat(${tabs.length},1fr)` }}>
-            {tabs.map(t => navItem(t.id, activeTab === t.id, () => go(t.id), t.icon, t.short, badge(t.id === 'Admin')))}
+            {tabs.map(t => navItem(t.id, activeTab === t.id, () => go(t.id), t.icon, t.short))}
           </nav>
         </>
       )}

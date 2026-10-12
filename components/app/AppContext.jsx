@@ -29,8 +29,8 @@ const EMPTY_MASTER = { projects: [], activities: [], materials: [], users: [], c
 export const DEFAULT_TAB = 'Dashboard';
 const TAB_SLUGS = { Dashboard: 'dashboard', DPR: 'dpr', Materials: 'materials', Admin: 'admin' };
 const LEGACY_SLUGS = { report: 'DPR', history: 'DPR' }; // the old separate New report / History tabs
-export const ADMIN_SECTIONS = ['contractors', 'users', 'sites', 'activities', 'materials', 'requests'];
-export const DEFAULT_ADMIN_SECTION = 'requests';
+export const ADMIN_SECTIONS = ['contractors', 'users', 'sites', 'activities', 'materials'];
+export const DEFAULT_ADMIN_SECTION = 'contractors';
 function routeFromHash(user) {
   const fallback = { tab: DEFAULT_TAB, section: DEFAULT_ADMIN_SECTION };
   if (typeof window === 'undefined') return fallback;
@@ -334,8 +334,8 @@ export function AppProvider({ children }) {
     if (user.role === 'admin') return { ok: true };
     if (String(item.by || '').toLowerCase() !== user.username.toLowerCase()) return { ok: false, reason: '❌ You can only edit your own DPRs' };
     const sub = Number(item.submittedAt) || (item.submittedAt ? new Date(item.submittedAt).getTime() : 0);
-    if ((sub && Date.now() - sub < EDIT_WINDOW_MS) || item.editPermission === 'granted') return { ok: true };
-    return { ok: false, reason: '🔒 Edit window expired. Request Edit first.' };
+    if (sub && Date.now() - sub < EDIT_WINDOW_MS) return { ok: true };
+    return { ok: false, reason: '🔒 The 15-minute edit window has passed — ask an admin to make the change.' };
   }, [user]);
 
   const editDpr = useCallback((item) => {
@@ -347,28 +347,6 @@ export function AppProvider({ children }) {
     if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
     showToast('✏️ Loaded for editing — click Save changes when done');
   }, [canEdit, sendEntryCommand, showToast]);
-
-  const requestEdit = useCallback(async (item) => {
-    if (!window.confirm('Request edit permission from Admin for this DPR?')) return;
-    showToast('📤 Sending request...');
-    try {
-      const res = await apiPost({ action: 'requestEditDPR', key: recordKey(item) });
-      if (res && res.error) { showToast('⚠️ Request failed: ' + res.error); return; }
-      showToast('✅ Request sent!');
-      reloadHistory();
-    } catch { showToast('⚠️ Request failed — check connection'); }
-  }, [showToast, reloadHistory]);
-
-  const approveEdit = useCallback(async (item) => {
-    if (!window.confirm('Approve edit access for this DPR?')) return;
-    showToast('⏳ Approving...');
-    try {
-      const res = await apiPost({ action: 'approveEditDPR', key: recordKey(item) });
-      if (res && res.error) { showToast('⚠️ Approval failed: ' + res.error); return; }
-      showToast('✅ Edit access granted!');
-      reloadHistory();
-    } catch { showToast('⚠️ Approval failed — check connection'); }
-  }, [showToast, reloadHistory]);
 
   const deleteDpr = useCallback(async (item) => {
     if (!user || user.role !== 'admin') { showToast('❌ Only Admin can delete'); return; }
@@ -394,11 +372,11 @@ export function AppProvider({ children }) {
     entryCommand, sendEntryCommand,
     dprFormOpen, openDprForm, closeDprForm, materialFormOpen, openMaterialForm, closeMaterialForm,
     // DPR actions
-    canEdit, editDpr, requestEdit, approveEdit, deleteDpr, syncOfflineQueue,
+    canEdit, editDpr, deleteDpr, syncOfflineQueue,
   }), [user, authStatus, authMessage, login, logout, master, history, historyStatus, materialLogs, materialLogsStatus,
     reloadMaster, reloadHistory, reloadMaterialLogs, activeTab, switchTab, adminSection, toast, showToast, showActionToast, hideToast,
     theme, toggleTheme, online, entryCommand, sendEntryCommand,
-    dprFormOpen, openDprForm, closeDprForm, materialFormOpen, openMaterialForm, closeMaterialForm, canEdit, editDpr, requestEdit, approveEdit, deleteDpr, syncOfflineQueue]);
+    dprFormOpen, openDprForm, closeDprForm, materialFormOpen, openMaterialForm, closeMaterialForm, canEdit, editDpr, deleteDpr, syncOfflineQueue]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }

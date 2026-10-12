@@ -139,18 +139,15 @@ function EditSubmissionDialog({ submission, materials, contractors, onClose, onS
 }
 
 // View / edit / delete buttons for one submission, per submissionAccess().
-function SubmissionActions({ submission, user, onView, onEdit, onDelete, onRequest }) {
+function SubmissionActions({ submission, user, onView, onEdit, onDelete }) {
   const access = submissionAccess(submission.entries, user);
-  const pending = submission.request.status === 'pending';
   const what = `${submission.site}, ${submission.date}`;
   return (
     <>
       <button type="button" className="icon-btn" onClick={onView} title="View submission report" aria-label={`View report for ${what}`}><Icon name="eye" /></button>
       {access.edit === 'direct' && <button type="button" className="icon-btn" onClick={onEdit} title="Edit submission" aria-label={`Edit submission for ${what}`}><Icon name="edit" /></button>}
-      {access.edit === 'request' && <button type="button" className="icon-btn" onClick={() => onRequest('edit')} title="Request edit from admin" aria-label="Request edit"><Icon name="edit" /></button>}
       {access.delete === 'direct' && <button type="button" className="icon-btn danger" onClick={onDelete} title="Delete submission" aria-label={`Delete submission for ${what}`}><Icon name="trash" /></button>}
-      {access.delete === 'request' && <button type="button" className="icon-btn danger" onClick={() => onRequest('delete')} title="Request deletion from admin" aria-label="Request deletion"><Icon name="trash" /></button>}
-      {pending && <button type="button" className="icon-btn" disabled title="Request waiting for admin" aria-label="Request waiting for admin"><Icon name="lock" /></button>}
+      {access.edit === 'locked' && <button type="button" className="icon-btn" disabled title="Locked — the 24-hour window has passed; an admin can still change it" aria-label="Locked for editing"><Icon name="lock" /></button>}
     </>
   );
 }
@@ -337,11 +334,6 @@ export default function MaterialsScreen() {
     if (!window.confirm(`Delete ${what} — ${sub.site}, ${shortDate(sub.date)}?`)) return;
     run({ action: 'deleteMaterialLog', ids: sub.entries.map(e => e.id) }, n === 1 ? '🗑️ Consumption entry deleted' : `🗑️ Submission deleted (${n} materials)`);
   };
-  const requestChange = (sub, type) => {
-    const what = type === 'delete' ? 'deletion' : 'an edit';
-    if (!window.confirm(`The 24-hour window for this submission has passed. Send ${what} request to an admin?`)) return;
-    run({ action: 'requestMaterialLogChange', ids: sub.entries.map(e => e.id), type }, `📤 ${type === 'delete' ? 'Delete' : 'Edit'} request sent to admin`);
-  };
 
   // Entries the totals leave out under the current ownership toggle.
   const excludedOwners = OWNERSHIP_OPTIONS.filter(o => totalsOwnership && o !== totalsOwnership);
@@ -402,10 +394,7 @@ export default function MaterialsScreen() {
                     <td><div className="row" style={{ gap: 4, flexWrap: 'wrap' }}>{owners.map(o => <OwnershipBadge key={o} ownership={o} />)}</div></td>
                     <td>
                       {sub.loggedBy || '—'}
-                      {sub.editedBy && <div className="sub">Edited by {sub.editedBy}</div>}
-                      {sub.request.status === 'pending' && <div><span className="tag warn">{sub.request.type === 'delete' ? 'Delete requested' : 'Edit requested'}</span></div>}
-                      {sub.request.status === 'granted' && <div><span className="tag ok">Edit allowed</span></div>}
-                    </td>
+                      {sub.editedBy && <div className="sub">Edited by {sub.editedBy}</div>}                    </td>
                     <td className="acts">
                       {sub.entries.every(e => e.id) && (
                         <SubmissionActions
@@ -413,9 +402,7 @@ export default function MaterialsScreen() {
                           user={app.user}
                           onView={() => setViewing(sub.key)}
                           onEdit={() => setEditing(sub.key)}
-                          onDelete={() => deleteSubmission(sub)}
-                          onRequest={(type) => requestChange(sub, type)}
-                        />
+                          onDelete={() => deleteSubmission(sub)}                        />
                       )}
                     </td>
                   </tr>
@@ -433,7 +420,7 @@ export default function MaterialsScreen() {
           )}
         </div>
         <p className="hint" style={{ marginTop: 8 }}>
-          One row per submission. You can edit or delete your own submissions for 24 hours after logging them. After that, the edit and delete buttons send a request to an admin.
+          One row per submission. You can edit or delete your own submissions for 24 hours after logging them. After that they are locked, and only an admin can change them.
         </p>
       </>
     );

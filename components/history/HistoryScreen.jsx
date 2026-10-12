@@ -41,19 +41,17 @@ const timeOf = (item) => {
   return ms ? new Date(ms).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' }) : '';
 };
 
-// Same edit-permission rules as AppContext canEdit() and the server
-// (lib/dprSupabaseApi.js editDPR) — this only picks the button.
+// Same edit rules as AppContext canEdit() and the server
+// (lib/dprSupabaseApi.js editDPR) — this only picks the button. Admins
+// edit any DPR; a supervisor edits their own for 15 minutes, then it's
+// locked (an admin can still change it).
 function editAction(item, user) {
   const isAdmin = user && user.role === 'admin';
+  if (isAdmin) return 'edit';
   const isOwn = user && item.by === user.username;
+  if (!isOwn) return 'forbidden';
   const ms = submittedMs(item);
-  const withinWindow = ms && (Date.now() - ms) < EDIT_WINDOW_MS;
-  const granted = item.editPermission === 'granted';
-  const pending = item.editPermission === 'pending';
-  if (!isAdmin && isOwn && !withinWindow && !granted && !pending) return 'request';
-  if (!isAdmin && isOwn && pending) return 'pending';
-  if (!isAdmin && !isOwn) return 'forbidden';
-  return 'edit';
+  return ms && (Date.now() - ms) < EDIT_WINDOW_MS ? 'edit' : 'locked';
 }
 
 function DprViewDialog({ item, projects, materialLogs, autoOpenShare, canEditIt, onEdit, onClose }) {
@@ -111,15 +109,12 @@ function HistoryRow({ item, projects, user, onView, onAction }) {
         <div className="sub">
           {timeOf(item)}
           {item.editedBy && item.editedBy !== item.by && <span className="tag">Edited</span>}
-          {item.editPermission === 'pending' && <span className="tag warn">Edit requested</span>}
-          {item.editPermission === 'granted' && <span className="tag ok">Edit allowed</span>}
         </div>
       </div>
       <div className="acts">
         <button type="button" className="icon-btn" onClick={() => onView(item)} title="View report" aria-label={`View report for ${site}, ${ymd}`}><Icon name="eye" /></button>
         {edit === 'edit' && <button type="button" className="icon-btn" onClick={() => onAction('edit', item)} title="Edit" aria-label="Edit report"><Icon name="edit" /></button>}
-        {edit === 'request' && <button type="button" className="icon-btn" onClick={() => onAction('request', item)} title="Request edit" aria-label="Request edit"><Icon name="lock" /></button>}
-        {edit === 'pending' && <button type="button" className="icon-btn" disabled title="Edit request pending" aria-label="Edit request pending"><Icon name="lock" /></button>}
+        {edit === 'locked' && <button type="button" className="icon-btn" disabled title="Locked — the 15-minute edit window has passed; an admin can still change it" aria-label="Locked for editing"><Icon name="lock" /></button>}
         <button type="button" className="icon-btn" onClick={() => onAction('jpg', item)} title="Download image" aria-label="Download image"><Icon name="image" /></button>
         <button type="button" className="icon-btn" onClick={() => onAction('pdf', item)} title="Download PDF" aria-label="Download PDF"><Icon name="pdf" /></button>
         <button type="button" className="icon-btn" onClick={() => onAction('share', item)} title="Share" aria-label="Share report"><Icon name="share" /></button>
@@ -189,7 +184,6 @@ export default function HistoryScreen() {
       case 'jpg':
       case 'pdf':     runReportAction(kind, reportFromRecord(item, data.projects, data.materialLogs), app.showToast); break;
       case 'edit':    closeViewer(); app.editDpr(item); break;
-      case 'request': app.requestEdit(item); break;
       case 'delete':  app.deleteDpr(item); break;
       default: break;
     }

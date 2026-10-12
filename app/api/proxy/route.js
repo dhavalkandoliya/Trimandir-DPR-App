@@ -11,7 +11,7 @@ import { clearSessionCookie, getSession, isSameOrigin, needsRefresh, setSessionC
 //
 // Every action except login/logout/session requires a signed-in session
 // (lib/session.js); admin-only actions also require role=admin. Authorship
-// (by / editedBy / requestedBy / loggedBy) comes from the session, never
+// (by / editedBy / loggedBy) comes from the session, never
 // from the request body. Supervisors are scoped to their assigned sites
 // (user_sites) inside lib/dprSupabaseApi.js — for reads and writes alike.
 // The Google Apps Script backend is no longer called at runtime.

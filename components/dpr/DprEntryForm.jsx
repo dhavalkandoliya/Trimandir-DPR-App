@@ -626,10 +626,7 @@ export default function DprEntryForm({ onClose }) {
           <div className="row">
             {existingEdit && existingEdit.ok
               ? <button type="button" className="btn sm primary" onClick={() => app.editDpr(existing)}>Edit that report</button>
-              : existing.editPermission === 'pending'
-                ? <span className="tag warn">Edit requested</span>
-                : String(existing.by || '').toLowerCase() === username.toLowerCase() &&
-                  <button type="button" className="btn sm primary" onClick={() => app.requestEdit(existing)}>Request edit</button>}
+              : <span className="tag">Locked — ask an admin to change it</span>}
           </div>
         </div>
       )}
