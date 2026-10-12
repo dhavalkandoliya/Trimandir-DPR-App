@@ -8,7 +8,7 @@ import ReportActionBar from '../report/ReportActionBar';
 import Icon from '../ui/Icon';
 import SiteOptions from '../ui/SiteOptions';
 import {
-  CONDITIONS, buildReport, consumptionForRecord, formatDisplayDate, recordActivities,
+  CONDITIONS, buildReport, consumptionForRecord, formatDisplayDate, isNonWorking, recordActivities,
 } from '../../lib/report/reportModel';
 import ConsumptionEntryRow, { ContractorSelect } from '../materials/ConsumptionEntryRow';
 import { contractorsForSite, reportingSites, siteKey } from '../../lib/sites';
@@ -277,6 +277,7 @@ export default function DprEntryForm({ onClose }) {
   const [date, setDate] = useState(getLocalTodayYMD);
   const [site, setSite] = useState('');
   const [condition, setCondition] = useState('');
+  const [remarks, setRemarks] = useState(''); // reason, for a closed / holiday day
   const [rows, setRows] = useState(() => [emptyActivityRow()]);
   const [materialRows, setMaterialRows] = useState([]);
   const [editingKey, setEditingKey] = useState(null);
@@ -320,6 +321,7 @@ export default function DprEntryForm({ onClose }) {
     setDate(getLocalTodayYMD());
     setSite('');
     setCondition('');
+    setRemarks('');
     setRows([emptyActivityRow()]);
     setMaterialRows([]);
     setEditingKey(null);
@@ -334,6 +336,7 @@ export default function DprEntryForm({ onClose }) {
     setDate(draft.date || getLocalTodayYMD());
     setSite(draft.site || '');
     setCondition(draft.siteCondition || '');
+    setRemarks(draft.remarks || '');
     const acts = Array.isArray(draft.activities) ? draft.activities : [];
     setRows(acts.length ? acts.map(activityRowFrom) : [emptyActivityRow()]);
     const mats = Array.isArray(draft.materials) ? draft.materials : [];
@@ -346,6 +349,7 @@ export default function DprEntryForm({ onClose }) {
     setDate(toYMD(item.date));
     setSite(item.site || '');
     setCondition(item.siteCondition || '');
+    setRemarks(item.remarks || '');
     const loaded = rowsFromRecord(item);
     setRows(loaded.length ? loaded : [emptyActivityRow()]);
     setMaterialRows([]);
@@ -375,21 +379,25 @@ export default function DprEntryForm({ onClose }) {
       material_name: m.name, qty: m.qty, unit: m.unit, ownership: m.ownership, contractor: m.contractor,
       output_qty: m.outputQty, output_unit: m.outputUnit, remarks: m.remarks,
     }));
-    const isEmpty = !site && !condition && !materials.length &&
+    const isEmpty = !site && !condition && !remarks.trim() && !materials.length &&
       activities.every(a => !a.main_activity && !a.skilled && !a.unskilled && !a.note && !a.plannedQty);
     try {
       if (isEmpty) localStorage.removeItem(DRAFT_KEY);
-      else localStorage.setItem(DRAFT_KEY, JSON.stringify({ user: username, date, site, siteCondition: condition, activities, materials }));
+      else localStorage.setItem(DRAFT_KEY, JSON.stringify({ user: username, date, site, siteCondition: condition, remarks, activities, materials }));
       setDraftSaved(!isEmpty);
     } catch (e) { setDraftSaved(false); /* storage full/blocked — drafting is best-effort */ }
-  }, [date, site, condition, rows, materialRows, editingKey, username]);
+  }, [date, site, condition, remarks, rows, materialRows, editingKey, username]);
 
   useEffect(() => { if (submitted) window.scrollTo({ top: 0, behavior: 'smooth' }); }, [submitted]);
+
+  // Site Closed / Holiday: no manpower section, a reason instead. The
+  // activity rows stay in state (hidden), so switching back restores them.
+  const nonWorking = isNonWorking(condition);
 
   // ── Derived totals (summary bar) ──
   const totals = useMemo(() => {
     const t = { skilled: 0, unskilled: 0, rows: 0 };
-    rows.forEach(r => {
+    if (!nonWorking) rows.forEach(r => {
       if (!r.main) return;
       const sk = toCount(r.skilled), un = toCount(r.unskilled);
       if (sk + un > 0) t.rows++;
@@ -399,7 +407,7 @@ export default function DprEntryForm({ onClose }) {
     t.total = t.skilled + t.unskilled;
     t.materials = serializeEntryRows(materialRows).length;
     return t;
-  }, [rows, materialRows]);
+  }, [rows, materialRows, nonWorking]);
 
   // A new report's site must be a full site path (lib/sites.js). A draft
   // saved before paths held a bare name like "Temple", which several
@@ -421,11 +429,11 @@ export default function DprEntryForm({ onClose }) {
   const preview = useMemo(() => {
     if (!site && !rows.some(r => r.main)) return null;
     return buildReport({
-      date, site, condition, preparedBy, projects: master.projects, draft: true,
+      date, site, condition, remarks, preparedBy, projects: master.projects, draft: true,
       activities: rows.filter(r => r.main.trim()).map(serializeActivity),
       materials: editingKey ? consumptionForRecord({ date, site }, app.materialLogs) : serializeEntryRows(materialRows),
     });
-  }, [date, site, condition, rows, materialRows, editingKey, preparedBy, master.projects, app.materialLogs]);
+  }, [date, site, condition, remarks, rows, materialRows, editingKey, preparedBy, master.projects, app.materialLogs]);
 
   // Picking another site drops contractors that aren't allocated to it
   // (activity rows and material entries), rather than failing the save.
@@ -457,13 +465,14 @@ export default function DprEntryForm({ onClose }) {
 
   // ── Quick actions ──
   const clearForm = () => {
-    const snapshot = { date, site, condition, rows, materialRows };
+    const snapshot = { date, site, condition, remarks, rows, materialRows };
     resetForm();
     readyRef.current = true;
     app.showActionToast('Form cleared', 'Undo', () => {
       setDate(snapshot.date);
       setSite(snapshot.site);
       setCondition(snapshot.condition);
+      setRemarks(snapshot.remarks);
       setRows(snapshot.rows);
       setMaterialRows(snapshot.materialRows);
     });
@@ -488,9 +497,12 @@ export default function DprEntryForm({ onClose }) {
     if (!date) { app.showToast('⚠️ Choose the report date'); return; }
     if (!site) { app.showToast('⚠️ Choose the site this report is for'); return; }
 
-    const activities = rows.filter(r => r.main.trim()).map(serializeActivity);
+    // A closed / holiday day files no manpower lines, but needs its reason.
+    const reason = nonWorking ? remarks.trim() : '';
+    if (nonWorking && !reason) { app.showToast(`⚠️ Enter the ${condition === 'Holiday' ? 'holiday' : 'reason the site was closed'}`); return; }
+    const activities = nonWorking ? [] : rows.filter(r => r.main.trim()).map(serializeActivity);
     const activeActs = activities.filter(a => a.skilled > 0 || a.unskilled > 0);
-    if (!activeActs.length) { app.showToast('⚠️ Add at least one activity with workers'); return; }
+    if (!nonWorking && !activeActs.length) { app.showToast('⚠️ Add at least one activity with workers'); return; }
 
     const invalidMaterial = editingKey ? null : validateEntryRows(materialRows);
     if (invalidMaterial) { app.showToast(invalidMaterial); return; }
@@ -501,7 +513,7 @@ export default function DprEntryForm({ onClose }) {
       const original = master.history.find(h => toYMD(h.date) === date && String(h.site || '').trim() === site.trim());
       if (original) rowsFromRecord(original).forEach(r => r.contractor && allowed.add(r.contractor));
     }
-    const tagged = [...rows.filter(r => r.main.trim()).map(r => r.contractor), ...materialsUsedContractors()];
+    const tagged = [...(nonWorking ? [] : rows.filter(r => r.main.trim()).map(r => r.contractor)), ...materialsUsedContractors()];
     const stray = tagged.map(c => String(c || '').trim()).find(c => c && !allowed.has(c));
     if (stray) { app.showToast(`⚠️ ${stray} isn't allocated to ${site} — pick one of its contractors`); return; }
     const materialsUsed = editingKey ? [] : serializeEntryRows(materialRows);
@@ -513,7 +525,7 @@ export default function DprEntryForm({ onClose }) {
     const submittedAt = new Date().toISOString();
 
     const report = buildReport({
-      date, site, activities: activeActs, preparedBy: prepBy, editedBy, condition, projects: master.projects, submittedAt,
+      date, site, activities: activeActs, preparedBy: prepBy, editedBy, condition, remarks: reason, projects: master.projects, submittedAt,
       // New DPR: the entries on this form. Edit: what's already logged for this site/day.
       materials: editingKey ? consumptionForRecord({ date, site }, app.materialLogs) : materialsUsed,
     });
@@ -529,6 +541,7 @@ export default function DprEntryForm({ onClose }) {
       editedBy,
       submittedAt,
       siteCondition: condition,
+      remarks: reason,
     };
     const materialPayload = materialsUsed.length
       ? { action: 'saveMaterialLog', date, site, by: user.username, materialsUsed }
@@ -664,10 +677,25 @@ export default function DprEntryForm({ onClose }) {
                   ))}
                 </div>
               </div>
+              {nonWorking && (
+                <label className="field">
+                  <span>{condition === 'Holiday' ? 'Which holiday?' : 'Reason for closure'}</span>
+                  <textarea
+                    className="input"
+                    rows={2}
+                    maxLength={500}
+                    value={remarks}
+                    onChange={(e) => setRemarks(e.target.value)}
+                    placeholder={condition === 'Holiday' ? 'e.g. Diwali' : 'e.g. Heavy rain, material not delivered, labour strike'}
+                    aria-required="true"
+                  />
+                  <small className="hint">No manpower is recorded for this day.{rows.some(r => r.main) ? ' The activities you entered are kept in case you change the condition back.' : ''}</small>
+                </label>
+              )}
             </div>
           </section>
 
-          <section className="panel">
+          {!nonWorking && <section className="panel">
             <div className="panel-head">
               <h2 className="panel-title">Manpower by activity</h2>
               <span className="muted small">{rows.length} row{rows.length === 1 ? '' : 's'}</span>
@@ -688,7 +716,7 @@ export default function DprEntryForm({ onClose }) {
             ))}
             {!rows.length && <p className="muted small" style={{ padding: '10px 0' }}>No activities yet.</p>}
             <button type="button" className="btn add" onClick={addRow}><Icon name="plus" />Add activity</button>
-          </section>
+          </section>}
 
           <section className="panel mat-panel">
             <div className="panel-head">

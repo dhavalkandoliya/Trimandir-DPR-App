@@ -162,9 +162,15 @@ export default function ExecutiveReport({ report }) {
           </table>
         ) : (
           <div className="rp-closed">
-            {report.condition === 'Site Closed' || report.condition === 'Holiday'
+            {report.nonWorking
               ? `No manpower deployed — ${report.condition.toLowerCase()}.`
               : 'Add at least one activity with workers to build the manpower table.'}
+            {report.nonWorking && (
+              <div className="rp-reason">
+                <b>{report.condition === 'Holiday' ? 'Holiday' : 'Reason for closure'}:</b>{' '}
+                {report.remarks || <span className="muted">{report.draft ? 'enter the reason in the form' : 'not recorded'}</span>}
+              </div>
+            )}
           </div>
         )}
 

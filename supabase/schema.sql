@@ -135,6 +135,7 @@ create table if not exists dpr_records (
   total_manpower    numeric(10, 2) not null default 0,  -- not integer: real data includes half-day labor (e.g. 16.5)
   submitted_at      timestamptz,
   site_condition    text not null default '',
+  remarks           text not null default '',                           -- reason for a Site Closed / Holiday day (migrations/013)
   created_at        timestamptz not null default now(),
   updated_at        timestamptz not null default now(),
   constraint uq_dpr_records_date_site unique (report_date, site)         -- preserves the existing duplicate-DPR guard from handleSaveDPR_
