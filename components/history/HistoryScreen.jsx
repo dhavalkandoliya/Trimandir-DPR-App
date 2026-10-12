@@ -11,7 +11,7 @@ import { exportDprLogCsv, exportDprLogExcel, exportDprLogPdf } from '../../lib/e
 import Icon from '../ui/Icon';
 import { runReportAction } from '../../lib/report/exportReport';
 import { CONDITIONS, recordActivities, reportFromRecord, siteDisplayName, toYMD } from '../../lib/report/reportModel';
-import { siteFilterNames, siteFilterOptions } from '../../lib/sites';
+import { siteFilterOptions, siteFilterPaths, siteKey } from '../../lib/sites';
 
 const PAGE_SIZE = 15;
 const EDIT_WINDOW_MS = 15 * 60 * 1000;
@@ -148,7 +148,8 @@ export default function HistoryScreen() {
     status: app.historyStatus, user: app.user,
   }), [app.history, app.projects, app.users, app.materialLogs, app.historyStatus, app.user]);
 
-  // A parent site filters to all of its sub-sites (plus any older report
+  // Options are keyed by full site path, so Surat › Temple and Vasad ›
+  // Temple stay distinct. A parent site filters to all of its sub-sites (plus any older report
   // filed on the parent itself).
   const siteOptions = useMemo(() => siteFilterOptions(data.projects), [data.projects]);
 
@@ -160,14 +161,14 @@ export default function HistoryScreen() {
   }, [data.users, data.history]);
 
   const filtered = useMemo(() => {
-    const sites = filters.site ? siteFilterNames(filters.site, data.projects) : null;
+    const sites = filters.site ? siteFilterPaths(filters.site, data.projects) : null;
     const sup = filters.supervisor.toLowerCase().trim();
     return data.history
       .filter(item => {
         const d = toYMD(item.date);
         if (filters.start && d < filters.start) return false;
         if (filters.end && d > filters.end) return false;
-        if (sites && !sites.has(String(item.site || '').trim().toLowerCase())) return false;
+        if (sites && !sites.has(siteKey(item.site))) return false;
         if (sup && String(item.by || '').toLowerCase() !== sup) return false;
         if (filters.condition && item.siteCondition !== filters.condition) return false;
         return true;

@@ -13,12 +13,11 @@
 --     admin-managed lookup tables (projects, activities, materials) to
 --     match their existing integer "id" column from the Sheets source.
 --   * `site` stays a plain text column on dpr_records/material_logs,
---     matching the app's current date+site NATURAL KEY (the site display
---     NAME, not an id) used for duplicate detection and edit lookups.
---     `project_id` is included as an optional FK for gradual
---     normalization; it's nullable and left NULL by the migration script,
---     since resolving a historical site-name string to a project id is
---     ambiguous (project names can be renamed) and isn't safe to guess.
+--     holding the site's full PATH ("Vasad_Trimandir › Temple" — never a
+--     bare sub-site name, which several projects share; migrations/009,
+--     lib/sites.js). It is the date+site natural key used for duplicate
+--     detection and edit lookups; renaming a project rewrites it.
+--     dpr_records.project_id is set on every new DPR (009 backfills it).
 --   * DPR_Records' civilActivities JSON blob and DPR_Detail sheet are
 --     unified into one child table, dpr_manpower_entries, one row per
 --     activity line item — a genuine normalization improvement over the
@@ -59,6 +58,10 @@ create table if not exists projects (
 );
 create index if not exists idx_projects_parent_id on projects (parent_id);
 create index if not exists idx_projects_status     on projects (status);
+-- Sibling names are unique, so every site's full path ("Parent › Sub-site",
+-- lib/sites.js) is too — reports are keyed by that path. migrations/009.
+create unique index if not exists uq_projects_sibling_name
+  on projects (coalesce(parent_id, 0), lower(trim(coalesce(sub_project_name, main_project_name))));
 
 -- ── USER_SITES (which sites a supervisor may see and report on) ──
 -- Admins need no rows. An assigned parent site covers its sub-sites.
@@ -124,8 +127,8 @@ create unique index if not exists idx_materials_name on materials (lower(materia
 create table if not exists dpr_records (
   id                uuid primary key default gen_random_uuid(),
   report_date       date not null,
-  site              text not null,                                       -- display-name key — matches the app's current date+site duplicate/edit lookup
-  project_id        bigint references projects (id) on delete set null,  -- optional normalized link; nullable, left blank by the migration (see notes above)
+  site              text not null,                                       -- the site's full path ("Vasad_Trimandir › Temple", migrations/009) — the date+site duplicate/edit key
+  project_id        bigint references projects (id) on delete set null,  -- set on every new DPR; backfilled by migrations/009
   prepared_by       text not null default '',
   edited_by         text,
   activity_details  text not null default '',
@@ -166,7 +169,7 @@ create index if not exists idx_dpr_manpower_entries_record_id on dpr_manpower_en
 create table if not exists material_logs (
   id             uuid primary key default gen_random_uuid(),
   log_date       date not null,
-  site           text not null,
+  site           text not null,          -- the site's full path, like dpr_records.site (migrations/009)
   dpr_record_id  uuid references dpr_records (id) on delete set null,   -- nullable: historical rows predate this link; new saves can set it
   material_id    bigint references materials (id) on delete set null,
   material_name  text not null,

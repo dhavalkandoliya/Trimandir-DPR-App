@@ -5,7 +5,8 @@ import { reportingSiteGroups } from '../../lib/sites';
 
 // <option>s for a "pick the site you're reporting on" <select>: active
 // reporting sites only, grouped under their parent. A parent with
-// sub-sites is a heading, not a choice (see lib/sites.js). `current` is
+// sub-sites is a heading, not a choice (see lib/sites.js). Every value is
+// the site's full path, unique even where sub-site names repeat. `current` is
 // kept as an extra option if it isn't one of them — e.g. editing a report
 // filed on a parent site before sub-sites existed.
 export default function SiteOptions({ projects, current = '' }) {
@@ -16,7 +17,7 @@ export default function SiteOptions({ projects, current = '' }) {
     <>
       <option value="">{groups.length ? 'Choose site' : 'No sites available'}</option>
       {groups.map(g => (g.group
-        ? <optgroup key={g.group} label={g.group}>{g.options.map(opt)}</optgroup>
+        ? <optgroup key={g.groupId} label={g.group}>{g.options.map(opt)}</optgroup>
         : g.options.map(opt)))}
       {current && !known && <option value={current}>{current}</option>}
     </>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { childrenOf, isTopLevel } from '../../lib/sites';
+import { childrenOf, isTopLevel, sitePaths } from '../../lib/sites';
 
 // Tick the sites something covers: a supervisor (user_sites) or a
 // contractor (site_contractors). A ticked parent covers all of its
@@ -46,11 +46,13 @@ export default function SitePicker({ selected = [], projects, busy, onSave, onCa
   );
 }
 
-// "Dahod_Trimandir › Mandir, Vasad Trimandir (all)" for a list of project ids.
+// "Dahod_Trimandir › Mandir, Vasad Trimandir (all)" for a list of project
+// ids — full paths, so Surat › Temple never reads like Vasad › Temple.
 export function siteNames(ids, projects) {
   const byId = new Map(projects.map(p => [String(p.id), p]));
+  const paths = sitePaths(projects);
   return (ids || []).map(id => byId.get(String(id))).filter(Boolean).map(p => {
-    const parent = byId.get(String(p.parent_id || ''));
-    return parent ? `${parent.project_name} › ${p.project_name}` : (childrenOf(p, projects).length ? `${p.project_name} (all)` : p.project_name);
+    const path = paths.get(String(p.id));
+    return childrenOf(p, projects).length ? `${path} (all)` : path;
   });
 }

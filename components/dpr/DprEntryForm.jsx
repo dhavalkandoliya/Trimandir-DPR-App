@@ -11,7 +11,7 @@ import {
   CONDITIONS, buildReport, consumptionForRecord, formatDisplayDate, recordActivities,
 } from '../../lib/report/reportModel';
 import ConsumptionEntryRow, { ContractorSelect } from '../materials/ConsumptionEntryRow';
-import { contractorsForSite } from '../../lib/sites';
+import { contractorsForSite, reportingSites, siteKey } from '../../lib/sites';
 import { taskName } from '../../lib/activities';
 import {
   emptyEntryRow, entryRowFrom, entryRowHasContent, serializeEntryRows, validateEntryRows,
@@ -400,6 +400,14 @@ export default function DprEntryForm({ onClose }) {
     t.materials = serializeEntryRows(materialRows).length;
     return t;
   }, [rows, materialRows]);
+
+  // A new report's site must be a full site path (lib/sites.js). A draft
+  // saved before paths held a bare name like "Temple", which several
+  // projects share — drop it so the supervisor picks the exact site.
+  useEffect(() => {
+    if (editingKey || !site || !master.projects.length) return;
+    if (!reportingSites(master.projects).some(o => siteKey(o.value) === siteKey(site))) setSite('');
+  }, [editingKey, site, master.projects]);
 
   // An existing DPR for this date + site (the server refuses a second one).
   const existing = useMemo(() => {

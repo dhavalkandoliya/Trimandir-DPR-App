@@ -12,7 +12,7 @@ import {
 import { useApp } from '../app/AppContext';
 import Icon from '../ui/Icon';
 import { CONDITIONS, conditionClass, recordActivities, siteDisplayName } from '../../lib/report/reportModel';
-import { reportingSiteGroups, reportingSites } from '../../lib/sites';
+import { projectByPath, reportingSiteGroups, reportingSites, sitePath, siteKey } from '../../lib/sites';
 import { taskName } from '../../lib/activities';
 
 Chart.register(CategoryScale, LinearScale, BarElement, BarController, Tooltip);
@@ -133,16 +133,19 @@ function TodayOverview() {
 
   const view = useMemo(() => {
     const t = todayYMD();
+    // Sites and reports meet on the full path (lib/sites.js): Surat ›
+    // Temple's report never marks Vasad › Temple as filed.
     const sites = reportingSites(projects).map(o => o.value);
-    const siteSet = new Set(sites);
+    const siteSet = new Set(sites.map(siteKey));
     const mine = history.filter(h => user && sameName(h.by, user.username));
 
     const today = history.filter(h => toYMD(h.date) === t);
-    const filedBySite = new Map(today.filter(h => siteSet.has(String(h.site || '').trim())).map(h => [String(h.site || '').trim(), h]));
+    const filedByKey = new Map(today.filter(h => siteSet.has(siteKey(h.site))).map(h => [siteKey(h.site), h]));
+    const filedFor = (path) => filedByKey.get(siteKey(path)) || null;
 
     const counts = new Map();
-    history.forEach(h => { if (h.site) counts.set(h.site, (counts.get(h.site) || 0) + 1); });
-    const top = [...counts.entries()].sort((a, b) => b[1] - a[1])[0];
+    history.forEach(h => { if (h.site) counts.set(siteKey(h.site), [h.site, ((counts.get(siteKey(h.site)) || [])[1] || 0) + 1]); });
+    const top = [...counts.values()].sort((a, b) => b[1] - a[1])[0];
     const last = mine.slice().sort((a, b) => toYMD(b.date).localeCompare(toYMD(a.date)))[0];
 
     return {
@@ -155,13 +158,14 @@ function TodayOverview() {
       mineToday: mine.filter(h => toYMD(h.date) === t).length,
       mineTotal: mine.length,
       last,
-      sites: sites.map(s => ({ site: s, filed: filedBySite.get(s) || null })),
+      sites: sites.map(s => ({ site: s, filed: filedFor(s) })),
       // Parent projects in list order; a site with no parent stands alone.
       groups: reportingSiteGroups(projects).map(g => ({
+        id: g.groupId,
         name: g.group,
-        sites: g.options.map(o => ({ site: o.value, filed: filedBySite.get(o.value) || null })),
+        sites: g.options.map(o => ({ site: o.value, label: o.label, filed: filedFor(o.value) })),
       })),
-      filedCount: sites.filter(s => filedBySite.has(s)).length,
+      filedCount: sites.filter(s => filedFor(s)).length,
     };
   }, [history, projects, user]);
 
@@ -212,7 +216,7 @@ function TodayOverview() {
         </div>
         {!view.sites.length && <p className="muted">{isAdmin ? 'No active sites yet.' : 'No sites are assigned to your account yet — ask an admin to add yours.'}</p>}
         {view.groups.map(g => (g.name
-          ? <ReportingGroup key={g.name} group={g} open={!collapsed.has(g.name)} onToggle={() => toggleGroup(g.name)} />
+          ? <ReportingGroup key={g.id} group={g} open={!collapsed.has(g.id)} onToggle={() => toggleGroup(g.id)} />
           : g.sites.map(st => <SiteStatusRow key={st.site} {...st} />)))}
       </section>
     </>
@@ -331,21 +335,20 @@ export default function AnalyticsDashboard() {
   // Site -> sub-site -> activity manpower breakdown, via the projects'
   // parent_id hierarchy.
   const mainMap = useMemo(() => {
-    const projMap = {};
-    projects.forEach(p => { projMap[String(p.project_name).trim()] = p; });
     const projById = {};
     projects.forEach(p => { projById[String(p.id).trim()] = p; });
 
     const map = {};
     periodData.forEach(item => {
       const siteName = item.site ? String(item.site).trim() : 'Unknown';
-      const p = projMap[siteName];
+      // By full path only: "Temple" alone exists under several projects.
+      const p = projectByPath(siteName, projects);
       let mainName = siteName;
       let subName = '';
       if (p) {
         const parentIdStr = p.parent_id ? String(p.parent_id).trim() : '';
         if (parentIdStr && projById[parentIdStr]) {
-          mainName = projById[parentIdStr].project_name;
+          mainName = sitePath(projById[parentIdStr], projects);
           subName = p.project_name;
         }
       }

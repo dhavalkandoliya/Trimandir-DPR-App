@@ -12,7 +12,7 @@ import { exportMaterialLogCsv, exportMaterialLogExcel } from '../../lib/exports/
 import Icon from '../ui/Icon';
 import SiteOptions from '../ui/SiteOptions';
 import { siteDisplayName } from '../../lib/report/reportModel';
-import { contractorsForSite, siteFilterNames, siteFilterOptions } from '../../lib/sites';
+import { contractorsForSite, siteFilterOptions, siteFilterPaths, siteKey, sitePaths as sitePathsOf } from '../../lib/sites';
 import { buildMaterialReport } from '../../lib/materials/materialReport';
 import {
   DATE_PRESETS, OWNERSHIP_OPTIONS, TRUST, activePreset, batchKey, emptyEntryRow, entryRowFrom, entryRowHasContent, filterLogs, formatQty,
@@ -192,9 +192,10 @@ export default function MaterialsScreen() {
   const siteContractors = useMemo(() => contractorsAt(site), [site, app.contractors, data.projects]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const isFiltered = Object.values(filters).some(Boolean);
-  // A parent site filters to all of its sub-sites.
-  const siteNames = useMemo(() => (filters.site ? siteFilterNames(filters.site, data.projects) : null), [filters.site, data.projects]);
-  const logFilters = useMemo(() => ({ ...filters, siteNames }), [filters, siteNames]);
+  // filters.site is a full site path; a parent filters to all of its
+  // sub-sites — by path, so Surat's never pulls in Vasad's "Temple".
+  const sitePaths = useMemo(() => (filters.site ? siteFilterPaths(filters.site, data.projects) : null), [filters.site, data.projects]);
+  const logFilters = useMemo(() => ({ ...filters, sitePaths }), [filters, sitePaths]);
   const filteredLogs = useMemo(() => sortLogsNewestFirst(filterLogs(data.logs, logFilters)), [data.logs, logFilters]);
   // Totals follow the shared filters; which ownership they count is the
   // totals panel's own toggle (Trust by default), not the log's filter.
@@ -223,22 +224,23 @@ export default function MaterialsScreen() {
     const opts = siteFilterOptions(data.projects);
     const known = new Set(opts.map(o => lower(o.value)));
     const extra = [...new Set(data.logs.map(l => String(l.site || '').trim()).filter(s => s && !known.has(lower(s))))].sort();
-    return [...opts, ...extra.map(s => ({ value: s, label: s }))];
+    return [...opts, ...extra.map(s => ({ value: s, label: `${s} (not linked to a site)` }))];
   }, [data.projects, data.logs]);
 
   // Contractors to filter by at a site filter value ('' = every site): the
   // ones allocated there, plus any named on its logged entries.
+  const sitePathMap = useMemo(() => sitePathsOf(data.projects), [data.projects]);
   const contractorOptionsFor = (siteValue) => {
-    const names = siteValue ? siteFilterNames(siteValue, data.projects) : null;
+    const paths = siteValue ? siteFilterPaths(siteValue, data.projects) : null;
     const byKey = new Map();
     const add = (n) => { const k = lower(n); if (k && !byKey.has(k)) byKey.set(k, String(n).trim()); };
-    if (names) {
-      data.projects.filter(p => names.has(lower(p.project_name)))
-        .forEach(p => contractorsForSite(app.contractors, data.projects, p.project_name).forEach(c => add(c.name)));
+    if (paths) {
+      [...sitePathMap.values()].filter(path => paths.has(siteKey(path)))
+        .forEach(path => contractorsForSite(app.contractors, data.projects, path).forEach(c => add(c.name)));
     } else {
       (app.contractors || []).filter(c => c.status !== 'inactive').forEach(c => add(c.name));
     }
-    data.logs.forEach(l => { if (l.contractor && (!names || names.has(lower(l.site)))) add(l.contractor); });
+    data.logs.forEach(l => { if (l.contractor && (!paths || paths.has(siteKey(l.site)))) add(l.contractor); });
     return [...byKey.values()].sort((a, b) => a.localeCompare(b));
   };
   const contractorOptions = useMemo(() => contractorOptionsFor(filters.site), [filters.site, data.projects, data.logs, app.contractors]); // eslint-disable-line react-hooks/exhaustive-deps
