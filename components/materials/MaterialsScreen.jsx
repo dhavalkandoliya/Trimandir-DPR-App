@@ -6,6 +6,8 @@ import { enqueueOffline, useApp } from '../app/AppContext';
 import ConsumptionEntryRow from './ConsumptionEntryRow';
 import MaterialReport from './MaterialReport';
 import ReportActionBar from '../report/ReportActionBar';
+import EditHistory from '../report/EditHistory';
+import { submissionAuditId } from '../../lib/audit';
 import Dialog from '../ui/Dialog';
 import ExportButtons from '../ui/ExportButtons';
 import { exportMaterialLogCsv, exportMaterialLogExcel } from '../../lib/exports/logExports';
@@ -611,6 +613,9 @@ export default function MaterialsScreen() {
 
       {viewReport && (
         <Dialog title={`${viewReport.entries.length > 1 ? `${viewReport.entries.length} materials` : viewing.entries[0].material_name} — ${viewReport.siteDisplay}, ${shortDate(viewReport.date)}`} paper onClose={() => setViewing(null)} footer={<ReportActionBar report={viewReport} />}>
+          {app.user && app.user.role === 'admin' && viewing.entries.every(e => e.id) && (
+            <EditHistory kind="material" id={submissionAuditId(viewing.entries)} entryIds={viewing.entries.map(e => e.id)} />
+          )}
           <MaterialReport report={viewReport} />
         </Dialog>
       )}

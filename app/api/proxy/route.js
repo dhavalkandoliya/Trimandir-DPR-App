@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import {
-  ADMIN_POST_ACTIONS, SUPABASE_GET_ACTIONS, SUPABASE_POST_ACTIONS, runSupabaseGetAction, runSupabasePostAction,
+  ADMIN_POST_ACTIONS, SUPABASE_GET_ACTIONS, SUPABASE_POST_ACTIONS, getAuditLog, runSupabaseGetAction, runSupabasePostAction,
 } from '../../../lib/dprSupabaseApi';
 import { createUser, deleteUser, getUsers, login, resetPassword, setUserSites } from '../../../lib/authSupabaseApi';
 import { clearSessionCookie, getSession, isSameOrigin, needsRefresh, setSessionCookie } from '../../../lib/session';
@@ -92,6 +92,12 @@ export async function GET(request) {
     const actor = { ...session.user, id: session.userId };
     const withSites = actor.role === 'admin'; // only admins see who is assigned where
     if (action === 'getUsers') return json(await getUsers({ withSites }));
+    // A report's edit history (lib/audit.js) — admins only.
+    if (action === 'getAuditLog') {
+      if (actor.role !== 'admin') return forbidden();
+      const p = url.searchParams;
+      return json(await getAuditLog({ kind: p.get('kind'), id: p.get('id'), entryIds: (p.get('entryIds') || '').split(',').filter(Boolean) }));
+    }
 
     if (SUPABASE_GET_ACTIONS.has(action)) {
       if (action === 'getBootstrapData') {

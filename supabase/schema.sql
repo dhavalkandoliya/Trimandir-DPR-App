@@ -231,18 +231,12 @@ create trigger trg_dpr_records_updated_at
   for each row execute function set_updated_at();
 
 -- ════════════════════════════════════════════════════════════════
--- Row Level Security — deliberately NOT enabled by default.
---
--- The app currently authenticates with its own SHA-256 password check
--- (Code.gs handleLogin), not Supabase Auth, so there's no Supabase JWT/
--- `auth.uid()` for policies to key off yet. Until that's rebuilt, the
--- interim access pattern is: all reads/writes go through Next.js route
--- handlers using the service-role client (lib/supabaseClient.js →
--- getSupabaseAdmin()), which runs server-side and bypasses RLS by design.
---
--- Before exposing any table to a browser-side (anon-key) client, enable
--- RLS and add policies here, e.g.:
---   alter table dpr_records enable row level security;
---   create policy "read own site's DPRs" on dpr_records
---     for select using ( ... );
+-- Row Level Security and the change history are set up by migrations,
+-- not here — apply them after this file:
+--   011_rls_policies.sql  RLS on every table, policies keyed on the app
+--                         user (auth.uid() = users.id). The anon key gets
+--                         nothing. The app's server uses the service-role
+--                         key (bypasses RLS) and enforces the same rules.
+--   012_audit_logs.sql    dpr_audit_logs (append-only edit history) and the
+--                         trigger that logs changes made outside the app.
 -- ════════════════════════════════════════════════════════════════

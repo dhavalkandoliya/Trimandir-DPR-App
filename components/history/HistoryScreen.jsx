@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useApp } from '../app/AppContext';
 import ExecutiveReport, { ConditionBadge } from '../report/ExecutiveReport';
 import ReportActionBar from '../report/ReportActionBar';
+import EditHistory from '../report/EditHistory';
 import DprEntryForm from '../dpr/DprEntryForm';
 import Dialog from '../ui/Dialog';
 import ExportButtons from '../ui/ExportButtons';
@@ -50,7 +51,7 @@ function editAction(item, user) {
   return isOwn ? 'edit' : 'forbidden';
 }
 
-function DprViewDialog({ item, projects, materialLogs, autoOpenShare, canEditIt, onEdit, onClose }) {
+function DprViewDialog({ item, projects, materialLogs, autoOpenShare, canEditIt, showHistory, onEdit, onClose }) {
   const report = useMemo(() => reportFromRecord(item, projects, materialLogs), [item, projects, materialLogs]);
   return (
     <Dialog
@@ -62,6 +63,7 @@ function DprViewDialog({ item, projects, materialLogs, autoOpenShare, canEditIt,
         <ReportActionBar report={report} autoOpenShare={autoOpenShare} />
       </>}
     >
+      {showHistory && item.id && <EditHistory kind="dpr" id={item.id} />}
       <ExecutiveReport report={report} />
     </Dialog>
   );
@@ -289,6 +291,7 @@ export default function HistoryScreen() {
           projects={data.projects}
           materialLogs={data.materialLogs}
           canEditIt={viewingEdit}
+          showHistory={!!app.user && app.user.role === 'admin'}
           onEdit={() => onAction('edit', viewing.item)}
           onClose={closeViewer}
         />

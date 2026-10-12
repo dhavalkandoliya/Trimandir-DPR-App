@@ -592,3 +592,15 @@ table.dt .sub-mats{list-style:none;margin:0;padding:0;display:grid;gap:1px}
 table.dt .sub-mats li{font-size:14px;line-height:1.35}
 table.dt .sub-mats li.ref{color:var(--muted)}
 table.dt .qty-sm{font-family:var(--font-cond);font-size:16px;font-weight:700;color:var(--ink)}
+
+/* Edit history (admins) — components/report/EditHistory.jsx */
+.edit-history{margin-bottom:12px}
+.history-link{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--primary);padding:4px 0}
+.history-link svg{width:15px;height:15px}
+.history-panel{margin-top:6px;padding:12px 14px;background:var(--surface);border:1px solid var(--line);border-radius:8px}
+.history-list{list-style:none;margin:0;padding:0}
+.history-list > li{padding:8px 0;border-top:1px solid var(--line)}
+.history-list > li:first-child{border-top:0;padding-top:0}
+.history-head{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.history-list ul{margin:6px 0 0 18px;padding:0;font-size:13px;color:var(--ink-2)}
+.history-list ul li{margin:2px 0;overflow-wrap:anywhere}
