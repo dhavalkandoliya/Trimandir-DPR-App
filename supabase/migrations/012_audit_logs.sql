@@ -70,6 +70,11 @@ drop policy if exists dpr_audit_logs_admin_select on dpr_audit_logs;
 create policy dpr_audit_logs_admin_select on dpr_audit_logs for select to authenticated
   using ((select is_admin()));
 revoke insert, update, delete, truncate on dpr_audit_logs from anon, authenticated;
+-- Explicit grants: a new table isn't always granted to the API roles by
+-- default, and the Data API (PostgREST) won't expose it without them. The
+-- app's server writes and reads with service_role; admins read under RLS.
+grant select, insert on dpr_audit_logs to service_role;
+grant select on dpr_audit_logs to authenticated;
 
 -- ── Safety-net trigger for changes made outside the app ─────────
 create or replace function audit_out_of_band_change() returns trigger
@@ -125,3 +130,6 @@ create trigger trg_audit_material_logs
   for each row execute function audit_out_of_band_change();
 
 commit;
+
+-- Make the Data API pick up the new table now.
+notify pgrst, 'reload schema';
