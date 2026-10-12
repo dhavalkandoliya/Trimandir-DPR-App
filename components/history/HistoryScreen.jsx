@@ -14,7 +14,6 @@ import { CONDITIONS, recordActivities, reportFromRecord, siteDisplayName, toYMD 
 import { siteFilterOptions, siteFilterPaths, siteKey } from '../../lib/sites';
 
 const PAGE_SIZE = 15;
-const EDIT_WINDOW_MS = 15 * 60 * 1000;
 const EMPTY_FILTERS = { start: '', end: '', site: '', supervisor: '', condition: '' };
 
 function todayYMD() {
@@ -43,15 +42,12 @@ const timeOf = (item) => {
 
 // Same edit rules as AppContext canEdit() and the server
 // (lib/dprSupabaseApi.js editDPR) — this only picks the button. Admins
-// edit any DPR; a supervisor edits their own for 15 minutes, then it's
-// locked (an admin can still change it).
+// edit any DPR; a supervisor edits their own, any time.
 function editAction(item, user) {
   const isAdmin = user && user.role === 'admin';
   if (isAdmin) return 'edit';
   const isOwn = user && item.by === user.username;
-  if (!isOwn) return 'forbidden';
-  const ms = submittedMs(item);
-  return ms && (Date.now() - ms) < EDIT_WINDOW_MS ? 'edit' : 'locked';
+  return isOwn ? 'edit' : 'forbidden';
 }
 
 function DprViewDialog({ item, projects, materialLogs, autoOpenShare, canEditIt, onEdit, onClose }) {
@@ -114,7 +110,6 @@ function HistoryRow({ item, projects, user, onView, onAction }) {
       <div className="acts">
         <button type="button" className="icon-btn" onClick={() => onView(item)} title="View report" aria-label={`View report for ${site}, ${ymd}`}><Icon name="eye" /></button>
         {edit === 'edit' && <button type="button" className="icon-btn" onClick={() => onAction('edit', item)} title="Edit" aria-label="Edit report"><Icon name="edit" /></button>}
-        {edit === 'locked' && <button type="button" className="icon-btn" disabled title="Locked — the 15-minute edit window has passed; an admin can still change it" aria-label="Locked for editing"><Icon name="lock" /></button>}
         <button type="button" className="icon-btn" onClick={() => onAction('jpg', item)} title="Download image" aria-label="Download image"><Icon name="image" /></button>
         <button type="button" className="icon-btn" onClick={() => onAction('pdf', item)} title="Download PDF" aria-label="Download PDF"><Icon name="pdf" /></button>
         <button type="button" className="icon-btn" onClick={() => onAction('share', item)} title="Share" aria-label="Share report"><Icon name="share" /></button>

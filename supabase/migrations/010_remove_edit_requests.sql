@@ -1,9 +1,9 @@
 -- ════════════════════════════════════════════════════════════════
 -- 010 — Remove the edit-request workflow
 --
--- The app no longer has edit requests. A supervisor edits their own DPR
--- for 15 minutes and their own consumption entry for 24 hours; after that
--- it is locked and only an admin can change it. There was never an
+-- The app no longer has edit requests. A supervisor edits their own DPRs
+-- and consumption entries at any time (no window); an admin edits any.
+-- There was never an
 -- edit_requests table — requests lived in these columns, dropped here:
 --
 --   dpr_records    edit_permission ('' | 'pending' | 'granted'), requested_by

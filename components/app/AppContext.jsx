@@ -20,7 +20,6 @@ export const useApp = () => {
 };
 
 export const OFFLINE_QUEUE_KEY = 'dprOfflineQ';
-const EDIT_WINDOW_MS = 15 * 60 * 1000;
 const EMPTY_MASTER = { projects: [], activities: [], materials: [], users: [], contractors: [] };
 
 // Tabs ↔ URL hash (#/dashboard, #/dpr, #/admin/users …), so a reload stays
@@ -333,9 +332,7 @@ export function AppProvider({ children }) {
     if (!user) return { ok: false, reason: '⚠️ Please sign in first' };
     if (user.role === 'admin') return { ok: true };
     if (String(item.by || '').toLowerCase() !== user.username.toLowerCase()) return { ok: false, reason: '❌ You can only edit your own DPRs' };
-    const sub = Number(item.submittedAt) || (item.submittedAt ? new Date(item.submittedAt).getTime() : 0);
-    if (sub && Date.now() - sub < EDIT_WINDOW_MS) return { ok: true };
-    return { ok: false, reason: '🔒 The 15-minute edit window has passed — ask an admin to make the change.' };
+    return { ok: true };
   }, [user]);
 
   const editDpr = useCallback((item) => {

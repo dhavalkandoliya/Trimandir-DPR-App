@@ -147,7 +147,6 @@ function SubmissionActions({ submission, user, onView, onEdit, onDelete }) {
       <button type="button" className="icon-btn" onClick={onView} title="View submission report" aria-label={`View report for ${what}`}><Icon name="eye" /></button>
       {access.edit === 'direct' && <button type="button" className="icon-btn" onClick={onEdit} title="Edit submission" aria-label={`Edit submission for ${what}`}><Icon name="edit" /></button>}
       {access.delete === 'direct' && <button type="button" className="icon-btn danger" onClick={onDelete} title="Delete submission" aria-label={`Delete submission for ${what}`}><Icon name="trash" /></button>}
-      {access.edit === 'locked' && <button type="button" className="icon-btn" disabled title="Locked — the 24-hour window has passed; an admin can still change it" aria-label="Locked for editing"><Icon name="lock" /></button>}
     </>
   );
 }
@@ -420,7 +419,7 @@ export default function MaterialsScreen() {
           )}
         </div>
         <p className="hint" style={{ marginTop: 8 }}>
-          One row per submission. You can edit or delete your own submissions for 24 hours after logging them. After that they are locked, and only an admin can change them.
+          One row per submission. You can edit or delete your own submissions at any time; admins can change any of them.
         </p>
       </>
     );

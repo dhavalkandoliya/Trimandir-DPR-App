@@ -626,7 +626,7 @@ export default function DprEntryForm({ onClose }) {
           <div className="row">
             {existingEdit && existingEdit.ok
               ? <button type="button" className="btn sm primary" onClick={() => app.editDpr(existing)}>Edit that report</button>
-              : <span className="tag">Locked — ask an admin to change it</span>}
+              : <span className="tag">Only {existing.by || 'its author'} or an admin can edit it</span>}
           </div>
         </div>
       )}
