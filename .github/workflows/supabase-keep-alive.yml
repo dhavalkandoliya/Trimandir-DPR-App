@@ -5,8 +5,10 @@
 #   NEXT_PUBLIC_SUPABASE_URL       e.g. https://<ref>.supabase.co
 #   NEXT_PUBLIC_SUPABASE_ANON_KEY  the public anon key
 #
-# The anon key is enough: RLS gives anon no policy on projects, so the query
+# The anon key is enough: RLS gives anon no policy on dpr_records, so the query
 # returns 200 with [] — it still reaches Postgres, which is what counts as activity.
+# (The PostgREST root /rest/v1/ is avoided: Supabase restricts that OpenAPI
+# endpoint for the anon key.)
 
 name: Supabase keep-alive
 
@@ -35,21 +37,32 @@ jobs:
             exit 1
           fi
 
+          # Normalize the base URL: drop whitespace/CR pasted into the secret, any
+          # trailing slashes, and a /rest/v1 suffix if the secret already has one.
+          base_url="$(printf '%s' "$SUPABASE_URL" | tr -d '[:space:]')"
+          while [ "${base_url%/}" != "$base_url" ]; do base_url="${base_url%/}"; done
+          base_url="${base_url%/rest/v1}"
+          endpoint="/rest/v1/dpr_records?select=id&limit=1"
+
           # Headers go through a file so the key never appears in the process list or logs.
           headers_file="$(mktemp)"
-          trap 'rm -f "$headers_file"' EXIT
+          body_file="$(mktemp)"
+          trap 'rm -f "$headers_file" "$body_file"' EXIT
           printf 'apikey: %s\nAuthorization: Bearer %s\n' "$SUPABASE_ANON_KEY" "$SUPABASE_ANON_KEY" > "$headers_file"
 
-          status="$(curl --silent --show-error --output /dev/null \
+          status="$(curl --silent --show-error --output "$body_file" \
             --write-out '%{http_code}' \
             --max-time 30 --retry 3 --retry-delay 10 --retry-all-errors \
             --header @"$headers_file" \
-            "${SUPABASE_URL%/}/rest/v1/projects?select=id&limit=1")"
+            "${base_url}${endpoint}")" || true
 
           timestamp="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
           if [ "$status" = "200" ]; then
-            echo "[$timestamp] Supabase keep-alive OK (HTTP 200)"
+            echo "[$timestamp] Supabase keep-alive OK (HTTP 200, GET ${endpoint})"
           else
-            echo "::error::[$timestamp] Supabase keep-alive failed (HTTP $status)"
+            echo "::error::[$timestamp] Supabase keep-alive failed (HTTP ${status:-000}, GET ${endpoint})"
+            # PostgREST/gateway error bodies hold no credentials; they say why it failed.
+            echo "Response body (first 500 bytes):"
+            head -c 500 "$body_file"; echo
             exit 1
           fi
